@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard | Tails of Freedom</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='Styles/dashboard.css') }}">
+  <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+  {% include 'Navbar.html' %}
+  <div class="layout">
+    {% include 'Sidebar.html' %}
+    <main class="content">
+      <div class="container">
+
+        <!--Admin Dashboard-->
+        {% if is_admin %}
+        <header class="header">
+          <h1>Dashboard Overview</h1>
+          <p>{{ current_date_str }} — Tails of Freedom Animal Haven</p>
+        </header>
+
+        <!--Statistics Section-->
+        <section class="admin-stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon icon-animals"><i class="fa-solid fa-paw"></i></div>
+            <div class="stat-content">
+              <div class="stat-value">{{ metrics.total_animals }}</div>
+              <div class="stat-label">Total Animals</div>
+            </div>  
+            <div class="stat-subtext">+{{ metrics.animals_added_month }} this month</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon icon-apps"><i class="fa-regular fa-file-lines"></i></div>
+            <div class="stat-content">
+              <div class="stat-value">{{ metrics.applications }}</div>
+              <div class="stat-label">Applications</div>
+            </div>
+            <div class="stat-subtext">{{ metrics.pending_apps }} pending</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon icon-wish"><i class="fa-regular fa-heart"></i></div>
+            <div class="stat-content">
+              <div class="stat-value">{{ metrics.adoptions_month }}</div>
+              <div class="stat-label">Adoptions</div>
+            </div>
+            <div class="stat-subtext">+{{ metrics.adoptions_this_month }} this month</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon icon-don"><i class="fa-solid fa-peso-sign"></i></div>
+            <div class="stat-content">
+              <div class="stat-value">{{ metrics.donations }}</div>
+              <div class="stat-label">Total Donations</div>
+            </div>
+            <div class="stat-subtext">{{ metrics.donations_month }} this month</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon icon-resc"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div class="stat-content">
+              <div class="stat-value">{{ metrics.rescue_reports }}</div>
+              <div class="stat-label">Pending Rescues</div>
+            </div>
+            <div class="stat-subtext">+{{ metrics.urgent_rescues }} urgent</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon icon-vols"><i class="fa-solid fa-user-group"></i></div>
+            <div class="stat-content">
+              <div class="stat-value">{{ metrics.adopters }}</div>
+              <div class="stat-label">Adopters</div>
+            </div>
+            <div class="stat-subtext">{{ metrics.active }} Active</div>
+          </div>
+        </section>
+
+      <!--Shelter Capacity-->
+      <section class="capacity-card">
+        <div class="capacity-header">
+          <div class="capacity-title">Shelter Capacity</div>
+          {% if metrics.is_accepting %}
+            <div class="capacity-badge badge-accepting">Accepting</div>
+          {% else %}
+            <div class="capacity-badge badge-paused">Intake Paused</div>
+          {% endif %}
+        </div>
+        <div class="progress-container">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" data-percentage="{{ metrics.capacity_pct | default(0) }}" style="--bar-width: {{ metrics.capacity_pct | default(0) }}%;"></div>
+          </div>
+          <div class="progress-text">{{ metrics.current_capacity }}/{{ metrics.max_capacity }} ({{ metrics.capacity_pct }}%)</div>
+        </div>
+      </section>
+
+    <!--Adoption & Rescue Chart-->
+    <div class="charts-grid">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Adoptions & Rescues</h2>
+            <div class="panel-subtitle">
+              <span>Period:</span>
+              <select id="yearSelectAdoptions" class="chart-filter-select">
+                {% for y in available_years %}
+                  <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+              </select>
+              <select id="rangeSelectAdoptions" class="chart-filter-select">
+                <option value="H1" {% if current_range == 'H1' %}selected{% endif %}>Jan – Jun</option>
+                <option value="H2" {% if current_range == 'H2' %}selected{% endif %}>Jul – Dec</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas 
+            id="adoptionsRescuesChart"
+            data-year-data='{{ yearly_chart_data | tojson }}'>
+          </canvas>
+        </div>
+      </div>
+
+      <!--Donation Revenue Chart-->
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Donation Revenue</h2>
+            <div class="panel-subtitle">
+              <span>Period:</span>
+              <select id="yearSelectDonations" class="chart-filter-select">
+                {% for y in available_years %}
+                  <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+              </select>
+              <select id="rangeSelectDonations" class="chart-filter-select">
+                <option value="H1" {% if current_range == 'H1' %}selected{% endif %}>Jan – Jun</option>
+                <option value="H2" {% if current_range == 'H2' %}selected{% endif %}>Jul – Dec</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas 
+            id="donationRevenueChart"
+            data-year-data='{{ yearly_chart_data | tojson }}'>
+          </canvas>
+        </div>
+      </div>
+    </div>
+
+    <!--Species Chart-->
+    <div class="charts-grid mt-24">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Animals by Species</h2>
+            <div class="panel-subtitle">Current shelter population</div>
+          </div>
+        </div>
+        <div class="species-container">
+          <div class="species-chart-wrapper">
+            <canvas id="speciesChart" data-dogs="{{ species_data.dogs if species_data else 0 }}" data-cats="{{ species_data.cats if species_data else 0 }}"></canvas>
+          </div>
+          <div class="species-legend">
+            <div class="species-legend-item">
+              <span class="legend-dot dot-dogs"></span>
+              <span>Dogs</span>
+              <strong>{{ species_data.dogs if species_data else 0 }}</strong>
+            </div>
+            <div class="species-legend-item">
+              <span class="legend-dot dot-cats"></span>
+              <span>Cats</span>
+              <strong>{{ species_data.cats if species_data else 0 }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!--Audit Log-->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Audit Log</h2>
+          {% if audit_logs %}
+            <button type="button" id="openAuditModalBtn" class="link-view-all btn-view-all-modal">View All</button>
+          {% endif %}
+        </div>
+        <div class="audit-preview-list">
+          {% if audit_logs %}
+            {% for log in audit_logs[:5] %}
+              <div data-log-id="{{ log.id }}" class="audit-preview-item">
+                <div class="audit-preview-content">
+                  <span class="audit-preview-dot"></span>
+                  <div>
+                    <strong class="audit-preview-action">{{ log.action }}:</strong>
+                    <span class="audit-preview-details">{{ log.details }}</span>
+                  </div>
+                </div>
+                <span class="audit-preview-timestamp">{{ log.timestamp }}</span>
+              </div>
+            {% endfor %}
+          {% else %}
+            <p class="text-muted-sm">No recent audit logs available.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!--Logs Modal-->
+    <div id="auditLogModal" class="modal-overlay">
+      <div class="modal-container">
+        <div class="modal-header">
+          <div class="modal-options">
+            <h2>
+              <i class="fa-solid fa-clock-rotate-left modal-icon-primary"></i>Audit Logs
+            </h2>
+            <select id="auditLogModeSelect" class="audit-mode-select">
+              <option value="view">View</option>
+              <option value="delete">Delete</option>
+            </select>
+          </div>
+          <button type="button" id="closeAuditModalBtn" class="modal-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          {% if audit_logs %}
+            <div class="audit-log-list">
+              {% for log in audit_logs %}
+                <div class="audit-log-item" id="audit-log-{{ log.id }}">
+                  <div class="audit-log-main">
+                    <span class="audit-dot"></span>
+                    <div>
+                      <strong class="audit-action">{{ log.action }}:</strong>
+                      <span class="audit-details">{{ log.details }}</span>
+                      {% if log.is_default %}
+                        <span class="badge-default">Default</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <div class="audit-log-right">
+                    <span class="audit-timestamp">{{ log.timestamp }}</span>
+                    {% if not log.is_default %}
+                      <button type="button" class="delete-audit-btn" data-id="{{ log.id }}" title="Delete log">
+                        <i class="fa-solid fa-xmark"></i>
+                      </button>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="no-logs-msg">No audit logs available.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!--Adopter Dashboard-->
+      {% else %}
+      <header class="header">
+        <h1>Welcome back, {{ full_name }}!</h1>
+        <p>Here's an overview of your activity</p>
+      </header>
+
+      <!--Featured Pets Section-->
+      <section class="featured">
+        <div class="showcase-slider">
+          {% for pet in featured_pets %}
+          <div class="showcase-card" onclick="window.location.href='/pet-management/profile/{{ pet.id }}'">
+            <img class="showcase-img" src="{{ pet.images[0] if pet.images else 'https://via.placeholder.com/300x400' }}" alt="{{ pet.petName }}">
+            <div class="showcase-overlay">
+              <div class="showcase-card-details">
+                <div class="showcase-header">
+                  <h3 class="showcase-title">{{ pet.petName }}</h3>
+                </div>
+                <div class="showcase-breed">
+                  <i class="fa-solid fa-paw"></i> {{ pet.breed }}
+                </div>
+                <p class="showcase-desc">{{ pet.description or (pet.petName ~ ' is available for adoption and waiting for a loving home!') }}</p>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div aria-hidden="true" class="showcase-slider">
+          {% for pet in featured_pets %}
+          <div class="showcase-card" onclick="window.location.href='/pet-management/profile/{{ pet.id }}'">
+            <img class="showcase-img" src="{{ pet.images[0] if pet.images else 'https://via.placeholder.com/300x400' }}" alt="{{ pet.petName }}">
+            <div class="showcase-overlay">
+              <div class="showcase-card-details">
+                <div class="showcase-header">
+                  <h3 class="showcase-title">{{ pet.petName }}</h3>
+                </div>
+                <div class="showcase-breed">
+                  <i class="fa-solid fa-paw"></i> {{ pet.breed }}
+                </div>
+                <p class="showcase-desc">{{ pet.description or (pet.petName ~ ' is available for adoption and waiting for a loving home!') }}</p>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <!--Statistics Section-->
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon icon-apps"><i class="fa-regular fa-file-lines"></i></div>
+          <div class="stat-content">
+            <div class="stat-value">{{ metrics.applications }}</div>
+            <div class="stat-label">Applications</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-wish"><i class="fa-regular fa-heart"></i></div>
+          <div class="stat-content">
+            <div class="stat-value">{{ metrics.wishlist }}</div>
+            <div class="stat-label">Wishlist</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-don"><i class="fa-solid fa-peso-sign"></i></div>
+          <div class="stat-content">
+            <div class="stat-value">{{ metrics.donations }}</div>
+            <div class="stat-label">Donations</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-resc"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <div class="stat-content">
+            <div class="stat-value">{{ metrics.rescue_reports }}</div>
+            <div class="stat-label">Rescue Reports</div>
+          </div>
+        </div>
+      </section>
+
+      <!--Recent Applications-->
+      <section class="panels-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Recent Applications</h2>
+            <a href="{{ url_for('adoption_management_bp.management_view') }}" class="link-view-all">View all</a>
+          </div>
+          <div class="list-container">
+            {% for app in recent_applications %}
+              <div class="app-item">
+                <div class="app-pet-info">  
+                  <img class="pet-avatar" src="{{ app.pet_photo or 'https://via.placeholder.com/150?text=Pet' }}" alt="{{ app.pet_name }}">
+                  <div>
+                    <div class="pet-name">{{ app.pet_name }}</div>
+                    <div class="app-date">{{ app.submittedAt.strftime('%B %d, %Y') if app.submittedAt else 'Recently' }}</div>
+                  </div>
+                </div>
+                <div>
+                  <span class="status-badge status-{{ (app.status or 'default')|lower|replace(' ', '-') }}">
+                    {{ app.status or 'Pending' }}
+                  </span>
+                </div>
+              </div>
+            {% else %}
+              <p class="text-muted-sm">No submitted applications yet.</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!--Messages Section-->
+        <div class="panel">
+          <div class="panel-header">
+            <h2>
+              Messages 
+              {% if metrics.unread_messages > 0 %}
+                <span class="badge-count">{{ metrics.unread_messages }}</span>
+              {% endif %}
+            </h2>
+            <a href="{{ url_for('message_bp.message_page') }}" class="link-view-all">View all</a>
+          </div>
+          <div class="list-container">
+            {% for conv in recent_conversations %}
+              <div class="msg-item">
+                <div class="msg-avatar">{{ conv.avatarText or 'TF' }}</div>
+                <div class="msg-content">
+                  <div class="msg-top">
+                    <span class="msg-sender">{{ conv.title or 'Tails of Freedom Admin' }}</span>
+                    <span class="msg-date">
+                      {{ conv.formatted_date }}
+                      {% if conv.unread %}<span class="unread-dot"></span>{% endif %}
+                    </span>
+                  </div>
+                  <div class="msg-title">{{ conv.subject or 'Updates & Inquiries' }}</div>
+                  <div class="msg-snippet">{{ conv.lastMessage or 'No messages sent yet.' }}</div>
+                </div>
+              </div>
+            {% else %}
+              <p class="text-muted-sm">No active conversations.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
+      <!--Quick Actions Section-->
+      <section class="quick-actions-panel">
+        <h2>Quick Actions</h2>
+        <div class="actions-grid">
+          <a href="{{ url_for('pet_public_bp.pet_list') }}" class="action-btn">
+            <div class="action-left">
+              <span>🐾</span>
+              <span>Browse Pets</span>
+            </div>
+            <i class="fa-solid fa-arrow-right"></i>
+          </a>
+          <a href="{{ url_for('pet_matching_bp.index') }}" class="action-btn">
+            <div class="action-left">
+              <span>✨</span>
+              <span>Pet Matching</span>
+            </div>
+            <i class="fa-solid fa-arrow-right"></i>
+          </a>
+          <a href="{{ url_for('rescue_report_bp.index') }}" class="action-btn">
+            <div class="action-left">
+              <span class="badge-sos">SOS</span>
+              <span>Report Stray</span>
+            </div>
+            <i class="fa-solid fa-arrow-right"></i>
+          </a>
+          <a href="#" class="action-btn">
+            <div class="action-left">
+              <span>💝</span>
+              <span>Donate</span>
+            </div>
+            <i class="fa-solid fa-arrow-right"></i>
+          </a>
+        </div>
+      </section>
+      {% endif %}
+    </div>
+  </main>
+</div>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% if is_admin %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const h1Labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+    const h2Labels = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    // Adoptions & Rescues
+    const barCtx = document.getElementById('adoptionsRescuesChart');
+    if (barCtx) {
+      const rawData = JSON.parse(barCtx.dataset.yearData || '{}');
+      const yearSelect = document.getElementById('yearSelectAdoptions');
+      const rangeSelect = document.getElementById('rangeSelectAdoptions');
+
+      const getBarSlice = () => {
+        const yr = yearSelect.value;
+        const range = rangeSelect.value;
+        const yearObj = rawData[yr] || { adoptions: [0]*12, rescues: [0]*12 };
+
+        if (range === 'H1') {
+          return {
+            labels: h1Labels,
+            adoptions: yearObj.adoptions.slice(0, 6),
+            rescues: yearObj.rescues.slice(0, 6)
+          };
+        } else {
+          return {
+            labels: h2Labels,
+            adoptions: yearObj.adoptions.slice(6, 12),
+            rescues: yearObj.rescues.slice(6, 12)
+          };
+        }
+      };
+
+      const initialBar = getBarSlice();
+      const adoptionsChart = new Chart(barCtx.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: initialBar.labels,
+          datasets: [
+            { label: 'Adoptions', data: initialBar.adoptions, backgroundColor: '#f97316', borderRadius: 6 },
+            { label: 'Rescues', data: initialBar.rescues, backgroundColor: '#fed7aa', borderRadius: 6 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: '#f8fafc' }, ticks: { stepSize: 2 } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+
+      function updateBarChart() {
+        const updated = getBarSlice();
+        adoptionsChart.data.labels = updated.labels;
+        adoptionsChart.data.datasets[0].data = updated.adoptions;
+        adoptionsChart.data.datasets[1].data = updated.rescues;
+        adoptionsChart.update();
+      }
+
+      yearSelect.addEventListener('change', updateBarChart);
+      rangeSelect.addEventListener('change', updateBarChart);
+    }
+
+    // Donation Revenue
+    const lineCtx = document.getElementById('donationRevenueChart');
+      if (lineCtx) {
+        const rawData = JSON.parse(lineCtx.dataset.yearData || '{}');
+        const yearSelect = document.getElementById('yearSelectDonations');
+        const rangeSelect = document.getElementById('rangeSelectDonations');
+
+        const getLineSlice = () => {
+          const yr = yearSelect.value;
+          const range = rangeSelect.value;
+          const defaultArray = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+          const yearObj = rawData[yr] || { donations: defaultArray };
+
+          if (range === 'H1') {
+            return {
+              labels: h1Labels,
+              donations: (yearObj.donations || defaultArray).slice(0, 6)
+            };
+          } else {
+            return {
+              labels: h2Labels,
+              donations: (yearObj.donations || defaultArray).slice(6, 12)
+            };
+          }
+        };
+
+        const initialLine = getLineSlice();
+        const donationsChart = new Chart(lineCtx.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: initialLine.labels,
+            datasets: [{
+              label: 'Donation Amount',
+              data: initialLine.donations,
+              borderColor: '#f97316',
+              backgroundColor: 'rgba(249, 115, 22, 0.08)',
+              borderWidth: 2,
+              pointRadius: 4,              
+              pointHoverRadius: 6,        
+              pointBackgroundColor: '#f97316',
+              tension: 0.4,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: 'index',
+              intersect: false    
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                enabled: true,
+                titleColor: '#ffffff',
+                bodyColor: '#ffffff',
+                borderColor: '#e2e8f0',
+                borderWidth: 1,
+                padding: 12,
+                boxPadding: 4,
+                usePointStyle: true,
+                callbacks: {
+                  label: function(context) {
+                    const rawValueInThousands = context.parsed.y || 0;
+                    const actualAmount = rawValueInThousands * 1000;
+                    return 'Amount : ₱' + actualAmount.toLocaleString();
+                  }
+                }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: { color: '#f8fafc' },
+                ticks: {
+                  callback: function(value) {
+                    return '₱' + value + 'k';
+                  }
+                }
+              },
+              x: { grid: { display: false } }
+            }
+          }
+        });
+
+        function updateLineChart() {      
+          const updated = getLineSlice();
+          donationsChart.data.labels = updated.labels;
+          donationsChart.data.datasets[0].data = updated.donations;
+          donationsChart.update();
+        }
+
+        yearSelect.addEventListener('change', updateLineChart);
+        rangeSelect.addEventListener('change', updateLineChart);
+      }
+
+    // Species Chart
+    const speciesCtx = document.getElementById('speciesChart');
+    if (speciesCtx) {
+      const dogs = parseInt(speciesCtx.dataset.dogs || '0', 10);
+      const cats = parseInt(speciesCtx.dataset.cats || '0', 10);
+
+      new Chart(speciesCtx.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Dogs', 'Cats'],
+          datasets: [{
+            data: [dogs, cats],
+            backgroundColor: ['#f97316', '#fed7aa'],
+            borderWidth: 0,
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '50%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              enabled: true,
+              callbacks: {
+                label: function(context) {
+                  return ` ${context.label}: ${context.parsed}`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+  // Logs Modal
+  const openModalBtn = document.getElementById('openAuditModalBtn');
+    const closeModalBtn = document.getElementById('closeAuditModalBtn');
+    const modal = document.getElementById('auditLogModal');
+    const modeSelect = document.getElementById('auditLogModeSelect');
+
+    if (modeSelect) {
+      modeSelect.addEventListener('change', (e) => {
+        const isDeleteMode = e.target.value === 'delete';
+        document.querySelectorAll('.delete-audit-btn').forEach(btn => {
+          btn.style.display = isDeleteMode ? 'inline-flex' : 'none';
+        });
+      });
+    }
+
+    if (openModalBtn && modal) {
+      openModalBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+
+        if (modeSelect) {
+          modeSelect.value = 'view';
+          document.querySelectorAll('.delete-audit-btn').forEach(btn => {
+            btn.style.display = 'none';
+          });
+        }
+      });
+
+      const closeModal = () => {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+      };
+
+      if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', closeModal);
+      }
+
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          closeModal();
+        }
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+          closeModal();
+        }
+      });
+    }
+
+    // Delete Logs
+    document.querySelectorAll('.delete-audit-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const logId = btn.getAttribute('data-id');
+        if (!logId) return;
+
+        if (confirm('Are you sure you want to delete this log entry?')) {
+          try {
+            const response = await fetch(`/api/audit-logs/${logId}`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' }
+            });
+            const result = await response.json();
+
+            if (result.success) {
+              const logElement = document.getElementById(`audit-log-${logId}`);
+              if (logElement) logElement.remove();
+
+              const previewElement = document.querySelector(`[data-log-id="${logId}"]`);
+              if (previewElement) previewElement.remove();
+            } else {
+              alert(result.message || 'Failed to delete log.');
+            }
+          } catch (err) {
+            console.error('Error deleting audit log:', err);
+            alert('An error occurred while deleting the log.');
+          }
+        }
+      });
+    });
+  });
+  function updateURLParams(year, range) {
+    const url = new URL(window.location);
+    url.searchParams.set('year', year);
+    url.searchParams.set('range', range);
+    window.history.replaceState({}, '', url);
+}
+</script>
+  {% endif %}
+</body>
+</html>

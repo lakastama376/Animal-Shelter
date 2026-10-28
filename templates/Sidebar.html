@@ -1,0 +1,130 @@
+{% if user_profile %}
+<div class="sidebar-wrapper">
+
+  <!-- Admin Sidebar -->
+  {% if user_profile.role == 'Admin' %}
+    <aside class="sidebar-container sidebar-admin" id="appSidebar">
+      <div class="admin-brand-block">
+        <div class="admin-title">Admin Panel</div>
+        <span id="sidebarToggleBtn"><i data-lucide="chevron-left"></i></span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="{{ url_for('dashboard_bp.dashboard_view') }}" class="nav-link {% if request.endpoint == 'dashboard_bp.dashboard_view' %}active{% endif %}">
+          <i data-lucide="layout-grid"></i>
+          <span>Overview</span>
+          <i class="flex-spacer"></i>
+        </a>
+        <a href="{{ url_for('pet_management_bp.index') }}" class="nav-link {% if request.endpoint == 'pet_management_bp.index' %}active{% endif %}">
+          <i data-lucide="paw-print"></i>
+          <span>Pet Management</span>
+        </a>
+        <a href="{{ url_for('adoption_management_bp.management_view') }}" class="nav-link {% if request.endpoint == 'adoption_management_bp.management_view' %}active{% endif %}">
+          <i data-lucide="file-text"></i>
+          <span>Adoptions</span>
+          {% if has_new_adoptions %}
+            <span class="sidebar-notification-dot"></span>
+          {% endif %}
+        </a>
+        <a href="{{ url_for('rescue_report_bp.management_view') }}" class="nav-link {% if request.endpoint == 'rescue_report_bp.management_view' %}active{% endif %}">
+          <i data-lucide="alert-triangle"></i>
+          <span>Rescues</span>
+          {% if has_new_rescues %}
+            <span class="sidebar-notification-dot"></span>
+          {% endif %}
+        </a>
+        <a href="{{ url_for('donation_bp.management') }}" class="nav-link {% if request.endpoint == 'donation_bp.management' %}active{% endif %}">
+          <i data-lucide="dollar-sign"></i>
+          <span>Donations</span>
+        </a>
+        <a href="{{ url_for('content_management_bp.index') }}" class="nav-link {% if request.endpoint == 'content_management_bp.index' %}active{% endif %}">
+          <i data-lucide="file-edit"></i>
+          <span>Content CMS</span>
+        </a>
+        <a href="{{ url_for('message_bp.message_page') }}" class="nav-link {% if request.endpoint == 'message_bp.message_page' %}active{% endif %}">
+          <i data-lucide="message-square"></i>
+          <span>Messages</span>
+          {% if has_unread_messages %}
+            <span class="sidebar-notification-dot"></span>
+          {% endif %}
+        </a>
+        <a href="{{ url_for('user_management_bp.view_users') }}" class="nav-link {% if request.endpoint == 'user_management_bp.view_users' %}active{% endif %}">
+          <i data-lucide="users"></i>
+          <span>Users</span>
+        </a>
+        <a href="{{ url_for('settings_bp.settings_view') }}" class="nav-link {% if request.endpoint == 'settings_bp.settings_view' %}active{% endif %}">
+          <i data-lucide="cog"></i>
+          <span>Shelter Settings</span>
+        </a>
+      </nav>
+    </aside>
+
+  <!-- Adopter Sidebar -->
+  {% else %}
+    <aside class="sidebar-container sidebar-adopter" id="appSidebar">
+      <div class="sidebar-header">
+        <span>My Account</span>
+        <span id="sidebarToggleBtn"><i data-lucide="chevron-left"></i></span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="{{ url_for('dashboard_bp.dashboard_view') }}" class="nav-link {% if request.endpoint == 'dashboard_bp.dashboard_view' %}active{% endif %}">
+          <i data-lucide="layout-grid"></i>
+          <span>Overview</span>
+        </a>
+        <a href="{{ url_for('adoption_management_bp.management_view') }}" class="nav-link {% if request.endpoint == 'adoption_management_bp.management_view' %}active{% endif %}">
+          <i data-lucide="file-text"></i>
+          <span>Applications</span>
+          {% if has_new_adoptions %}
+            <span class="sidebar-notification-dot"></span>
+          {% endif %}
+        </a>
+        <a href="{{ url_for('wishlist_bp.view_wishlist') }}" class="nav-link {% if request.endpoint == 'wishlist_bp.view_wishlist' %}active{% endif %}">
+          <i data-lucide="heart"></i>
+          <span>Wishlist</span>
+        </a>
+        <a href="{{ url_for('rescue_report_bp.management_view') }}" class="nav-link {% if request.endpoint == 'rescue_report_bp.management_view' %}active{% endif %}">
+          <i data-lucide="alert-triangle"></i>
+          <span>Rescue Reports</span>
+        </a>
+        <a href="{{ url_for('message_bp.message_page') }}" class="nav-link {% if request.endpoint == 'message_bp.message_page' %}active{% endif %}">
+          <i data-lucide="message-square"></i>
+          <span>Messages</span>
+          {% if has_unread_messages %}WZ
+            <span class="sidebar-notification-dot"></span>
+          {% endif %}
+        </a>
+        <a href="{{ url_for('donation_bp.management') }}" class="nav-link {% if request.endpoint == 'donation_bp.management' %}active{% endif %}">
+          <i data-lucide="hand-coins"></i>
+          <span>Donations</span>
+        </a>
+        <a href="{{ url_for('monitoring_bp.monitoring_view') }}" class="nav-link {% if request.endpoint == 'monitoring_bp.monitoring_view' %}active{% endif %}">
+          <i data-lucide="contact-2"></i>
+          <span>Post-Adoption Monitoring</span>
+          {% if has_ongoing_monitoring %}
+            <span class="sidebar-notification-dot"></span>
+          {% endif %}
+        </a>
+        <a href="{{ url_for('profile_bp.profile') }}" class="nav-link {% if 'profile_bp.profile' in request.endpoint %}active{% endif %}">
+          <i data-lucide="user"></i>
+          <span>Profile</span>
+          <i class="flex-spacer"></i>
+        </a>
+      </nav>
+    </aside>
+  {% endif %}
+</div>
+
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const mobileBtn = document.getElementById('sidebarMobileBtn');
+    const sidebar = document.getElementById('appSidebar');
+
+    if (mobileBtn && sidebar) {
+      mobileBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        sidebar.classList.toggle('collapsed');
+      });
+    }
+  });
+</script>
+{% endif %}

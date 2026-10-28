@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet Wishlist</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/pet-wishlist.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+            
+            <div class="container">
+                <div class="header">
+                    <h1>My Wishlist</h1>
+                    <p>Pets you've saved for later</p>
+                </div>
+
+                <!--Pet Wishlist-->
+                <div class="wishlist-grid" id="wishlistGrid">
+                    {% for item in wishlist_items %}
+                    <div class="card" id="pet-card-{{ item.pet.id }}">
+                        <div class="card-media">
+                            <span class="status-badge {{ item.pet.status | lower }}">{{ item.pet.status }}</span>
+                            <img src="{{ item.pet.images[0] if item.pet.images else 'https://via.placeholder.com/400x250' }}" alt="{{ item.pet.petName }}">
+                            
+                            <button class="btn-remove-wishlist" title="Remove from Wishlist" onclick="removeFromWishlist('{{ item.pet.id }}')">
+                                <i class="fa-regular fa-trash-can"></i>
+                            </button>
+                        </div>
+                        <div class="card-info">
+                            <h2 class="pet-name">{{ item.pet.petName }}</h2>
+                            <p class="pet-meta">
+                                {{ item.pet.breed if item.pet.breed else 'Mixed' }} &bull; 
+                                {{ item.pet.age }} &bull; 
+                                {{ item.pet.gender }}
+                            </p>
+                            <p class="saved-date">
+                                <i class="fa-regular fa-calendar-days"></i> 
+                                Saved on {{ item.date_added.strftime('%B %d, %Y') if item.date_added.strftime is defined else item.date_added }}
+                            </p>
+                        </div>
+                        <div class="card-actions">
+                            <a href="{{ url_for('pet_profile_bp.pet_profile', id=item.pet.id) }}" class="btn-secondary">View Profile</a>
+                            
+                            {% if item.pet.status | lower == 'available' %}
+                                <a href="{{ url_for('eligibility_checker_bp.index', pet_id=item.pet.id) }}" class="btn-primary">Adopt Now</a>
+                            {% else %}
+                                <button class="btn-primary disabled" disabled>Not Available</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="wishlist-empty-state">
+                        <i class="fa-solid fa-heart-broken"></i>
+                        <h3>Your wishlist is looking a bit lonely.</h3>
+                        <p>Explore our shelter and add some companions you connect with!</p>
+                        <a href="{{ url_for('pet_public_bp.pet_list') }}" class="btn-primary">Browse Pets</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+    
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    // Removing Pet Wishlist
+    function removeFromWishlist(petId) {
+        fetch(`/wishlist/remove/${petId}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const card = document.getElementById(`pet-card-${petId}`);
+                    if (card) {
+                        card.style.opacity = '0';
+                        card.style.transform = 'scale(0.9)';
+                        card.style.transition = 'all 0.3s ease';
+                        
+                        setTimeout(() => {
+                            card.remove();
+                            
+                            const grid = document.getElementById('wishlistGrid');
+                            if (grid && grid.querySelectorAll('.card').length === 0) {
+                                window.location.reload();
+                            }
+                        }, 300);
+                    }
+                } else {
+                    console.error(data.message || "Something went wrong. Please try again.");
+                }
+            })
+            .catch(err => {
+                console.error("Error updating wishlist:", err);
+            });
+        }
+</script>
+</body>
+</html>

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ pet.petName }}'s - Profile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/pet-profile.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+            <!--Pet Profile-->
+            <main class="container">
+                <a href="{{ url_for('pet_public_bp.pet_list') }}" class="back-link"><i class="fa-solid fa-arrow-left"></i> Back to Pets</a>
+                <section class="profile-grid">
+                    <div class="gallery-container">
+                        <div class="image-wrapper">
+                            <span class="status-badge {{ pet.status | lower }}">{{ pet.status }}</span>  
+                            <button class="btn-favorite-circle {% if user_profile and pet.id in user_profile.get('wishlist', []) %}is-favorite{% endif %}" 
+                                    onclick="toggleWishlist('{{ pet.id }}', this)">
+                                <i class="{% if user_profile and pet.id in user_profile.get('wishlist', []) %}fa-solid{% else %}fa-regular{% endif %} fa-heart fa-lg"></i>
+                            </button>
+                            <button class="nav-arrow prev" onclick="navigateGallery(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                            <img src="" alt="{{ pet.petName }}" id="view-image" style="display: none;">
+                            <video id="view-video" controls style="display: none;"></video>
+                            <button class="nav-arrow next" onclick="navigateGallery(1)"><i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+                        <div class="thumbnail-row">
+                            {% if pet.images %}
+                                {% for img in pet.images %}
+                                    <div class="thumb-wrapper thumb-item" data-type="image" data-src="{{ img }}" onclick="setActiveMedia(this)">
+                                        <img src="{{ img }}" alt="Thumbnail Image {{ loop.index }}">
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                            {% set videos = pet.storyVideos if pet.storyVideos else pet.videos %}
+                            {% if videos %}
+                                {% for vid in videos %}
+                                    <div class="thumb-wrapper thumb-item video-thumb" data-type="video" data-src="{{ vid }}" onclick="setActiveMedia(this)">
+                                        <video src="{{ vid }}" preload="metadata"></video>
+                                        <i class="fa-solid fa-circle-play video-icon"></i>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!--Pet Info-->
+                    <div class="info-container">
+                        <h1>{{ pet.petName }}</h1>
+                        <p class="pet-breed-subtitle">{{ pet.breed if pet.breed else 'Mixed Breed' }}</p>
+                        <div class="meta-cards-grid">
+                            <div class="meta-card">
+                                <i class="fa-regular fa-calendar-days"></i>
+                                <div>
+                                    <span class="meta-label">Age</span>
+                                    <span class="meta-value">{{ pet.age }}</span>
+                                </div>
+                            </div>
+                            <div class="meta-card">
+                                <i class="fa-solid fa-venus-mars"></i>
+                                <div>
+                                    <span class="meta-label">Gender</span>
+                                    <span class="meta-value">{{ pet.gender }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <h3 class="section-title-sm">Personality</h3>
+                        <div class="tag-row">
+                            {% if pet.personality %}
+                                {% for trait in pet.personality %}
+                                    <span class="tag-pill">{{ trait }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="tag-pill style-fallback">Friendly</span>
+                            {% endif %}
+                        </div>
+                        <h3 class="section-title-sm">Compatibility</h3>
+                        <div class="tag-row">
+                            {% if pet.compatibility %}
+                                {% for match in pet.compatibility %}
+                                    <span class="tag-pill" style="background-color: #eff6ff; color: #1d4ed8;">
+                                        <i class="fa-solid fa-check" style="font-size:10px;"></i> {{ match }}
+                                    </span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="tag-pill style-fallback">Good with everyone</span>
+                            {% endif %}
+                        </div>
+                        <div class="activity-metric">
+                            <span class="section-title-sm" style="margin-bottom:0;">Activity Level:</span>
+                            <div class="activity-bars">
+                                <div class="bar filled"></div>
+                                <div class="bar {% if pet.activityLevel in ['Low', 'Medium', 'High'] %}filled{% endif %}"></div>
+                                <div class="bar {% if pet.activityLevel in ['Medium', 'High'] %}filled{% endif %}"></div>
+                                <div class="bar {% if pet.activityLevel == 'High' %}filled{% endif %}"></div>
+                            </div>
+                            <span class="meta-value" style="font-size:13px;">{{ pet.activityLevel }}</span>
+                        </div>
+                        <p class="rescue-date">Rescued on <strong>{{ pet.rescueDate if pet.rescueDate else 'Recent Date' }}</strong></p>
+                        {% if pet.status | lower == 'available' %}
+                        <a href="{{ url_for('eligibility_checker_bp.index', pet_id=pet.id) }}" class="btn-apply">Apply to Adopt</a>
+                            {% elif pet.status | lower == 'pending' %}
+                        <button class="btn-apply disabled" disabled title="Adoption is currently pending for this pet">
+                            <i class="fa-solid fa-clock"></i> Adoption Pending
+                        </button>
+                            {% elif pet.status | lower == 'adopted' %}
+                        <button class="btn-apply disabled" disabled title="This pet has already been adopted">
+                            <i class="fa-solid fa-house-heart"></i> Already Adopted
+                        </button>
+                            {% else %}
+                        <button class="btn-apply disabled" disabled>
+                            Not Available for Adoption
+                        </button>
+                    {% endif %}
+                    </div>
+                </section>
+                <section class="secondary-details-grid">
+                    <div class="story-box">
+                        <h2>🐾 {{ pet.petName }}'s Story</h2>
+                        <p>{{ pet.description if pet.description else 'No description details provided yet.' }}</p>
+                    </div>
+                    <div class="health-box">
+                        <h2>Health Record</h2>
+                        {% if pet.healthRecords %}
+                        <div class="tag-row" style="margin-top: 12px;">
+                            {% for record in pet.healthRecords %}
+                                <span class="tag-pill tag-health"><i class="fa-solid fa-notes-medical"></i> {{ record }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if pet.healthDescription %}
+                        <div class="health-description">
+                            {{ pet.healthDescription }}
+                        </div>
+                        {% endif %}
+                        {% if pet.vaccinationHistory %}
+                        <div class="vaccination-history-section">
+                            <h3 class="vax-title">Vaccination History</h3>
+                            <div class="vax-list">
+                                {% for vax in pet.vaccinationHistory %}
+                                <div class="vax-item">
+                                    <div class="vax-info">
+                                        <i class="fa-solid fa-shield-halved vax-icon"></i>
+                                        <span class="vax-name">{{ vax.name if vax.name else (vax.vaccine if vax.vaccine else vax.vaccineName) }}</span>
+                                    </div>
+                                    <div class="vax-dates">
+                                        Given: {{ vax.given if vax.given else vax.givenDate }} &bull; Due: {{ vax.due if vax.due else vax.dueDate }}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </section>
+
+                <!--Similar Pets-->
+                <section class="similar-pets-section">
+                    <h2>Similar Pets</h2>
+                    <div class="similar-grid">
+                        {% if similar_pets %}
+                            {% for sim_pet in similar_pets %}
+                                <div class="similar-card">
+                                    <div class="card-img-wrapper">
+                                        <span class="status-badge {{ sim_pet.status | lower }}">{{ sim_pet.status }}</span>
+                                        <button class="btn-favorite-circle {% if user_profile and sim_pet.id in user_profile.get('wishlist', []) %}is-favorite{% endif %}" 
+                                                onclick="toggleWishlist('{{ sim_pet.id }}', this)">
+                                            <i class="{% if user_profile and sim_pet.id in user_profile.get('wishlist', []) %}fa-solid{% else %}fa-regular{% endif %} fa-heart fa-lg"></i>
+                                        </button>
+                                        <img src="{{ sim_pet.images[0] if sim_pet.images else 'https://via.placeholder.com/400x250?text=No+Image' }}" alt="{{ sim_pet.petName }}">
+                                        <span class="badge-match-bubble">
+                                            <i class="fa-solid fa-bolt"></i> {{ sim_pet.match_percentage }}% Match
+                                        </span>
+                                    </div>
+                                    <div class="card-details">
+                                        <div class="card-row">
+                                            <h3>{{ sim_pet.petName }}</h3>
+                                            <span class="badge-sex sex-{{ sim_pet.gender | lower }}">{{ sim_pet.gender }}</span>
+                                        </div>
+                                        <p class="card-breed">{{ sim_pet.breed if sim_pet.breed else 'Unknown Breed' }}</p>
+                                        <a href="/pet-management/profile/{{ sim_pet.id }}" class="btn-view-profile-card">View Profile</a>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <p style="color: var(--text-muted); font-style: italic;">No similar animals of this type found right now.</p>
+                        {% endif %}
+                    </div>
+                </section>
+            </main>
+        </div> 
+    </div> 
+    
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    let currentIdx = 0;
+    let mediaItems = [];
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const thumbElements = document.querySelectorAll('.thumb-item');
+        thumbElements.forEach((el) => {
+            mediaItems.push({
+                element: el,
+                type: el.getAttribute('data-type'),
+                src: el.getAttribute('data-src')
+            });
+        });
+
+        if (mediaItems.length <= 1) {
+            document.querySelectorAll('.nav-arrow').forEach(arrow => arrow.style.display = 'none');
+        }
+
+        if (mediaItems.length > 0) {
+            displayMedia(0);
+        } else {
+            const mainImg = document.getElementById('view-image');
+            mainImg.src = "https://via.placeholder.com/800x450?text=No+Media";
+            mainImg.style.display = 'block';
+        }
+    });
+
+    function displayMedia(index) {
+        if (!mediaItems.length) return;
+        currentIdx = index;
+        const item = mediaItems[index];
+        const mainImg = document.getElementById('view-image');
+        const mainVid = document.getElementById('view-video');
+        mainVid.pause();
+
+        if (item.type === 'image') {
+            mainImg.src = item.src;
+            mainImg.style.display = 'block';
+            mainVid.style.display = 'none';
+        } else if (item.type === 'video') {
+            mainVid.src = item.src;
+            mainVid.style.display = 'block';
+            mainImg.style.display = 'none';
+        }
+
+        mediaItems.forEach((m, i) => {
+            m.element.classList.toggle('active', i === currentIdx);
+        });
+    }
+
+    function setActiveMedia(element) {
+        const index = mediaItems.findIndex(m => m.element === element);
+        if (index !== -1) {
+            displayMedia(index);
+        }
+    }
+
+    function navigateGallery(direction) {
+        if (!mediaItems.length) return;
+        let newIndex = (currentIdx + direction + mediaItems.length) % mediaItems.length;
+        displayMedia(newIndex);
+    }
+
+    // Pet Wishlist
+    function toggleWishlist(petId, element) {
+        const heartIcon = element.querySelector('i');
+        const isAdded = heartIcon.classList.contains('fa-solid');
+        const url = isAdded ? `/wishlist/remove/${petId}` : `/wishlist/add/${petId}`;
+        
+        fetch(url, { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                if (isAdded) {
+                    heartIcon.className = 'fa-regular fa-heart';
+                    element.classList.remove('is-favorite');
+                } else {
+                    heartIcon.className = 'fa-solid fa-heart fa-lg';
+                    element.classList.add('is-favorite');
+                }
+            } else {
+                alert(data.message || "An error occurred updating your wishlist.");
+            }
+        })
+        .catch(err => {
+            console.error("Wishlist operation error:", err);
+            alert("Could not update wishlist data.");
+        });
+    }
+</script>
+</body>
+</html>

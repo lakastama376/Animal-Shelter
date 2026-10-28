@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Educational Articles</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/article-list.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+            
+            <div class="container">
+                <header>
+                    <span class="sub-badge">Learn & Grow</span>
+                    <h1>Education Center</h1>
+                    <p>Pet care guides, adoption resources, welfare information, and responsible ownership tips from our experts.</p>
+                </header>
+
+                <!--Recent Article-->
+                {% if featured_article and not active_category and not search_query %}
+                <div class="featured-card">
+                    <img class="featured-img" src="{{ featured_article.imageUrl }}" alt="Featured Image">
+                    <div class="featured-content">
+                        <div class="badge-row">
+                            <span class="badge">Featured</span>
+                            <span class="category-label">{{ featured_article.category }}</span>
+                        </div>
+                        <h2>{{ featured_article.title }}</h2>
+                        <p>{{ featured_article.content | striptags | truncate(180) }}</p>
+                        <div class="meta-info">
+                            <span><i class="fa-regular fa-user"></i> {{ featured_article.author }}</span>
+                            <span><i class="fa-regular fa-clock"></i> {{ featured_article.readTime }}</span>
+                            <a href="{{ url_for('article_content_bp.view_article', article_id=featured_article.id) }}" class="read-link">
+                                Read Article <i class="fa-solid fa-arrow-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!--Search Filter-->
+                <div class="controls-row">
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="searchInput" placeholder="Search articles..." value="{{ search_query }}" onkeyup="handleSearch(event)">
+                    </div>
+                    <div class="filter-tags">
+                        <a href="?category={{ '&search=' ~ search_query if search_query else '' }}" class="tag-btn {% if not active_category %}active{% endif %}">All</a>
+                        {% for cat in categories %}
+                            <a href="?category={{ cat }}{{ '&search=' ~ search_query if search_query else '' }}" class="tag-btn {% if active_category == cat %}active{% endif %}">{{ cat }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!--Articles-->
+                {% if not featured_article and not articles %}
+                <div class="no-results">
+                    <i class="fa-regular fa-folder-open"></i>
+                    <h3>No articles found</h3>
+                    <p>Try adjusting your keywords or clearing the category filter tags.</p>
+                </div>
+                {%   else %}
+                    <div class="article-grid">
+                        {% if featured_article and (active_category or search_query) %}
+                            <a href="{{ url_for('article_content_bp.view_article', article_id=featured_article.id) }}" class="article-card">
+                                <img class="card-img" src="{{ featured_article.imageUrl }}" alt="Article Image">
+                                <div class="card-body">
+                                    <span class="badge">{{ featured_article.category }}</span>
+                                    <h3>{{ featured_article.title }}</h3>
+                                    <p>{{ featured_article.content | striptags | truncate(120) }}</p>
+                                    <div class="card-footer">
+                                        <span>By {{ featured_article.author }}</span>
+                                        <span>{{ featured_article.readTime }}</span>
+                                    </div>
+                                </div>
+                            </a>
+                        {% endif %}
+                        {% for item in articles %}
+                        <a href="{{ url_for('article_content_bp.view_article', article_id=item.id) }}" class="article-card">
+                            <img class="card-img" src="{{ item.imageUrl }}" alt="Article Image">
+                            <div class="card-body">
+                                <span class="badge" style="background:#ffe9d5; color:#f97316; border: 1px solid #f97316;">{{ item.category }}</span>
+                                <h3>{{ item.title }}</h3>
+                                <p>{{ item.content | striptags | truncate(120) }}</p>
+                                <div class="card-footer"> 
+                                    <span><i class="fa-regular fa-user"></i> {{ item.author }}</span>
+                                    <span>{{ item.readTime }}</span>
+                                </div>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    function handleSearch(event) {
+        if (event.key === 'Enter') {
+            const query = document.getElementById('searchInput').value.trim();
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            if(query) {
+                urlParams.set('search', query);
+            } else {
+                urlParams.delete('search');
+            }
+            window.location.search = urlParams.toString();
+        }
+    }
+</script>
+</body>
+</html>

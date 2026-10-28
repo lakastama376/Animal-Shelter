@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eligibility Checker</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/eligibility-checker.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+            <!--Side Profile-->
+            <div class="container">
+                <div class="side">
+                    <div class="card-sticky">
+                        {% if pet %}
+                            <img src="{{ pet.images[0] if pet.images else 'https://via.placeholder.com/300' }}" alt="Pet Image">
+                            <h3>{{ pet.petName }}</h3>
+                            <p>{{ pet.breed if pet.breed else 'Mixed Breed' }} &bull; {{ pet.age or 'Adult' }}</p>
+                            <div class="pet-meta-row"><i class="fa-solid fa-home" style="color: #f59e0b;"></i> Status: {{ pet.status }}</div>
+                            <div class="pet-meta-row"><i class="fa-solid fa-paw" style="color: #3b82f6;"></i> Rescue on: {{ pet.rescueDate if pet.rescueDate else 'Recent Date' }}</div>
+                            <div class="pet-meta-row"><i class="fa-solid fa-bolt" style="color: #ef4444;"></i> Activity: {{ pet.activityLevel or 'Medium' }}</div>
+                        {% else %}
+                            <img src="{{ url_for('static', filename='Assets/Images/logo.png') }}" alt="Generic Content Holder">
+                            <h3>Pet Adoption</h3>
+                            <p>Pre-evaluation verification baseline procedures.</p>
+                        {% endif %}
+                        <div class="requirements-box">
+                            <h4>Eligibility Requirements</h4>
+                            <ul>
+                                <li><i class="fa-solid fa-check"></i> Must have a stable source of income</li>
+                                <li><i class="fa-solid fa-check"></i> Must have a safe and suitable living environment</li>
+                                <li><i class="fa-solid fa-check"></i> Must not have a history of animal abuse</li>
+                                <li><i class="fa-solid fa-check"></i> Must agree to post-adoption monitoring for 4 weeks</li>
+                                <li><i class="fa-solid fa-check"></i> Must be willing to provide proper veterinary care</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!--Steps-->
+                <div class="main-column">
+                    <div class="timeline-tracker">
+                        <div class="step-wrapper active">
+                            <div class="step-bubble">1</div>
+                            <div class="step-label">Eligibility</div>
+                            <div class="step-desc">Requirements check</div>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-wrapper">
+                            <div class="step-bubble">2</div>
+                            <div class="step-label">Browse</div>
+                            <div class="step-desc">Choose your pet</div>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-wrapper">
+                            <div class="step-bubble">3</div>
+                            <div class="step-label">Apply</div>
+                            <div class="step-desc">Submit application</div>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-wrapper">
+                            <div class="step-bubble">4</div>
+                            <div class="step-label">Review</div>
+                            <div class="step-desc">Admin reviews</div>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-wrapper">
+                            <div class="step-bubble">5</div>
+                            <div class="step-label">Visit</div>
+                            <div class="step-desc">Meet your pet</div>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-wrapper">
+                            <div class="step-bubble">6</div>
+                            <div class="step-label">Adopt</div>
+                            <div class="step-desc">Finalize adoption</div>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-wrapper">
+                            <div class="step-bubble">7</div>
+                            <div class="step-label">Monitoring</div>
+                            <div class="step-desc">4-week check-in</div>
+                        </div>
+                    </div>
+
+                    <!--Eligibility Form-->
+                    <div class="main-workspace">
+                    <div class="intro-header">
+                        <h1>Adoption Eligibility Checker</h1>
+                        <p>Answer honestly &mdash; this helps us make sure every pet goes to a home where they will truly thrive.</p>
+                    </div>
+                    {% if is_locked_out %}
+                    <div style="background: #fff5f5; border: 1px solid #fee2e2; border-radius: 12px; padding: 30px; text-align: center; margin-top: 20px;">
+                        <div style="font-size: 50px; color: #ef4444; margin-bottom: 15px;">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                        </div>
+                        <h2 style="color: #991b1b; margin-bottom: 10px;">Quiz Locked Out</h2>
+                        <p style="color: #7f1d1d; font-size: 15px; margin-bottom: 20px; line-height: 1.5;">
+                            You did not pass the previous eligibility check. To ensure proper comprehension of the material, you are locked out from taking or retaking the quiz until:
+                        </p>
+                        <div style="background: #fee2e2; color: #991b1b; padding: 12px; font-weight: bold; border-radius: 8px; display: inline-block; font-size: 15px; margin-bottom: 20px;">
+                            {{ lockout_time }}
+                        </div>
+                    </div>
+                    {% else %}
+                    <form id="eligibilityQuizForm" onsubmit="processQuiz(event)">
+                        <input type="hidden" id="ctxPetId" value="{{ pet.id if pet else '' }}">
+                        {% for q in questions %}
+                        <div class="quiz-group">
+                            <div class="question-text">{{ loop.index }}. {{ q.questionText }}</div>
+                            <div class="options-wrapper">
+                                {% for choice in q.choices %}
+                                <label class="choice-option-row">
+                                    <input type="radio" name="q_{{ q.id }}" value="{{ choice.text }}" required onclick="handleRowSelection(this)">
+                                    <span class="custom-radio"></span>
+                                    <span class="choice-label-text">{{ choice.text }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <p style="color: #64748b;">No registration rules parsed. Configure questions in Content Management.</p>
+                        {% endfor %}
+                        {% if questions %}
+                        <button type="submit" id="submitQuizBtn" class="btn-submit disabled" disabled>
+                            Submit <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                        {% endif %}
+                    </form>
+                    <div class="score-container" id="readinessModule">
+                        <div class="score-text-row">
+                            <span>Readiness score</span>
+                            <strong id="readinessPercentText">0%</strong>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-thumb-fill" id="readinessBarFill"></div>
+                        </div>
+                        <div class="status-alert" id="eligibilityAlertContainer">
+                            <h5 id="alertTitleHeading"></h5>
+                            <p id="alertBodyParagraph"></p>
+                            <a href="#" id="alertActionBtn" class="btn-redirect" style="display: none;">Proceed Forward</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div> 
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    const userUid = "{{ session.get('user', {}).get('uid') or session.get('user', {}).get('user_id') or 'guest' }}";
+    const petIdVal = document.getElementById('ctxPetId') ? document.getElementById('ctxPetId').value : 'general';
+    const STORAGE_KEY = `eligibilityQuizState_${userUid}_${petIdVal}`;
+    const SUBMISSION_KEY = `eligibilityQuizSubmitted_${userUid}_${petIdVal}`;
+
+    function checkFormCompletion() {
+        const form = document.getElementById('eligibilityQuizForm');
+        const submitBtn = document.getElementById('submitQuizBtn');
+        if (!submitBtn || submitBtn.getAttribute('data-submitted') === 'true') return;
+        const radioGroups = new Set();
+        if (form) {
+            form.querySelectorAll('input[type="radio"]').forEach(radio => {
+                radioGroups.add(radio.name);
+            });
+        }
+        let answeredCount = 0;
+        radioGroups.forEach(groupName => {
+            if (form.querySelector(`input[name="${groupName}"]:checked`)) {
+                answeredCount++;
+            }
+        });
+        if (answeredCount === radioGroups.size && radioGroups.size > 0) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('disabled');
+        } else {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('disabled');
+        }
+    }
+
+    function handleRowSelection(radioEl) {
+        if (radioEl.disabled) return;
+        const nameGroup = radioEl.name;
+        document.querySelectorAll(`input[name="${nameGroup}"]`).forEach(input => {
+            const parentRow = input.closest('.choice-option-row');
+            if (parentRow) parentRow.classList.remove('selected');
+        });
+        if (radioEl.checked) {
+            const parentRow = radioEl.closest('.choice-option-row');
+            if (parentRow) parentRow.classList.add('selected');
+        }
+        checkFormCompletion();
+        saveFormState();
+    }
+
+    function saveFormState() {
+        const form = document.getElementById('eligibilityQuizForm');
+        if (!form) return;
+        const formData = new FormData(form);
+        const state = {};
+        for (let [key, value] of formData.entries()) {
+            state[key] = value;
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function restoreFormState() {
+        const savedSubmission = localStorage.getItem(SUBMISSION_KEY);
+        if (savedSubmission) {
+            try {
+                const subData = JSON.parse(savedSubmission);
+                lockFormUIAfterSubmit(subData.score_percentage, subData.passed, subData.redirect_url);
+                return;
+            } catch (e) {
+                localStorage.removeItem(SUBMISSION_KEY);
+            }
+        }
+
+        const savedState = localStorage.getItem(STORAGE_KEY);
+        if (!savedState) return;
+        try {
+            const state = JSON.parse(savedState);
+            for (const [name, value] of Object.entries(state)) {
+                const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
+                if (radio) {
+                    radio.checked = true;
+                    const row = radio.closest('.choice-option-row');
+                    if (row) row.classList.add('selected');
+                }
+            }
+            checkFormCompletion();
+        } catch (e) {
+            console.error("Failed to restore form state", e);
+        }
+    }
+
+    function lockFormUIAfterSubmit(scorePercentage, passed, redirectUrl) {
+        const form = document.getElementById('eligibilityQuizForm');
+        const submitBtn = document.getElementById('submitQuizBtn');
+
+        if (form) {
+            form.querySelectorAll('input[type="radio"]').forEach(radio => {
+                radio.disabled = true;
+            });
+        }
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('disabled');
+            submitBtn.setAttribute('data-submitted', 'true');
+            submitBtn.style.display = 'none';
+        }
+
+        const readinessModule = document.getElementById('readinessModule');
+        if (readinessModule) {
+            readinessModule.style.display = 'block';
+        }
+        
+        const percentText = document.getElementById('readinessPercentText');
+        if (percentText) percentText.innerText = scorePercentage + '%';
+
+        const barFill = document.getElementById('readinessBarFill');
+        if (barFill) barFill.style.width = scorePercentage + '%';
+
+        const alertContainer = document.getElementById('eligibilityAlertContainer');
+        const titleHeading = document.getElementById('alertTitleHeading');
+        const bodyParagraph = document.getElementById('alertBodyParagraph');
+        const actionBtn = document.getElementById('alertActionBtn');
+        
+        if (alertContainer) {
+            alertContainer.style.display = 'block';
+            if (passed) {
+                alertContainer.className = "status-alert pass";
+                if (titleHeading) titleHeading.innerText = "You passed the eligibility check!";
+                if (bodyParagraph) bodyParagraph.innerText = `Your score of ${scorePercentage}% shows you are ready. You may proceed to the next procedures`;
+                if (actionBtn) {
+                    actionBtn.href = redirectUrl;
+                    actionBtn.innerText = "Continue Application Process";
+                    actionBtn.style.display = 'inline-block';
+                }
+            } else {
+                alertContainer.className = "status-alert fail";
+                if (titleHeading) titleHeading.innerText = "Check Requirements Missing";
+                if (bodyParagraph) bodyParagraph.innerText = `Your baseline score is ${scorePercentage}%. You must fix incorrect selections or review pet guidance rules to meet all minimum core thresholds.`;
+                if (actionBtn) {
+                    actionBtn.href = redirectUrl;
+                    actionBtn.innerText = "Read Care Article & Re-Test";
+                    actionBtn.style.display = 'inline-block';
+                }
+            }
+        }
+    }
+
+    // Eligibility Score
+    async function processQuiz(event) {
+        event.preventDefault();
+        const form = event.target;
+        const submitBtn = document.getElementById('submitQuizBtn');
+
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+        const petId = document.getElementById('ctxPetId').value;
+        const answers = {};
+        const formData = new FormData(form);
+        for (let [key, value] of formData.entries()) {
+            const qId = key.replace('q_', '');
+            answers[qId] = value;
+        }
+        try {
+            const response = await fetch('/eligibility/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ petId: petId, answers: answers })
+            });
+            const result = await response.json();
+            if (result.success) {
+                localStorage.setItem(SUBMISSION_KEY, JSON.stringify({
+                    score_percentage: result.score_percentage,
+                    passed: result.passed,
+                    redirect_url: result.redirect_url
+                }));
+                lockFormUIAfterSubmit(result.score_percentage, result.passed, result.redirect_url);
+                localStorage.removeItem(STORAGE_KEY);
+            } else {
+                window.location.href = result.redirect_url;
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Network communication system configuration fault occurred.");
+        }
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        restoreFormState();
+    });
+</script>
+</body>
+</html>

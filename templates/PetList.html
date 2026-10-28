@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adopt a Pet | Browse Companions</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/pet-list.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    <div id="session-metadata" data-logged-in="{% if is_logged_in %}true{% else %}false{% endif %}" style="display: none;"></div>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+    <!--Pet List-->
+    <main class="container">
+        <header class="header">
+            <p class="tagline">Find Your Match</p>
+            <h1>Adopt a Pet</h1>
+            <p class="subtitle">Browse all our available animals and find your perfect companion</p>
+        </header>
+        <section class="controls-wrapper">
+            <div class="search-box">
+                <i data-lucide="search"></i>
+                <input type="text" id="searchInput" placeholder="Search by name or breed...">
+            </div>
+            <button class="btn-control" id="filterStatusBtn">
+                <i data-lucide="sliders-horizontal"></i>
+                <span>Filters</span>
+            </button>
+            <button class="btn-control btn-quiz" id="petMatchingQuizBtn">
+                <i data-lucide="sparkles"></i>
+                <span>Pet Matching Quiz</span>
+            </button>
+        </section>
+        <div class="counter-text">
+            Showing <strong id="displayedCount">{{ pets|length }}</strong> animals
+        </div>
+        <section class="pets-grid" id="petsGrid">
+            {% for pet in pets %}
+            <div class="pet-card" 
+                 data-name="{{ pet.petName|lower }}" 
+                 data-breed="{{ pet.breed|lower }}" 
+                 data-type="{{ pet.type|lower }}" 
+                 data-gender="{{ pet.gender|lower }}" 
+                 data-status="{{ pet.status|lower }}">
+                <div class="media-container">
+                    <span class="status-badge status-{{ pet.status|lower }}">{{ pet.status }}</span>
+                    <img src="{{ pet.images[0] }}" alt="{{ pet.petName }}">    
+                <button class="btn-favorite-circle {% if pet.is_favorited %}is-favorite{% endif %}" title="Add to Wishlist">
+                    <i class="{% if pet.is_favorited %}fa-solid{% else %}fa-regular{% endif %} fa-heart fa-lg"></i>
+                </button>
+                </div>
+                <div class="card-body">
+                    <div class="card-title-row">
+                        <h2 class="pet-name">{{ pet.petName }}</h2>
+                        <span class="gender-tag gender-{{ pet.gender|lower }}">{{ pet.gender }}</span>
+                    </div>
+                    <p class="pet-breed">{{ pet.breed if pet.breed else 'Mixed Breed' }}</p>  
+                    <a href="{{ url_for('pet_profile_bp.pet_profile', id=pet.id) if pet_profile_bp is defined else '/pet-management/profile/' ~ pet.id }}" 
+                       class="btn-profile" 
+                       data-id="{{ pet.id }}">
+                        <span>View Profile</span>
+                        <i data-lucide="arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i data-lucide="paw-print"></i>
+                <h3>No pets registered.</h3>
+                <p>Check back later or register an animal through management portal panel systems.</p>
+            </div>
+            {% endfor %}
+        </section>
+    </main>
+
+    <!--Filter Modal-->
+    <div class="modal-overlay" id="filterModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title">Filter Options</h3>
+                <button class="btn-close-modal" id="closeModalBtn">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="filter-group">
+                    <label class="filter-label" for="filterType">Pet Type</label>
+                    <select class="filter-select" id="filterType">
+                        <option value="">All Types</option>
+                        <option value="dog">Dog</option>
+                        <option value="cat">Cat</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label" for="filterGender">Gender</label>
+                    <select class="filter-select" id="filterGender">
+                        <option value="">All Genders</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label" for="filterStatus">Status</label>
+                    <select class="filter-select" id="filterStatus">
+                        <option value="">All Statuses</option>
+                        <option value="available">Available</option>
+                        <option value="pending">Pending</option>
+                        <option value="adopted">Adopted</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-modal-action btn-modal-reset" id="resetFiltersBtn">Reset Filters</button>
+                <button class="btn-modal-action btn-modal-apply" id="applyFiltersBtn">Apply Filters</button>
+            </div>
+        </div>
+    </div>
+
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        lucide.createIcons();
+        const metaElement = document.getElementById('session-metadata');
+        const IS_LOGGED_IN = metaElement ? (metaElement.getAttribute('data-logged-in') === 'true') : false;
+        const LOGIN_URL = "/login"; 
+
+        // Search Filter
+        const searchInput = document.getElementById('searchInput');
+        const petCards = document.querySelectorAll('.pet-card');
+        const displayedCount = document.getElementById('displayedCount');
+        const filterStatusBtn = document.getElementById('filterStatusBtn');
+        const filterModal = document.getElementById('filterModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const filterType = document.getElementById('filterType');
+        const filterGender = document.getElementById('filterGender');
+        const filterStatus = document.getElementById('filterStatus');
+        const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+        const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+        const petMatchingQuizBtn = document.getElementById('petMatchingQuizBtn');
+
+        if (petMatchingQuizBtn) {
+            petMatchingQuizBtn.addEventListener('click', () => {
+                if (!IS_LOGGED_IN) {
+                    window.location.href = LOGIN_URL;
+                } else {
+                    window.location.href = "/matching";
+                }
+            });
+        }
+
+        if (filterStatusBtn && filterModal) {
+            filterStatusBtn.addEventListener('click', () => filterModal.classList.add('is-active'));
+            closeModalBtn.addEventListener('click', () => filterModal.classList.remove('is-active'));
+            filterModal.addEventListener('click', (e) => {
+                if (e.target === filterModal) filterModal.classList.remove('is-active');
+            });
+        }
+        
+        function filterPets() {
+            const searchTxt = searchInput.value.toLowerCase().trim();
+            const selType = filterType.value;
+            const selGender = filterGender.value;
+            const selStatus = filterStatus.value;
+            let matchCount = 0;
+            petCards.forEach(card => {
+                const name = card.getAttribute('data-name') || '';
+                const breed = card.getAttribute('data-breed') || '';
+                const type = card.getAttribute('data-type') || '';
+                const gender = card.getAttribute('data-gender') || '';
+                const status = card.getAttribute('data-status') || '';
+                const textMatches = name.includes(searchTxt) || breed.includes(searchTxt);
+                const typeMatches = !selType || type === selType;
+                const genderMatches = !selGender || gender === selGender;
+                const statusMatches = !selStatus || status === selStatus;
+
+                if (textMatches && typeMatches && genderMatches && statusMatches) {
+                    card.style.display = 'block';
+                    matchCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            if (displayedCount) displayedCount.textContent = matchCount;
+        }
+
+        if (searchInput) searchInput.addEventListener('input', filterPets);
+        if (applyFiltersBtn) {
+            applyFiltersBtn.addEventListener('click', () => {
+                filterPets();
+                filterModal.classList.remove('is-active');
+            });
+        }
+        if (resetFiltersBtn) {
+            resetFiltersBtn.addEventListener('click', () => {
+                filterType.value = "";
+                filterGender.value = "";
+                filterStatus.value = "";
+                filterPets();
+                filterModal.classList.remove('is-active');
+            });
+        }
+        document.querySelectorAll('.btn-profile').forEach(link => {
+            link.addEventListener('click', (e) => {
+                if (!IS_LOGGED_IN) {
+                    e.preventDefault();
+                    window.location.href = LOGIN_URL;
+                }
+            });
+        });
+
+        // Adding as Pet Wishlist
+        document.querySelectorAll('.btn-favorite-circle').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation(); 
+            if (!IS_LOGGED_IN) {
+                window.location.href = LOGIN_URL;
+                return;
+            }
+
+            const card = btn.closest('.pet-card');
+            const profileBtn = card.querySelector('.btn-profile');
+            const petId = profileBtn.getAttribute('data-id');
+            const isAdded = btn.classList.contains('is-favorite');
+            const url = isAdded ? `/wishlist/remove/${petId}` : `/wishlist/add/${petId}`;
+
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const heartIcon = btn.querySelector('i');
+                    if (isAdded) {
+                        btn.classList.remove('is-favorite');
+                        heartIcon.className = 'fa-regular fa-heart fa-lg';
+                    } else {
+                        btn.classList.add('is-favorite');
+                        heartIcon.className = 'fa-solid fa-heart fa-lg';
+                    }
+                } else {
+                    alert(data.message || "Could not complete update.");
+                }
+            })
+            .catch(err => {
+                console.error("Wishlist sync error:", err);
+                alert("Network error processing wishlist update.");
+                });
+            });
+        });
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adoption</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/adoption.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <main class="content">
+
+            <div class="container">
+                <div class="header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <div class="header" style="margin-bottom: 0;">
+                        <h1>{{ 'Adoption Management' if role == 'Admin' else 'Adoption Applications' }}</h1>
+                        <p class="header-subtitle">
+                            {{ 'Review and manage adoption applications and return requests' if role == 'Admin' else 'Track the status of your adoption applications and manage returns.' }}
+                        </p>
+                    </div>
+                    {% if role != 'Admin' %}
+                    <a href="{{ url_for('eligibility_checker_bp.index') }}" class="btn-adopt">
+                        <i class="fa-solid fa-paw"></i>
+                        Adopt Pet
+                    </a>
+                    {% endif %}
+                </div>
+                {% if not applications %}
+                    <div class="empty-state">
+                        <i class="fa-solid fa-folder-open empty-icon"></i>
+                        <p>No active adoption applications found at this time.</p>
+                    </div>
+                {% else %}
+                    
+                <!--Admin Interface-->
+                {% if role == 'Admin' %}
+                    <div class="filter-container">
+                        <div class="filter-pill active" onclick="filterTable('All')">All</div>
+                        <div class="filter-pill" onclick="filterTable('Under Review')">Under Review ({{ counts.get('Under Review', 0) if counts else 0 }})</div>
+                        <div class="filter-pill" onclick="filterTable('Approved')">Approved ({{ counts.get('Approved', 0) if counts else 0 }})</div>
+                        <div class="filter-pill" onclick="filterTable('Visit Scheduled')">Visit Scheduled ({{ counts.get('Visit Scheduled', 0) if counts else 0 }})</div>
+                        <div class="filter-pill" onclick="filterTable('Adopted')">Adopted ({{ counts.get('Adopted', 0) if counts else 0 }})</div>
+                        <div class="filter-pill" onclick="filterTable('Rejected')">Rejected ({{ counts.get('Rejected', 0) if counts else 0 }})</div>
+                        <div class="filter-pill" onclick="filterTable('Monitoring Ongoing')">Ongoing Monitoring ({{ counts.get('Monitoring Ongoing', 0) if counts else 0 }})</div>
+                        <div class="filter-pill" onclick="filterTable('Monitoring Completed')">Completed Monitoring ({{ counts.get('Monitoring Completed', 0) if counts else 0 }})</div>
+                        <div class="filter-pill" onclick="filterTable('Overdue Monitoring')">Overdue Monitoring ({{ counts.get('Overdue Monitoring', 0) if counts else 0 }})</div>
+                        <div class="filter-pill" onclick="filterTable('Return Requested')">Return Requested ({{ counts.get('Return Requested', 0) if counts else 0 }})</div>
+                        <div class="filter-pill" onclick="filterTable('Return Scheduled')">Return Scheduled ({{ counts.get('Return Scheduled', 0) if counts else 0 }})</div>
+                        <div class="filter-pill" onclick="filterTable('Returned')">Returned ({{ counts.get('Returned', 0) if counts else 0 }})</div>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Pet</th>
+                                    <th>Applicant</th>
+                                    <th>Submitted</th>
+                                    <th>Last Updated</th>
+                                    <th>Overdue</th>
+                                    <th>Status</th>
+                                    <th class="table-actions-head">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminTableBody">
+                                {% for app in applications %}
+                                <tr data-status="{{ app.status }}"
+                                    data-submitted-at="{{ app.submittedAt or '' }}"
+                                    data-monitoring-status="{{ app.monitoringStatus or app.monitoring_status or '' }}">
+                                    <td>
+                                        <div class="pet-cell">
+                                            {% if app.pet_details.images or app.pet_details.photoUrl %}
+                                                <img src="{{ app.pet_details.images[0] if app.pet_details.images else app.pet_details.photoUrl }}" class="pet-img" alt="Pet">
+                                            {% else %}
+                                                <div class="pet-img-fallback">
+                                                    <i class="fa-solid fa-paw"></i>
+                                                </div>
+                                            {% endif %}
+                                            <div class="pet-name-accent">{{ app.petName if app.petName else (app.pet_details.name if app.pet_details else 'Unknown Pet') }}</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="applicant-cell">
+                                            {% if app.applicant_pic %}
+                                                <img src="{{ app.applicant_pic }}" alt="{{ app.applicant_name }}" class="applicant-avatar">
+                                            {% else %}
+                                                <div class="avatar-fallback">
+                                                    <i class="fa-regular fa-user"></i>
+                                                </div>
+                                            {% endif %}
+                                            <span class="applicant-name">{{ app.applicant_name }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="format-date" data-date="{{ app.submittedAt }}">N/A</td>
+                                    <td class="format-date" data-date="{{ app.updatedAt }}">N/A</td>
+                                    <td>
+                                        {% if app.late_count and app.late_count > 0 %}
+                                            <span class="badge">
+                                                </i> {{ app.late_count }} Late
+                                            </span>
+                                        {% else %}
+                                            <span class="badge"></span>
+                                            <span>N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge
+                                            {% if app.status == 'Submitted' %}badge-submitted
+                                            {% elif app.status == 'Under Review' %}badge-review
+                                            {% elif app.status == 'Approved' %}badge-approved
+                                            {% elif app.status == 'Visit Scheduled' %}badge-visit
+                                            {% elif app.status == 'Adopted' %}badge-complete
+                                            {% elif app.status in ['Return Requested', 'Return Scheduled'] %}badge-review
+                                            {% elif app.status == 'Returned' %}badge-complete
+                                            {% elif app.status == 'Rejected' %}badge-rejected{% endif %}">
+                                            {{ app.status }}
+                                        </span>
+                                    </td>
+                                    <td class="table-actions-cell">
+                                        <div class="action-row">
+                                            <button class="btn-eye" 
+                                                    title="View Application" 
+                                                    data-application="{{ app | tojson | forceescape }}"
+                                                    onclick="openViewModal(this)">
+                                                <i class="fa-regular fa-eye"></i>
+                                            </button>
+                                            <button class="btn-edit" 
+                                                    title="Modify Status & Schedule" 
+                                                    data-id="{{ app.id }}"
+                                                    data-status="{{ app.status }}"
+                                                    data-schedule="{{ app.scheduleVisitation or '' }}"
+                                                    data-return="{{ app.scheduleReturn or '' }}"
+                                                    onclick="handleEditClick(this)">
+                                                <i class="fa-regular fa-pen-to-square"></i>
+                                            </button>
+                                            {% if app.status == 'Submitted' or app.status == 'Under Review' %}
+                                                <button class="btn-check" title="Approve Application" onclick="updateAppStatus('{{ app.id }}', 'Approved')">
+                                                    <i class="fa-solid fa-check"></i>
+                                                </button>
+                                                <button class="btn-cross" title="Reject Application" onclick="updateAppStatus('{{ app.id }}', 'Rejected')">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            {% elif app.status == 'Approved' %}
+                                                <button class="btn-calendar" title="Schedule Visit" onclick="openScheduleModal('{{ app.id }}')">
+                                                    <i class="fa-regular fa-calendar"></i>
+                                                </button>
+                                            {% elif app.status == 'Visit Scheduled' %}
+                                                <button class="btn-check" title="Complete Process" onclick="updateAppStatus('{{ app.id }}', 'Adopted')">
+                                                    <i class="fa-solid fa-check"></i>
+                                                </button>
+                                            {% elif app.status == 'Return Requested' %}
+                                                <button class="btn-calendar" title="Schedule Return Drop-off" onclick="openReturnScheduleModal('{{ app.id }}')">
+                                                    <i class="fa-regular fa-calendar-days"></i>
+                                                </button>
+                                            {% elif app.status == 'Return Scheduled' %}
+                                                <button class="btn-check" title="Confirm Shelter Received Pet" onclick="updateAppStatus('{{ app.id }}', 'Returned')">
+                                                    <i class="fa-solid fa-house-chimney"></i>
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <div class="table-footer">
+                            <span id="appsCountLabel">{{ applications | length }} applications</span>
+                            <div class="page-controls" id="pageControls"></div>
+                        </div>
+                    </div>
+
+                    <!--Adopter Interface-->
+                    {% else %}
+                    {% for app in applications %}
+                        <div class="app-card">
+                            <div class="card-meta">
+                                <div class="pet-info-block">
+                                    {% if app.pet_details.images or app.pet_details.photoUrl %}
+                                        <img src="{{ app.pet_details.images[0] if app.pet_details.images else app.pet_details.photoUrl }}" class="pet-avatar" alt="Pet">
+                                    {% else %}
+                                        <div class="pet-avatar pet-avatar-placeholder-dark">
+                                            <i class="fa-solid fa-paw"></i>
+                                        </div>
+                                    {% endif %}
+                                    <div>
+                                        <h3 class="pet-name">{{ app.petName if app.petName else (app.pet_details.name if app.pet_details else 'Unknown Pet') }}</h3>
+                                        <p class="sub-timeline-text">Application #{{ loop.index }} • Submitted {{ app.formatted_submitted }}</p>
+                                    </div>
+                                </div>
+                                <span class="badge 
+                                    {% if app.status == 'Submitted' %}badge-submitted
+                                    {% elif app.status == 'Under Review' %}badge-review
+                                    {% elif app.status == 'Approved' %}badge-approved
+                                    {% elif app.status == 'Visit Scheduled' %}badge-visit
+                                    {% elif app.status == 'Adopted' %}badge-complete
+                                    {% elif app.status in ['Return Requested', 'Return Scheduled'] %}badge-review
+                                    {% elif app.status == 'Returned' %}badge-complete
+                                    {% elif app.status == 'Rejected' %}badge-rejected{% endif %}">
+                                    {{ app.status }}
+                                </span>
+                            </div>
+                            <div class="status-info-box">
+                                <i class="fa-regular fa-clock"></i>
+                                <span>
+                                    {% if app.status == 'Submitted' %}
+                                        Application successfully sent and logged into our workflow system.
+                                    {% elif app.status == 'Under Review' %}
+                                        Application is being evaluated by our care coordinators.
+                                    {% elif app.status == 'Approved' %}
+                                        Application approved! We are ready to set up your facility visitation.
+                                    {% elif app.status == 'Visit Scheduled' %}
+                                        Visit scheduled for {{ app.scheduleVisitation }}.
+                                    {% elif app.status == 'Adopted' %}
+                                        Adoption process finalized successfully! Welcome home.
+                                    {% elif app.status == 'Return Requested' %}
+                                        Return request submitted. Our shelter team will review and schedule your drop-off date.
+                                    {% elif app.status == 'Return Scheduled' %}
+                                        Pet return scheduled for <strong>{{ app.scheduleReturn }}</strong>. Please bring the pet to the shelter.
+                                    {% elif app.status == 'Returned' %}
+                                        Pet successfully returned to the shelter and is now listed as available.
+                                    {% else %}
+                                        Application has been closed.
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {% if app.status == 'Adopted' %}
+                                <div style="margin-top: 16px;">
+                                    <button type="button" class="btn btn-secondary" style="background-color: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer;" onclick="openReturnReasonModal('{{ app.id }}')">
+                                        <i class="fa-solid fa-rotate-left"></i> Request Pet Return
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endif %}
+        </div>
+    </main>
+</div>
+
+<!--Modals-->
+<div id="viewModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Application Submission Details</h3>
+            <button class="modal-close" onclick="closeModal('viewModal')">&times;</button>
+        </div>
+        <div class="modal-body" id="viewModalBody">
+        </div>
+        <div class="modal-footer"></div>
+    </div>
+</div>
+<div id="lightboxModal" class="modal-overlay" onclick="closeModal('lightboxModal')">
+    <div class="lightbox-card" onclick="event.stopPropagation()">
+        <button class="lightbox-close" onclick="closeModal('lightboxModal')">&times;</button>
+        <img id="lightboxImage" class="lightbox-content" src="" alt="Document Preview">
+    </div>
+</div>
+
+<div id="scheduleModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Schedule Facility Visitation</h3>
+            <button class="modal-close" onclick="closeModal('scheduleModal')">&times;</button>
+        </div>
+        <form id="scheduleForm" onsubmit="submitSchedule(event)">
+            <input type="hidden" id="scheduleAppId">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="visitationDate">Visitation Date & Time</label>
+                    <input type="datetime-local" id="visitationDate" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('scheduleModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Schedule</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!--Modify Status Modal-->
+<div id="editModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Modify Application Workflow</h3>
+            <button class="modal-close" onclick="closeModal('editModal')">&times;</button>
+        </div>
+        <form id="editForm" onsubmit="submitEditForm(event)">
+            <input type="hidden" id="editAppId">
+            <div class="modal-body">
+                <div class="form-group" style="margin-bottom: 1.25rem;">
+                    <label for="editStatus" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Application Status</label>
+                    <select id="editStatus" class="form-control" onchange="toggleScheduleField(this.value)" required>
+                        <option value="Submitted">Submitted</option>
+                        <option value="Under Review">Under Review</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Visit Scheduled">Visit Scheduled</option>
+                        <option value="Adopted">Adopted</option>
+                        <option value="Return Requested">Return Requested</option>
+                        <option value="Return Scheduled">Return Scheduled</option>
+                        <option value="Returned">Returned</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+                </div>
+                <div class="form-group" id="editVisitationGroup" style="margin-bottom: 1.25rem; display: none;">
+                    <label for="editVisitationDate" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Date & Time</label>
+                    <input type="datetime-local" id="editVisitationDate" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="background-color: #ff914d; color: white;">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!--Return Modal-->
+<div id="returnReasonModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Reason for Pet Return</h3>
+            <button class="modal-close" onclick="closeModal('returnReasonModal')">&times;</button>
+        </div>
+        <form id="returnReasonForm" onsubmit="submitPetReturnRequest(event)">
+            <input type="hidden" id="returnReasonAppId">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="returnReasonText" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Please let us know why you are returning the pet:</label>
+                    <textarea id="returnReasonText" class="form-control" rows="4" placeholder="Enter your reason here..." required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border, #cbd5e1); border-radius: 8px;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('returnReasonModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="background-color: #ef4444; color: white;">Submit Return Request</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!--Return Schedule Moda -->
+<div id="returnScheduleModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Schedule Pet Return Drop-off</h3>
+            <button class="modal-close" onclick="closeModal('returnScheduleModal')">&times;</button>
+        </div>
+        <form id="returnScheduleForm" onsubmit="submitReturnSchedule(event)">
+            <input type="hidden" id="returnScheduleAppId">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="returnDate">Return Drop-off Date & Time</label>
+                    <input type="datetime-local" id="returnDate" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('returnScheduleModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="background-color: #ff914d; color: white;">Confirm Return Schedule</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    function getCurrentLocalDateTime() {
+        const now = new Date();
+        const localISO = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString();
+        return localISO.slice(0, 16);
+    }
+
+    function updateAppStatus(appId, statusPayload, extraData = {}) {
+        fetch(`/adoption/update-status/${appId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: statusPayload, ...extraData })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                window.location.reload();
+            } else {
+                alert(data.message || "An unexpected processing error occurred.");
+            }
+        })
+        .catch(err => console.error("Error processing request:", err));
+    }
+
+    // Filter
+    let currentPage = 1;
+    const itemsPerPage = 10;
+    let currentFilter = 'All';
+
+    function filterTable(filterValue) {
+        if (typeof filterValue === 'string' && filterValue.trim() !== '') {
+            currentFilter = filterValue;
+            currentPage = 1; 
+        }
+
+        document.querySelectorAll('.filter-pill').forEach(pill => pill.classList.remove('active'));
+        if (window.event && window.event.target && window.event.target.classList && window.event.target.classList.contains('filter-pill')) {
+            window.event.target.classList.add('active');
+        }
+
+        const rows = Array.from(document.querySelectorAll('#adminTableBody tr'));
+        const now = new Date();
+        const visibleRows = rows.filter(row => {
+            const appStatus = row.getAttribute('data-status') || '';
+            const monitoringStatus = row.getAttribute('data-monitoring-status') || '';
+            const submittedAtRaw = row.getAttribute('data-submitted-at') || '';
+
+            if (currentFilter === 'All') return true;
+            if (['Submitted', 'Under Review', 'Approved', 'Visit Scheduled', 'Adopted', 'Rejected'].includes(currentFilter)) {
+                return appStatus === currentFilter;
+            }
+            if (currentFilter === 'Monitoring Ongoing') {
+                return monitoringStatus === 'Ongoing' || monitoringStatus.includes('Week');
+            }
+            if (currentFilter === 'Monitoring Completed') {
+                return monitoringStatus === 'Completed';
+            }
+            if (currentFilter === 'Overdue Monitoring') {
+                if ((monitoringStatus === 'Ongoing' || monitoringStatus.includes('Week')) && submittedAtRaw) {
+                    const submittedDate = new Date(submittedAtRaw.replace(" ", "T"));
+                    if (!isNaN(submittedDate.getTime())) {
+                        let currentWeek = 1;
+                        if (monitoringStatus.includes('Week 1')) currentWeek = 2;
+                        if (monitoringStatus.includes('Week 2')) currentWeek = 3;
+                        if (monitoringStatus.includes('Week 3')) currentWeek = 4;
+                        const dueDate = new Date(submittedDate.getTime() + (currentWeek * 7 * 24 * 60 * 60 * 1000));
+                        return now > dueDate;
+                    }
+                }
+            }
+            return false;
+        });
+
+        rows.forEach(r => r.style.display = 'none');
+        const totalItems = visibleRows.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+
+        if (currentPage > totalPages) currentPage = 1;
+
+        const start = (currentPage - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+        const pageRows = visibleRows.slice(start, end);
+        pageRows.forEach(row => row.style.display = '');
+
+        const appsLabel = document.getElementById('appsCountLabel');
+        if (appsLabel) {
+            const displayedStart = totalItems > 0 ? start + 1 : 0;
+            const displayedEnd = Math.min(end, totalItems);
+            appsLabel.textContent = `Showing ${displayedStart}-${displayedEnd} of ${totalItems} application${totalItems !== 1 ? 's' : ''}`;
+        }
+        renderPagination(totalPages);
+    }
+
+    function renderPagination(totalPages) {
+        const container = document.getElementById('pageControls');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (totalPages <= 1) return;
+        container.appendChild(createPgBtn('<i class="fa-solid fa-angles-left"></i>', 1, currentPage === 1));
+        container.appendChild(createPgBtn('<i class="fa-solid fa-chevron-left"></i>', currentPage - 1, currentPage === 1));
+
+        for (let i = 1; i <= totalPages; i++) {
+            const btn = createPgBtn(i, i, false);
+            if (i === currentPage) btn.classList.add('active');
+            container.appendChild(btn);
+        }
+
+        container.appendChild(createPgBtn('<i class="fa-solid fa-chevron-right"></i>', currentPage + 1, currentPage === totalPages));
+        container.appendChild(createPgBtn('<i class="fa-solid fa-angles-right"></i>', totalPages, currentPage === totalPages));
+    }
+
+    function createPgBtn(html, targetPage, disabled) {
+        const btn = document.createElement('button');
+        btn.className = 'page-btn';
+        btn.innerHTML = html;
+        btn.disabled = disabled;
+        btn.onclick = () => {
+            currentPage = targetPage;
+            filterTable(currentFilter); 
+        };
+        return btn;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        filterTable('All');
+    });
+
+    function openLightbox(imageUrl) {
+        const lightboxImg = document.getElementById('lightboxImage');
+        if (lightboxImg) lightboxImg.src = imageUrl;
+        
+        const lightboxModal = document.getElementById('lightboxModal');
+        if (lightboxModal) lightboxModal.classList.add('open');
+    }
+
+    // Modal View Application
+    function openViewModal(buttonElement) {
+        const appDataRaw = buttonElement.getAttribute('data-application');
+
+        if (!appDataRaw) return;
+        const app = JSON.parse(appDataRaw);
+        const body = document.getElementById('viewModalBody'); 
+
+        if (!body) return;
+        let personalInfoHtml = '';
+        let livingSituationHtml = '';
+        let additionalAnswersHtml = '';
+
+        const skipKeys = [
+            'id', 'applicationId', 'application_id', 'petId', 'userId', 'status', 'submittedAt', 'updatedAt', 'pet_details', 
+            'applicant_name', 'applicant_pic', 'applicantPic', 'scheduleVisitation', 
+            'formatted_submitted', 'formatted_updated', 'petName', 'uploaded_images', 
+            'uploadedImages', 'firstName', 'lastName', 'documentGovIdUrl', 
+            'document_gov_id_url', 'documentProofAddressUrl', 'document_proof_address_url',
+            'monitoring_status', 'monitoringStatus', 'weekly_updates', 'weeklyUpdates'
+        ];
+
+        const personalFields = ['age', 'contactNumber', 'phoneNumber', 'phone', 'email', 'emailAddress', 'address', 'completeHomeAddress'];
+        const livingFields = ['typeOfHome', 'homeOwnership', 'hasPets', 'familyAgreement', 'householdCount'];
+            
+        for (const [key, value] of Object.entries(app)) {
+            if (!skipKeys.includes(key) && typeof value !== 'object') {
+                const label = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+                const cleanValue = value || 'Not provided';
+                const isLong = cleanValue.length > 50;
+                const fieldHtml = `
+                    <div class="data-item ${isLong ? 'full-width' : ''}">
+                        <div class="data-label">${label}</div>
+                        <div class="data-value ${isLong ? 'long-text' : ''}">${cleanValue}</div>
+                    </div>`;
+                if (personalFields.some(field => key.toLowerCase().includes(field.toLowerCase()))) {
+                    personalInfoHtml += fieldHtml;
+                } else if (livingFields.some(field => key.toLowerCase().includes(field.toLowerCase()))) {
+                    livingSituationHtml += fieldHtml;
+                } else {
+                    additionalAnswersHtml += fieldHtml;
+                }
+            }
+        }
+
+        const updates = app.weekly_updates || app.weeklyUpdates || [];
+        let monitoringUpdatesHtml = '';
+
+        if (updates.length > 0) {
+            monitoringUpdatesHtml += '<div class="section-separator" style="margin-top: 1.5rem;">Weekly Monitoring Submissions</div>';
+            updates.forEach(up => {
+                const weekNum = up.weekNumber || 'N/A';
+                const textContent = up.text || 'No text note provided.';
+                const dateStr = up.submittedAtFormatted || 'Submitted';
+                const photos = up.photoUrls || [];
+                const videos = up.videoUrls || [];
+
+                const photosHtml = photos.map(url => `
+                    <img src="${url}" 
+                        onclick="openLightbox('${url}')" 
+                        style="width: 120px; height: 90px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1px solid #e2e8f0;" 
+                        alt="Week ${weekNum} photo">
+                `).join('');
+
+                const videosHtml = videos.map(url => `
+                    <video src="${url}" 
+                        controls 
+                        style="width: 120px; height: 90px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; background: #000;">
+                    </video>
+                `).join('');
+
+                const mediaGridHtml = (photos.length > 0 || videos.length > 0) ? `
+                    <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                        ${photosHtml}
+                        ${videosHtml}
+                    </div>
+                ` : '';
+
+                monitoringUpdatesHtml += `
+                    <div class="data-item full-width" style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.85rem; border-radius: 8px; margin-bottom: 0.75rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <strong style="color: #1e293b; font-size: 0.9rem;">
+                                <i class="fa-solid fa-calendar-check" style="color: #4f46e5;"></i> Week ${weekNum} Log
+                            </strong>
+                            <small style="color: #64748b; font-size: 0.75rem;">${dateStr}</small>
+                        </div>
+                        <p style="margin: 0; font-size: 0.875rem; color: #334155; white-space: pre-line;">${textContent}</p>
+                        ${mediaGridHtml}
+                    </div>`;
+            });
+        } else if (app.status === 'Adopted') {
+            monitoringUpdatesHtml = `
+                <div class="section-separator" style="margin-top: 1.5rem;">Weekly Monitoring Submissions</div>
+                <p style="font-size: 0.85rem; color: #64748b; font-style: italic;">No weekly updates have been uploaded yet.</p>`;
+        }
+
+        const govIdUrl = app.documentGovIdUrl || app.document_gov_id_url;
+        const proofAddressUrl = app.documentProofAddressUrl || app.document_proof_address_url;
+        let documentsCount = 0;
+        let documentsHtml = '<div class="media-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">';
+
+        if (govIdUrl && govIdUrl.trim() !== '') {
+            documentsCount++;
+            documentsHtml += `
+                <div class="media-card" onclick="openLightbox('${govIdUrl}')" style="margin: 0;">
+                    <div class="media-preview-container" style="height: 140px;">
+                        <i class="fa-regular fa-file-image"></i>
+                        <img src="${govIdUrl}" class="media-preview" alt="Government ID" onerror="this.style.display='none'">
+                    </div>
+                    <div class="media-info"><i class="fa-solid fa-id-card"></i> Government ID</div>
+                </div>`;
+        } else {
+            documentsHtml += `
+                <div style="border: 1px dashed var(--border); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 173px; background: #f8fafc; color: var(--text-muted); font-size: 0.85rem;">
+                    <i class="fa-solid fa-id-card" style="font-size: 1.5rem; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
+                    No Government ID Uploaded
+                </div>`;
+        }
+
+        if (proofAddressUrl && proofAddressUrl.trim() !== '') {
+            documentsCount++;
+            documentsHtml += `
+                <div class="media-card" onclick="openLightbox('${proofAddressUrl}')" style="margin: 0;">
+                    <div class="media-preview-container" style="height: 140px;">
+                        <i class="fa-regular fa-file-image"></i>
+                        <img src="${proofAddressUrl}" class="media-preview" alt="Proof of Address" onerror="this.style.display='none'">
+                    </div>
+                    <div class="media-info"><i class="fa-solid fa-house-chimney"></i> Proof of Address</div>
+                </div>`;
+        } else {
+            documentsHtml += `
+                <div style="border: 1px dashed var(--border); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 173px; background: #f8fafc; color: var(--text-muted); font-size: 0.85rem;">
+                    <i class="fa-solid fa-house-chimney" style="font-size: 1.5rem; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
+                    No Proof of Address Uploaded
+                </div>`;
+        }
+        documentsHtml += '</div>';
+
+        const fileUrls = app.uploaded_images || app.uploadedImages || [];
+        const extraAttachments = fileUrls.filter(url => url !== govIdUrl && url !== proofAddressUrl);
+
+        if (extraAttachments.length > 0) {
+            documentsHtml += `
+                <div class="section-separator" style="margin-top: 1.5rem;">Additional Support Attachments</div>
+                <div class="media-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1.25rem; margin-top: 0.5rem;">`;
+            
+            extraAttachments.forEach((url, idx) => {
+                documentsHtml += `
+                    <div class="media-card" onclick="openLightbox('${url}')">
+                        <div class="media-preview-container">
+                            <i class="fa-regular fa-file-image"></i>
+                            <img src="${url}" class="media-preview" alt="Uploaded Document" onerror="this.style.display='none'">
+                        </div>
+                        <div class="media-info">Attachment #${idx + 1}</div>
+                    </div>`;
+            });
+            documentsHtml += '</div>';
+        }
+
+        if (documentsCount === 0 && extraAttachments.length === 0) {
+            documentsHtml = '<p class="no-docs-message">No documents uploaded with this application.</p>';
+        }
+
+        let badgeClass = 'badge-submitted';
+        if (app.status === 'Under Review') badgeClass = 'badge-review';
+        else if (app.status === 'Approved') badgeClass = 'badge-approved';
+        else if (app.status === 'Visit Scheduled') badgeClass = 'badge-visit';
+        else if (app.status === 'Completed') badgeClass = 'badge-complete';
+        else if (app.status === 'Rejected') badgeClass = 'badge-rejected';
+
+        const applicationId = app.id || app.applicationId || app.application_id || 'N/A';
+        body.innerHTML = `
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Target Pet</div>
+                    <div class="data-value"><strong>${app.pet_details?.name || app.petName || 'Unknown'}</strong></div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Current Status</div>
+                    <div class="data-value"><span class="badge ${badgeClass}">${app.status}</span></div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Application ID</div>
+                    <div class="data-value">${applicationId}</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Monitoring Status</div>
+                    <div class="data-value">${app.monitoring_status || app.monitoringStatus || 'N/A'}</div>
+                </div>
+                <div class="section-separator">Personal Information</div>
+                <div class="data-item">
+                    <div class="data-label">Applicant Name</div>
+                    <div class="data-value">${app.applicant_name || 'N/A'}</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Submission Date</div>
+                    <div class="data-value">${app.submittedAt || 'N/A'}</div>
+                </div>
+                ${personalInfoHtml}
+                ${livingSituationHtml ? '<div class="section-separator">Living Situation</div>' + livingSituationHtml : ''}
+                ${additionalAnswersHtml ? '<div class="section-separator">Application Questionnaire</div>' + additionalAnswersHtml : ''}
+                <div class="section-separator">Verification Documents</div>
+                <div class="data-item full-width">
+                    ${documentsHtml}
+                </div>
+                ${monitoringUpdatesHtml}
+            </div>
+        `;
+        const viewModal = document.getElementById('viewModal');
+        if (viewModal) viewModal.classList.add('open');
+    }
+
+    function openScheduleModal(appId) {
+        document.getElementById('scheduleAppId').value = appId;
+        
+        const visitInput = document.getElementById('visitationDate');
+        if (visitInput) {
+            visitInput.min = getCurrentLocalDateTime(); 
+        }
+        
+        const modal = document.getElementById('scheduleModal');
+        if (modal) modal.classList.add('open');
+    }
+
+    function submitSchedule(e) {
+        e.preventDefault();
+        const appId = document.getElementById('scheduleAppId').value;
+        const rawDate = document.getElementById('visitationDate').value; 
+        
+        const dateObj = new Date(rawDate);
+        if (dateObj < new Date()) {
+            alert("Selected visitation date cannot be in the past.");
+            return;
+        }
+
+        const options = { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' };
+        const formattedDate = dateObj.toLocaleDateString('en-US', options);
+
+        updateAppStatus(appId, 'Visit Scheduled', { scheduleVisitation: formattedDate });
+        closeModal('scheduleModal');
+    }
+
+    function openReturnReasonModal(appId) {
+        document.getElementById('returnReasonAppId').value = appId;
+        document.getElementById('returnReasonText').value = '';
+        const modal = document.getElementById('returnReasonModal');
+        if (modal) modal.classList.add('open');
+    }
+
+    function submitPetReturnRequest(e) {
+        e.preventDefault();
+        const appId = document.getElementById('returnReasonAppId').value;
+        const reason = document.getElementById('returnReasonText').value.trim();
+
+        if (!reason) {
+            alert("Please provide a reason for the return.");
+            return;
+        }
+
+        fetch(`/adoption/request-return/${appId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ returnReason: reason })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                window.location.reload();
+            } else {
+                alert(data.message || 'Failed to submit return request.');
+            }
+        })
+        .catch(err => console.error("Error requesting return:", err));
+        
+        closeModal('returnReasonModal');
+    }
+
+    function requestPetReturn(appId) {
+        if (confirm("Are you sure you want to request a pet return? This will notify the shelter team.")) {
+            fetch(`/adoption/request-return/${appId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'Failed to submit return request.');
+                }
+            })
+            .catch(err => console.error("Error requesting return:", err));
+        }
+    }
+
+    function openReturnScheduleModal(appId) {
+        document.getElementById('returnScheduleAppId').value = appId;
+        const returnInput = document.getElementById('returnDate');
+        if (returnInput) {
+            returnInput.min = getCurrentLocalDateTime();
+        }
+        const modal = document.getElementById('returnScheduleModal');
+        if (modal) modal.classList.add('open');
+    }
+
+    function submitReturnSchedule(e) {
+        e.preventDefault();
+        const appId = document.getElementById('returnScheduleAppId').value;
+        const rawDate = document.getElementById('returnDate').value;
+
+        const dateObj = new Date(rawDate);
+        if (dateObj < new Date()) {
+            alert("Selected return date cannot be in the past.");
+            return;
+        }
+
+        const options = { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' };
+        const formattedDate = dateObj.toLocaleDateString('en-US', options);
+
+        updateAppStatus(appId, 'Return Scheduled', { scheduleReturn: formattedDate });
+        closeModal('returnScheduleModal');
+    }
+
+    // Modal Modify Status
+    function openEditModal(appId, currentStatus, currentSchedule) {
+        document.getElementById('editAppId').value = appId;
+        document.getElementById('editStatus').value = currentStatus;
+        const visitInput = document.getElementById('editVisitationDate');
+
+        if (visitInput) {
+            visitInput.min = getCurrentLocalDateTime();
+        }
+        
+        if (currentSchedule) {
+            const parseableDate = new Date(currentSchedule);
+            if (!isNaN(parseableDate.getTime())) {
+                const localISO = new Date(parseableDate.getTime() - parseableDate.getTimezoneOffset() * 60000).toISOString();
+                visitInput.value = localISO.slice(0, 16);
+            } else {
+                visitInput.value = "";
+            }
+        } else {
+            visitInput.value = "";
+        }
+        
+        toggleScheduleField(currentStatus);
+        const editModal = document.getElementById('editModal');
+        if (editModal) editModal.classList.add('open');
+    }
+
+    function handleEditClick(button) {
+        const appId = button.getAttribute('data-id');
+        const currentStatus = button.getAttribute('data-status');
+        const currentSchedule = button.getAttribute('data-schedule') || button.getAttribute('data-return');
+        openEditModal(appId, currentStatus, currentSchedule);
+    }
+
+    function toggleScheduleField(statusValue) {
+        const visitGroup = document.getElementById('editVisitationGroup');
+        const visitInput = document.getElementById('editVisitationDate');
+        
+        if (!visitGroup || !visitInput) return;
+
+        if (statusValue === 'Visit Scheduled' || statusValue === 'Return Scheduled') {
+            visitGroup.style.display = 'block';
+            visitInput.required = true;
+        } else {
+            visitGroup.style.display = 'none';
+            visitInput.required = false;
+        }
+    }
+
+    function submitEditForm(e) {
+        e.preventDefault();
+        const appId = document.getElementById('editAppId').value;
+        const selectedStatus = document.getElementById('editStatus').value;
+        const rawDate = document.getElementById('editVisitationDate').value;
+        let extraData = {};
+
+        if (selectedStatus === 'Visit Scheduled' && rawDate) {
+            const dateObj = new Date(rawDate);
+            const options = { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' };
+            extraData.scheduleVisitation = dateObj.toLocaleDateString('en-US', options);
+        } else if (selectedStatus === 'Return Scheduled' && rawDate) {
+            const dateObj = new Date(rawDate);
+            const options = { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' };
+            extraData.scheduleReturn = dateObj.toLocaleDateString('en-US', options);
+        } else {
+            if (selectedStatus !== 'Visit Scheduled') extraData.scheduleVisitation = ""; 
+            if (selectedStatus !== 'Return Scheduled') extraData.scheduleReturn = ""; 
+        }
+
+        updateAppStatus(appId, selectedStatus, extraData);
+        closeModal('editModal');
+    }
+
+    function closeModal(modalId) {
+        const targetModal = document.getElementById(modalId);
+        if (targetModal) {
+            targetModal.classList.remove('open');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.format-date').forEach(el => {
+            const rawDate = el.getAttribute('data-date');
+            if (rawDate && rawDate !== 'None' && rawDate !== '') {
+                const dateObj = new Date(rawDate.replace(" ", "T"));
+                if (!isNaN(dateObj.getTime())) {
+                    el.textContent = dateObj.toLocaleDateString('en-US', { 
+                        month: 'long', 
+                        day: 'numeric', 
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                }
+            }
+        });
+    });
+</script>
+</body>
+</html>

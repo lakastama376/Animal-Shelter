@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support Our Mission - Donation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/donation.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+            {% if session.get('user') %}
+            <button class="btn-history" onclick="toggleSide(true)">
+                <span class="trigger-text">Donation History</span>
+                <span class="trigger-icon">📋</span>
+            </button>
+            {% endif %}
+            
+            <div class="header">
+                <div class="tagline">Make a Difference</div>
+                <h1>Support Our Mission</h1>
+                <p>Your generosity feeds, heals, and shelters animals in need. Every contribution — big or small — matters.</p>
+            </div>
+
+            <!--Monetary Donation-->
+            <div class="donation-container">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <h2>Cash Donation</h2>
+                            <p>Via GCash, Maya, QRPh or Bank Transfer</p>
+                        </div>
+                    </div>
+                    <div class="qr-display">
+                        <div class="qr-code" id="qrContainer">
+                            <span style="font-size: 0.8rem; color: #94a3b8;">Click Generate QR to scan with any banking app</span>
+                        </div>
+                        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 4px;">Tails of Freedom Animal Haven</h3>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Scan with GCash, Maya, or any InstaPay banking app</p>
+                        <div id="paymentStatusBadge"></div>
+                        <div class="amount-input">
+                            <input type="number" id="cashAmount" class="form-control" placeholder="Enter Amount (PHP)" value="100" min="1">
+                            <button type="button" class="btn-generate" onclick="generateQRPhCode()">Generate QR</button>
+                        </div>
+                    </div>
+                    <div class="info-list">
+                        <div class="info-item">
+                            <div class="info-item-left">
+                                <img src="{{ url_for('static', filename='Assets/Images/gcash-logo.png') }}" alt="GCash Logo" class="payment-logo">
+                                <div>
+                                    <div class="info-item-title">GCash</div>
+                                    <div class="info-item-sub">0936 995 8628</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-item-left">
+                                <img src="{{ url_for('static', filename='Assets/Images/maya-logo.webp') }}" alt="Maya Logo" class="payment-logo">
+                                <div>
+                                    <div class="info-item-title">PayMaya</div>
+                                    <div class="info-item-sub">0936 995 8628</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-item-left">
+                                <img src="{{ url_for('static', filename='Assets/Images/bpi-logo.webp') }}" alt="BPI Logo" class="payment-logo">
+                                <div>
+                                    <div class="info-item-title">BPI Bank Transfer</div>
+                                    <div class="info-item-sub">Account: 4059352798</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="notice-box">
+                        After donating via direct bank/wallet transfer, please send proof of payment to <strong>papeloniaaileen@gmail.com</strong> for recognition.
+                    </div>
+                </div>
+
+                <!--In-Kind Donation-->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <h2>In-Kind Donation</h2>
+                            <p>Donate supplies, food, medicine & more</p>
+                        </div>
+                    </div>
+                    <div class="category-grid">
+                        <div class="category-card active" onclick="selectCategory('Pet Food', this)">
+                            <div class="title">Pet Food</div>
+                            <div class="sub">Dry/wet food for dogs & cats</div>
+                        </div>
+                        <div class="category-card" onclick="selectCategory('Medicine', this)">
+                            <div class="title">Medicine</div>
+                            <div class="sub">Vaccines, dewormers, topical</div>
+                        </div>
+                        <div class="category-card" onclick="selectCategory('Supplies', this)">
+                            <div class="title">Supplies</div>
+                            <div class="sub">Cages, beds, leashes, bowls</div>
+                        </div>
+                        <div class="category-card" onclick="selectCategory('Other', this)">
+                            <div class="title">Other</div>
+                            <div class="sub">Blankets, towels, cleaning items</div>
+                        </div>
+                    </div>
+                    <form id="inkindForm" onsubmit="submitInKindDonation(event)">
+                        <input type="hidden" id="selectedCategory" value="Pet Food">
+                        <div class="form-group">
+                            <label>Your Name *</label>
+                            <input type="text" id="donorName" class="form-control" required 
+                                   value="{% if user_profile %}{{ user_profile.fullName }}{% endif %}">
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Number *</label>
+                            <input type="text" id="donorContact" class="form-control" placeholder="+63 917 000 0000" required
+                                   value="{% if user_profile %}{{ user_profile.phone }}{% endif %}">
+                        </div>
+                        <div class="form-group">
+                            <label>Preferred Schedule *</label>
+                            <input type="date" id="preferredDate" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Notes</label>
+                            <textarea id="donationNotes" class="form-control" placeholder="Describe what you'd like to donate..."></textarea>
+                        </div>
+                        <button type="submit" class="btn-submit">Submit Donation Request</button>
+                    </form>
+                </div>
+            </div>
+
+            <!--Donation Wall Section-->
+            <div class="donor-wall">
+                <div class="wall-header">
+                    <span class="wall-tagline">Hall of Kindness</span>
+                    <h2 class="wall-title">Our Donor Wall</h2>
+                    <p class="wall-subtitle">Honoring those who make our mission possible</p>
+                </div>
+                <div class="wall-banner">
+                    <h3 class="banner-title">Thank You, Amazing Supporters!</h3>
+                    <p class="banner-desc">Your generosity has helped us feed, heal, and home dozens of animals. Every peso counts.</p>
+                </div>
+                <div class="donor-grid" id="donorGrid">
+                    {% if donors %}
+                        {% for donor in donors %}
+                        <div class="donor-card" style="cursor: pointer;" onclick="openDonorMediaModal('{{ loop.index0 }}')">
+                            <div class="donor-card-top">
+                                <div class="donor-info">
+                                    {% if donor.photoURL %}
+                                        <img src="{{ donor.photoURL }}" alt="{{ donor.donorName }}" class="donor-avatar">
+                                    {% else %}
+                                        <div class="donor-avatar-placeholder">
+                                            <i class="fa-regular fa-user"></i>
+                                        </div>
+                                    {% endif %}
+                                    <div class="donor-details">
+                                        <div class="donor-name">{{ donor.donorName }}</div>
+                                        <div class="donor-date">{{ donor.date }}</div>
+                                    </div>
+                                </div>
+                                <div class="donor-badge badge-{{ (donor.badge or 'Supporter')|lower }}">
+                                    {% if donor.badge == 'Sponsor' %}
+                                        🏆 Sponsor
+                                    {% elif donor.badge == 'Hero' %}
+                                        🏅 Hero
+                                    {% else %}
+                                        ⭐ Supporter
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if donor.notes %}
+                            <div class="donor-quote">
+                                "{{ donor.notes }}"
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="no-donors-msg">
+                            Be the first supporter to feature on our Donor Wall!
+                        </div>
+                    {% endif %}
+                </div>
+            </div> 
+
+            <!--Modal View Donors-->
+            <div id="donor-modal" class="modal-overlay">
+                <div class="modal-card">
+                    <button class="close-btn" onclick="closeDonorMediaModal()">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <div class="donor-header">
+                        <div id="modal-avatar"></div>
+                        <div>
+                            <h3 id="modal-name"></h3>
+                            <span id="modal-date"></span>
+                        </div>
+                    </div>
+                    <p id="description"></p>
+                    <div class="carousel-container">
+                        <button class="carousel-nav-btn prev-btn" id="modal-prev-btn" onclick="changeDonorMedia(-1)">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <div id="media-gallery"></div>
+                        <button class="carousel-nav-btn next-btn" id="modal-next-btn" onclick="changeDonorMedia(1)">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--Donation History-->
+    {% if session.get('user') %}
+    <div class="side-overlay" id="sideOverlay" onclick="toggleSide(false)"></div>
+    <div class="history-side" id="historySide">
+        <div class="side-header">
+            <h3>Donation History</h3>
+            <button class="btn-close-side" onclick="toggleSide(false)">✕</button>
+        </div>
+        <div class="side-content" id="sideContent">
+            <span style="font-size: 0.85rem; color: var(--text-muted);">Loading transactions...</span>
+        </div>
+    </div>
+    {% endif %}
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    let pollTimer = null;
+    function selectCategory(category, element) {
+        document.querySelectorAll('.category-card').forEach(el => el.classList.remove('active'));
+        element.classList.add('active');
+        document.getElementById('selectedCategory').value = category;
+    }
+
+    function toggleSide(open) {
+        const side = document.getElementById('historySide');
+        const overlay = document.getElementById('sideOverlay');
+
+        if (!side || !overlay) return;
+        if (open) {
+            side.classList.add('open');
+            overlay.classList.add('open');
+            fetchTransactionHistory();
+        } else {
+            side.classList.remove('open');
+            overlay.classList.remove('open');
+        }
+    }
+
+    // Donation History
+    async function fetchTransactionHistory() {
+        const container = document.getElementById('sideContent');
+        if (!container) return; 
+
+        try {
+            const res = await fetch('/api/donation/history');
+            const data = await res.json();
+
+            if (res.status === 401) {
+                container.innerHTML = `<span style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">Please log in to view history.</span>`;
+                return;
+            }
+
+            if (data.status === 'success') {
+                if (data.history.length === 0) {
+                    container.innerHTML = `<span style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-top: 20px;">No transactions found yet.</span>`;
+                    return;
+                }
+
+            container.innerHTML = data.history.map(item => {
+                const isCash = item.type === 'cash';
+                const displayTitle = isCash ? 'Cash Donation' : `In-Kind (${item.category || 'General'})`;
+                const displayAmount = isCash ? `₱${parseFloat(item.amount).toLocaleString('en-US', {minimumFractionDigits: 2})}` : 'Item Supply';
+                const rawStatus = (item.status || '').toLowerCase();
+                let badgeClass = 'status-pending';
+                let displayStatus = item.status; 
+
+                if (rawStatus === 'succeeded' || rawStatus === 'completed' || rawStatus === 'received') {
+                    badgeClass = 'status-success';
+                    displayStatus = 'Received'; 
+                } else if (rawStatus === 'pending_schedule' || rawStatus === 'pending') {
+                    displayStatus = 'Pending';
+                }
+
+                return `
+                    <div class="history-card">
+                        <div class="history-card-top">
+                            <span class="history-type">${displayTitle}</span>
+                            <span class="history-amount">${displayAmount}</span>
+                        </div>
+                        <div class="history-card-meta">
+                            <span>${item.date}</span>
+                            <span class="status-badge ${badgeClass}">${displayStatus}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            } else {
+                container.innerHTML = `<span style="font-size: 0.85rem; color: #ef4444;">${data.message || 'Failed to load history'}</span>`;
+            }
+        } catch (err) {
+            container.innerHTML = `<span style="font-size: 0.85rem; color: #ef4444;">Error fetching history.</span>`;
+        }
+    }
+
+    // Generate QRPH
+    async function generateQRPhCode() {
+        const amount = document.getElementById('cashAmount').value;
+        const container = document.getElementById('qrContainer');
+        const statusBadge = document.getElementById('paymentStatusBadge');
+
+        if (!amount || amount < 1) {
+            alert('Please enter an amount of PHP 1 or higher.');
+            return;
+        }
+
+        container.innerHTML = `<span style="font-size: 0.85rem; color: #64748b;">Generating QR Code...</span>`;
+        statusBadge.innerHTML = '';
+
+        try {
+            const response = await fetch('/api/donation/qrph/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    amount: parseFloat(amount),
+                    donor_name: document.getElementById('donorName') ? document.getElementById('donorName').value : 'Anonymous'
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                container.innerHTML = `<img src="${data.qrCodeUrl}" alt="Scan QR Code to Pay">`;
+                statusBadge.innerHTML = `<span class="status-badge status-pending">Awaiting Payment...</span>`;
+
+                if (pollTimer) clearInterval(pollTimer);
+                pollTimer = setInterval(() => checkPaymentStatus(data.paymentIntentId), 3000);
+            } else {
+                container.innerHTML = `<span style="font-size: 0.85rem; color: #ef4444;">${data.message || 'Error creating QR'}</span>`;
+            }
+        } catch (err) {
+            container.innerHTML = `<span style="font-size: 0.85rem; color: #ef4444;">Failed to generate QR Code.</span>`;
+        }
+    }
+
+    async function checkPaymentStatus(intentId) {
+        try {
+            const res = await fetch(`/api/donation/qrph/status/${intentId}`);
+            const data = await res.json();
+
+            if (data.status === 'success' && data.paymentStatus === 'succeeded') {
+                clearInterval(pollTimer);
+                document.getElementById('paymentStatusBadge').innerHTML = 
+                    `<span class="status-badge status-success">✓ Payment Received! Thank you for your support.</span>`;
+            }
+        } catch (e) {
+            console.error("Status check failed", e);
+        }
+    }
+
+    // In Kind Donation
+    async function submitInKindDonation(event) {
+        event.preventDefault();
+
+        const payload = {
+            name: document.getElementById('donorName').value,
+            contact: document.getElementById('donorContact').value,
+            donation_type: document.getElementById('selectedCategory').value,
+            schedule: document.getElementById('preferredDate').value,
+            notes: document.getElementById('donationNotes').value
+        };
+
+        try {
+            const res = await fetch('/api/donation/in-kind', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await res.json();
+            if (result.status === 'success') {
+                alert('Thank you! Your donation request has been submitted.');
+                document.getElementById('inkindForm').reset();
+            } else {
+                alert(result.message || 'Error submitting request.');
+            }
+        } catch (err) {
+            alert('Server error. Please try again later.');
+        }
+    }
+
+    let donorDataList = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const response = await fetch('/api/donor-wall/all');
+            const result = await response.json();
+            if (result.status === 'success') {
+                donorDataList = result.data;
+            }
+        } catch (err) {
+            console.error('Error fetching donor wall data:', err);
+        }
+    });
+
+    // Donor Wall Modal
+    let currentModalMediaList = [];
+    let currentMediaIndex = 0;
+
+    function openDonorMediaModal(index) {
+        if (!donorDataList || !donorDataList[index]) {
+            console.warn('Donor data not loaded yet or invalid index');
+            return;
+        }
+
+        const donor = donorDataList[index];
+        const descriptionText = donor.notes || donor.description || donor.message || '';
+        document.getElementById('modal-name').innerText = donor.donorName || donor.name || 'Anonymous Donor';
+        document.getElementById('modal-date').innerText = donor.date || '';
+        
+        const descElement = document.getElementById('description');
+        if (descriptionText) {
+            descElement.innerText = `"${descriptionText}"`;
+            descElement.style.display = 'block';
+        } else {
+            descElement.innerText = '';
+            descElement.style.display = 'none';
+        }
+
+        const avatarContainer = document.getElementById('modal-avatar');
+        if (donor.photoURL) {
+            avatarContainer.innerHTML = `<img src="${donor.photoURL}" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover;">`;
+        } else {
+            avatarContainer.innerHTML = `<div style="width: 45px; height: 45px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center;"><i class="fa-regular fa-user"></i></div>`;
+        }
+
+        currentModalMediaList = donor.media || [];
+        currentMediaIndex = 0;
+        renderDonorMedia();
+
+        const modal = document.getElementById('donor-modal');
+        modal.style.display = 'flex';
+    }
+
+    function renderDonorMedia() {
+        const gallery = document.getElementById('media-gallery');
+        const prevBtn = document.getElementById('modal-prev-btn');
+        const nextBtn = document.getElementById('modal-next-btn');
+
+        if (!currentModalMediaList || currentModalMediaList.length === 0) {
+            gallery.innerHTML = '';
+            prevBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
+            return;
+        }
+        
+        const m = currentModalMediaList[currentMediaIndex];
+        gallery.innerHTML = `
+            <div style="border-radius: 12px; overflow: hidden; height: 350px; display: flex; align-items: center; justify-content: center;">
+                ${m.type === 'video'
+                    ? `<video src="${m.url}" controls style="max-width: 100%; max-height: 100%; object-fit: contain;"></video>`
+                    : `<img src="${m.url}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`
+                }
+            </div>
+        `;
+
+        if (currentModalMediaList.length > 1) {
+            prevBtn.style.display = 'flex';
+            nextBtn.style.display = 'flex';
+        } else {
+            prevBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
+        }
+    }
+
+    function changeDonorMedia(direction) {
+        if (!currentModalMediaList.length) return;
+        currentMediaIndex = (currentMediaIndex + direction + currentModalMediaList.length) % currentModalMediaList.length;
+        renderDonorMedia();
+    }
+
+    function closeDonorMediaModal() {
+        const modal = document.getElementById('donor-modal');
+        modal.style.display = 'none';
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adoption Application Form</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/application-form.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+    </style>
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+            <!--Side Profile-->
+            <div class="container">
+                <div class="side">
+                    <div class="card-sticky">
+                        {% if pet %}
+                            <img src="{{ pet.images[0] if pet.images else 'https://via.placeholder.com/300' }}" alt="Pet Image">
+                            <h3>{{ pet.petName }}</h3>
+                            <p>{{ pet.breed if pet.breed else 'Mixed Breed' }} &bull; {{ pet.age or 'Adult' }}</p>
+                            <div class="pet-meta-row"><i class="fa-solid fa-home" style="color: #f59e0b;"></i> Status: {{ pet.status }}</div>
+                            <div class="pet-meta-row"><i class="fa-solid fa-paw" style="color: #3b82f6;"></i> Rescue on: {{ pet.rescueDate if pet.rescueDate else 'Recent Date' }}</div>
+                            <div class="pet-meta-row"><i class="fa-solid fa-bolt" style="color: #ef4444;"></i> Activity: {{ pet.activityLevel or 'Medium' }}</div>
+                        {% else %}
+                            <img src="{{ url_for('static', filename='Assets/Images/logo.png') }}" alt="Generic Content Holder">
+                            <h3>Pet Adoption</h3>
+                            <p>Pre-evaluation verification baseline procedures.</p>
+                        {% endif %}
+                        <div class="requirements-box">
+                            <h4>Eligibility Requirements</h4>
+                            <ul>
+                                <li><i class="fa-solid fa-check"></i> Must have a stable source of income</li>
+                                <li><i class="fa-solid fa-check"></i> Must have a safe and suitable living environment</li>
+                                <li><i class="fa-solid fa-check"></i> Must not have a history of animal abuse</li>
+                                <li><i class="fa-solid fa-check"></i> Must agree to post-adoption monitoring for 4 weeks</li>
+                                <li><i class="fa-solid fa-check"></i> Must be willing to provide proper veterinary care</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!--Progress Timeline-->
+                <div class="main-column">
+                    <div class="timeline-tracker">
+                        <div class="step-wrapper completed-check">
+                            <div class="step-bubble">1</div>
+                            <div class="step-label">Eligibility</div>
+                            <div class="step-desc">Requirements check</div>
+                        </div>
+                        <div class="step-connector filled"></div>
+                        <div class="step-wrapper completed-check">
+                            <div class="step-bubble">2</div>
+                            <div class="step-label">Browse</div>
+                            <div class="step-desc">Choose your pet</div>
+                        </div>
+                        <div class="step-connector filled"></div>
+                        <div class="step-wrapper {% if success %}completed-check{% else %}active{% endif %}">
+                            <div class="step-bubble">3</div>
+                            <div class="step-label">Apply</div>
+                            <div class="step-desc">Submit application</div>
+                        </div>
+                        <div class="step-connector {% if success %}filled{% endif %}"></div>
+                        <div class="step-wrapper {% if success %}active{% endif %}">
+                            <div class="step-bubble">4</div>
+                            <div class="step-label">Review</div>
+                            <div class="step-desc">Admin reviews</div>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-wrapper">
+                            <div class="step-bubble">5</div>
+                            <div class="step-label">Visit</div>
+                            <div class="step-desc">Meet your pet</div>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-wrapper">
+                            <div class="step-bubble">6</div>
+                            <div class="step-label">Adopt</div>
+                            <div class="step-desc">Finalize adoption</div>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class="step-wrapper">
+                            <div class="step-bubble">7</div>
+                            <div class="step-label">Monitoring</div>
+                            <div class="step-desc">4-week check-in</div>
+                        </div>
+                    </div>
+
+                    <!--Application Submitted-->
+                    {% if success %}
+                    <div class="success-card">
+                        <div class="success-icon-wrap">
+                            <i class="fa-regular fa-circle-check"></i>
+                        </div>
+                        <h2>Application Submitted!</h2>
+                        <p class="success-msg">Your application for <strong>{{ pet.petName if pet else 'your chosen pet' }}</strong> has been received. Our team will review it within 3–5 days.</p>
+                        <div class="info-banner">
+                            <p><i class="fa-solid fa-envelope" style="color: #6366f1;"></i> A confirmation email has been sent to your registered address.</p>
+                            <p><i class="fa-solid fa-table-columns" style="color: #f59e0b;"></i> You can track your application status in your dashboard.</p>
+                        </div>
+                        <div class="action-btn-group">
+                            <a href="{{ url_for('dashboard_bp.dashboard_view') }}" class="btn-primary">Go to Dashboard</a>
+                            <a href="{{ url_for('pet_public_bp.pet_list') }}" class="btn-secondary">Browse More Pets</a>
+                        </div>
+                    </div>
+
+                    <!--Application Form-->
+                    {% else %}
+                    <form action="{{ url_for('adoption_form_bp.apply', pet_id=pet.id if pet else 'generic') }}" method="POST" enctype="multipart/form-data" class="form-card">
+                        <div class="form-section-title">Personal Information</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>First Name</label>
+                                <input type="text" name="first_name" value="{{ user_profile.firstName if user_profile else '' }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Last Name</label>
+                                <input type="text" name="last_name" value="{{ user_profile.lastName if user_profile else '' }}" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Age</label>
+                                <input type="number" name="age" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Contact Number</label>
+                                <input type="text" name="contact" value="{{ user_profile.phone if user_profile else '' }}" required>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label>Email Address</label>
+                            <input type="email" name="email" value="{{ user_profile.email if user_profile else '' }}" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label>Complete Home Address</label>
+                            <input type="text" name="address" value="{{ user_profile.address if user_profile else '' }}" required>
+                        </div>
+                        <div class="form-section-title">Living Situation</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Type of Home</label>
+                                <input type="text" name="type_of_home" placeholder="e.g. Apartment, House, Condo" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Home Ownership</label>
+                                <input type="text" name="home_ownership" placeholder="e.g. Owned, Rented" required>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label>Why do you want to adopt this pet?</label>
+                            <textarea name="reason_to_adopt" rows="4" required></textarea>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label>Describe your daily routine and how the pet fits in</label>
+                            <textarea name="daily_routine" rows="4" required></textarea>
+                        </div>
+                        <div class="form-section-title">Required Documents</div>
+                        <div class="upload-grid">
+                            <div class="upload-box" id="box-gov-id">
+                                <div class="upload-prompt">
+                                    <i class="fa-solid fa-id-card" style="color: #06b6d4;"></i>
+                                    <span>Click to upload a photo of your ID</span>
+                                </div>
+                                <div class="upload-preview" style="display: none;">
+                                    <div class="file-info-card">
+                                        <i class="fa-regular fa-file" style="color: #64748b;"></i>
+                                        <span class="file-details"><strong class="file-name"></strong> <span class="file-size"></span></span>
+                                        <i class="fa-solid fa-check success-icon"></i>
+                                        <button type="button" class="remove-file-btn" aria-label="Remove file">&times;</button>
+                                    </div>
+                                </div>
+                                <input type="file" name="government_id" id="input-gov-id" accept="image/*" required>
+                            </div>
+                            <div class="upload-box" id="box-proof-address">
+                                <div class="upload-prompt">
+                                    <i class="fa-solid fa-file-invoice" style="color: #3b82f6;"></i>
+                                    <span>Click to upload billing or barangay cert</span>
+                                </div>
+                                <div class="upload-preview" style="display: none;">
+                                    <div class="file-info-card">
+                                        <i class="fa-regular fa-file" style="color: #64748b;"></i>
+                                        <span class="file-details"><strong class="file-name"></strong> <span class="file-size"></span></span>
+                                        <i class="fa-solid fa-check success-icon"></i>
+                                        <button type="button" class="remove-file-btn" aria-label="Remove file">&times;</button>
+                                    </div>
+                                </div>
+                                <input type="file" name="proof_address" id="input-proof-address" accept="image/*,.pdf" required>
+                            </div>
+                        </div>
+                        <div class="notes">
+                            <i class="fa-solid fa-lock" style="color: #ea580c;"></i>
+                            <span><strong>Your Information is Safe & Private:</strong> We only use your ID and proof of address to verify your identity for pet safety.</span>
+                        </div>
+                        <button type="submit" class="submit-btn">Submit Application</button>
+                    </form>
+                    {% endif %}
+                </div> 
+            </div>
+        </div>
+    </div>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+    const setupUploadField = (boxId, inputId) => {
+        const box = document.getElementById(boxId);
+        const input = document.getElementById(inputId);
+        const prompt = box.querySelector(".upload-prompt");
+        const preview = box.querySelector(".upload-preview");
+        const fileNameSpan = box.querySelector(".file-name");
+        const fileSizeSpan = box.querySelector(".file-size");
+        const removeBtn = box.querySelector(".remove-file-btn");
+        input.addEventListener("change", function() {
+            if (input.files && input.files.length > 0) {
+                const file = input.files[0];
+                fileNameSpan.textContent = file.name;
+                const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+                fileSizeSpan.textContent = `(${sizeInMB} MB)`;
+                prompt.style.display = "none";
+                preview.style.display = "flex";
+                box.classList.add("has-file");
+            }
+        });
+        removeBtn.addEventListener("click", function(e) {
+            e.preventDefault();
+            e.stopPropagation(); 
+            input.value = "";
+            prompt.style.display = "block";
+            preview.style.display = "none";
+            box.classList.remove("has-file");
+        });
+    };
+    setupUploadField("box-gov-id", "input-gov-id");
+    setupUploadField("box-proof-address", "input-proof-address");
+});
+</script>
+</body>
+</html>

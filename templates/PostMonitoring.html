@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post Adoption Monitoring</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/post-monitoring.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+            <!--Side Profile-->
+            <div class="container">
+            <div class="side">
+                <div class="card-sticky side-card-sticky">
+                    {% if pet and pet.images is defined and pet.images|length > 0 %}
+                        <img src="{{ pet.images[0] }}" alt="Pet Image">
+                        <h3>{{ pet.petName }}</h3>
+                        <p>{{ pet.breed or 'Mixed Breed' }} &bull; {{ pet.age or 'Adult' }}</p>
+                        <div class="pet-meta-row"><i class="fa-solid fa-heart" style="color: #ef4444;"></i> Adopter: {{ application.firstName }} {{ application.lastName }}</div>
+                        <div class="pet-meta-row"><i class="fa-solid fa-calendar-check" style="color: #3b82f6;"></i> Commenced: {{ application.submittedAt.strftime('%B %d, %Y') if application.submittedAt and application.submittedAt.strftime else 'Recent Date' }}</div>
+                    {% elif pet %}
+                        <img src="https://via.placeholder.com/300" alt="Default Pet Image">
+                        <h3>{{ pet.petName or 'Your Pet' }}</h3>
+                        <p>{{ pet.breed or 'Mixed Breed' }} &bull; {{ pet.age or 'Adult' }}</p>
+                        <div class="pet-meta-row"><i class="fa-solid fa-heart" style="color: #ef4444;"></i> Adopter: {{ application.firstName }} {{ application.lastName }}</div>
+                    {% else %}
+                        <img src="{{ url_for('static', filename='Assets/Images/logo.png') }}" alt="Default logo">
+                        <h3>Pet Monitoring</h3>
+                        <p>Post-adoption care check-ins.</p>
+                    {% endif %}
+                    <div class="requirements-box">
+                        <h4>Monitoring Checklist</h4>
+                        <ul>
+                            <li><i class="fa-solid fa-pen-to-square"></i><span><strong>Status Update:</strong> Fill out details regarding your pet's dietary and behavioral adjustments.</span></li>
+                            <li><i class="fa-solid fa-camera"></i><span><strong>3 Clear Photos (Required):</strong> Show your pet close-up, their home setup, and one with you. (Max 5MB)</span></li>
+                            <li><i class="fa-solid fa-video"></i><span><strong>1 Video Update (Required):</strong> A short clip of your pet playing or walking. (Max 25MB WebM format)</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="main-column">
+                <div class="progress-card" style="margin-bottom: 16px; padding: 18px 24px;">
+                    <div class="app-selector-container">
+                        <div>
+                            <label for="appSelector" class="app-selector-label">Select Pet Application:</label>
+                            <select id="appSelector" class="form-control app-selector-dropdown">
+                                {% for app in eligible_apps %}
+                                    <option value="{{ app.id }}" {% if application and app.id == application.id %}selected{% endif %}>
+                                        {{ app.pet_details.name or app.petName }} (Application #{{ loop.index }})
+                                    </option>
+                                {% else %}
+                                    <option value="">No active applications</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!--Progress Tracker-->
+                {% if eligible_apps|length > 0 and application %}
+                    <div class="progress-card">
+                        <div class="progress-header">
+                            <h2>4-Week Monitoring Progress</h2>
+                            <span class="progress-badge">{{ completed_count }} of 4 weeks complete</span>
+                        </div>
+                        <div class="progress-tracker-line">
+                            {% for w in weeks %}
+                            <div class="progress-node {% if w.is_submitted %}done{% elif w.is_overdue %}overdue{% elif w.number == active_week %}active{% endif %}">
+                                <div class="node-bubble">
+                                    {% if w.is_submitted %}
+                                        <i class="fa-solid fa-check"></i>
+                                    {% elif w.is_overdue %}
+                                        <i class="fa-solid fa-exclamation"></i>
+                                    {% else %}
+                                        {{ w.number }}
+                                    {% endif %}
+                                </div>
+                                <span class="node-label">Week {{ w.number }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!--Monitoring Check-in-->
+                    <div class="monitoring-grid">
+                        <div>
+                            {% if active_week <= 4 and weeks|length >= active_week %}
+                                {% set current_week = weeks[active_week - 1] %}
+                                {% if current_week.can_submit %}
+                                    <form id="monitoringUpdateForm" action="{{ url_for('monitoring_bp.submit_week_update', application_id=application.id, week_number=active_week) }}" method="POST" enctype="multipart/form-data" class="form-card form-update-card">
+                                        <div class="form-section-title form-update-title">
+                                            Week {{ active_week }} Update
+                                            {% if current_week.is_overdue %}
+                                                <span style="color: #ef4444; font-size: 13px; font-weight: 600; margin-left: 8px;">(Overdue)</span>
+                                            {% endif %}
+                                        </div>
+                                        {% if current_week.is_overdue %}
+                                            <div style="background-color: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px;">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> <strong>Notice:</strong> This update was due on <strong>{{ current_week.due_date }}</strong>. Please complete and submit your monitoring report as soon as possible.
+                                            </div>
+                                        {% else %}
+                                            <p class="form-update-due">Due by: <strong>{{ current_week.due_date }}</strong></p>
+                                        {% endif %}
+                                        <div class="form-group form-group-spaced">
+                                            <label>Weekly Update *</label>
+                                            <textarea name="weekly_update" rows="5" placeholder="How is your pet adjusting? Any changes in behavior, health, or routine?" required></textarea>
+                                        </div>
+                                        <div class="form-group form-group-spaced">
+                                            <label>Monitoring Check-in</label>
+                                            <button type="button" class="submit-btn btn-launch-camera" id="btn-open-camera-modal">
+                                                <i class="fa-solid fa-video"></i> Launch Live Photo/Video Capture
+                                            </button>
+                                        </div>
+                                        <input type="file" name="update_photos" id="input-monitoring-photos" accept="image/jpeg" multiple style="display: none;">
+                                        <input type="file" name="update_videos" id="input-monitoring-videos" accept="video/webm,video/mp4" style="display: none;">
+                                        <div id="staged-media-section" style="margin-bottom: 20px; display: none;">
+                                            <label class="staged-media-title">Media Attachments:</label>
+                                            <div class="upload-preview-list" id="main-photo-previews"></div>
+                                            <div class="upload-preview-list" id="main-video-previews"></div>
+                                        </div>
+                                        <div class="divider"></div>
+                                        <button type="submit" class="submit-btn" style="margin-top: 20px;">Submit Week {{ active_week }} Update</button>
+                                    </form>
+                                {% else %}
+                                    <div class="form-card" style="text-align: center; padding: 32px 20px;">
+                                        <div style="font-size: 40px; color: #64748b; margin-bottom: 12px;">
+                                            <i class="fa-solid fa-lock"></i>
+                                        </div>
+                                        <h3 style="margin-bottom: 8px;">Week {{ active_week }} Check-in Locked</h3>
+                                        <p style="color: #64748b; font-size: 14px; margin-bottom: 16px;">
+                                            Your previous update has been received! Each weekly check-in unlocks at regular 7-day intervals from your commencement date.
+                                        </p>
+                                        <div style="display: inline-block; background-color: #f1f5f9; padding: 10px 18px; border-radius: 20px; font-weight: 600; color: #334155; font-size: 13px;">
+                                            <i class="fa-regular fa-clock"></i> Unlocks on: {{ current_week.unlock_date }}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% else %}
+                                <div class="success-card success-completed-card">
+                                    <div class="success-icon-wrap success-completed-icon">
+                                        <i class="fa-regular fa-circle-check"></i>
+                                    </div>
+                                    <h3>All Check-ins Completed!</h3>
+                                    <p class="success-msg success-completed-text">Thank you for successfully updating us on your pet's adoption progress. Your monitoring sequence is fully finalized!</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!--Monitoring History-->
+                        <div class="history-card">
+                            <h3>Update History</h3>
+                            {% if completed_count > 0 %}
+                                {% for w in weeks %}
+                                    {% if w.is_submitted %}
+                                    <div class="history-item">
+                                        <div class="history-meta">
+                                            <span class="history-week">Week {{ w.number }}</span>
+                                            <span class="history-date" style="color: var(--success-green);"><i class="fa-regular fa-circle-check"></i> Submitted</span>
+                                        </div>
+                                        <p class="history-text">{{ w.data.text }}</p>
+                                        {% if w.data.photoUrls or w.data.videoUrls %}
+                                            <div style="margin-top: 8px; font-size: 12px; color: #64748b;">
+                                                <i class="fa-solid fa-paperclip"></i> Media Attached: 
+                                                {{ (w.data.photoUrls|length if w.data.photoUrls else 0) }} Photo(s), 
+                                                {{ (w.data.videoUrls|length if w.data.videoUrls else 0) }} Video(s)
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <p style="font-size: 13px; color: #94a3b8; text-align: center; margin-top: 32px;">No updates submitted yet.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="success-card-empty-grid">
+                        <div class="success-card-empty-icon">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </div>
+                        <h3>No Active Monitoring Programs</h3>
+                        <p class="success-card-empty-p">You don't have any finalized adoptions undergoing tracking updates right now.</p>
+                    </div>
+                {% endif %}
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!--Live Camera Modal-->
+    <div class="modal-backdrop" id="camera-modal-backdrop">
+        <div class="camera-modal">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-circle-dot" style="color: red; animation: pulse 1s infinite;"></i> Live Media Recorder</h3>
+                <button type="button" class="btn-close-modal" id="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="camera-mode-toggle">
+                    <button type="button" class="toggle-btn active" id="toggle-photo-mode">
+                        <i class="fa-solid fa-camera"></i> Take Photo
+                    </button>
+                    <button type="button" class="toggle-btn" id="toggle-video-mode">
+                        <i class="fa-solid fa-video"></i> Record Video
+                    </button>
+                </div>
+                <div class="camera-container">
+                    <div class="video-timer" id="video-timer-badge">
+                        <div class="timer-dot"></div>
+                        <span id="timer-display">00:00</span>
+                    </div>
+                    <video id="live-stream-feed" playsinline autoplay muted></video>
+                    <img id="modal-photo-preview" style="display: none;" alt="Snapshot Preview">
+                    <div class="camera-controls">
+                        <div id="photo-controls-group" style="display: flex; align-items: center; gap: 16px;">
+                            <button type="button" class="cam-btn-circle action-capture" id="btn-snap-photo" title="Capture Snapshot">
+                                <i class="fa-solid fa-circle"></i>
+                            </button>
+                            <button type="button" class="cam-btn-circle action-refresh" id="btn-retake-snap" style="display: none;" title="Retake Snapshot">
+                                <i class="fa-solid fa-rotate"></i>
+                            </button>
+                        </div>
+                        <div id="video-controls-group" style="display: none; align-items: center; gap: 16px;">
+                            <button type="button" class="cam-btn-circle action-capture" id="btn-start-record" title="Start Recording">
+                                <i class="fa-solid fa-circle"></i>
+                            </button>
+                            <button type="button" class="cam-btn-circle action-pause" id="btn-pause-record" style="display: none;" title="Pause Recording">
+                                <i class="fa-solid fa-pause"></i>
+                            </button>
+                            <button type="button" class="cam-btn-circle action-stop" id="btn-stop-record" style="display: none;" title="Stop Recording">
+                                <i class="fa-solid fa-stop"></i>
+                            </button>
+                        </div>
+                        <button type="button" class="cam-btn-circle action-save" id="btn-save-to-device" style="display: none;" title="Add to Submission">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="error-message" id="modal-error-photos">This photo exceeds the 5MB size limit.</div>
+                <div class="error-message" id="modal-error-videos">This video exceeds the 25MB size limit.</div>
+            </div>
+        </div>
+    </div>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        let activeStream = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let capturedPhotos = [];
+        let capturedVideos = [];
+        let tempFile = null; 
+        let timerInterval = null;
+        let totalSeconds = 0;
+
+        const modalBackdrop = document.getElementById('camera-modal-backdrop');
+        const btnOpenModal = document.getElementById('btn-open-camera-modal');
+        const btnCloseModal = document.getElementById('btn-close-modal');
+        const togglePhoto = document.getElementById('toggle-photo-mode');
+        const toggleVideo = document.getElementById('toggle-video-mode');
+        const photoGroup = document.getElementById('photo-controls-group');
+        const videoGroup = document.getElementById('video-controls-group');
+        const liveFeed = document.getElementById('live-stream-feed');
+        const photoPreview = document.getElementById('modal-photo-preview');
+        const btnSnapPhoto = document.getElementById('btn-snap-photo');
+        const btnRetakeSnap = document.getElementById('btn-retake-snap');
+        const btnStartRecord = document.getElementById('btn-start-record');
+        const btnPauseRecord = document.getElementById('btn-pause-record');
+        const btnStopRecord = document.getElementById('btn-stop-record');
+        const btnSaveToDevice = document.getElementById('btn-save-to-device');
+        const photoInput = document.getElementById('input-monitoring-photos');
+        const videoInput = document.getElementById('input-monitoring-videos');
+        const mainPhotoPreviewList = document.getElementById('main-photo-previews');
+        const mainVideoPreviewList = document.getElementById('main-video-previews');
+        const stagedMediaSection = document.getElementById('staged-media-section');
+        const errPhoto = document.getElementById('modal-error-photos');
+        const errVideo = document.getElementById('modal-error-videos');
+        const videoTimerBadge = document.getElementById('video-timer-badge');
+        const timerDisplay = document.getElementById('timer-display');
+        const monitoringForm = document.getElementById('monitoringUpdateForm');
+
+        let currentMode = 'photo'; 
+        if (btnOpenModal) {
+            btnOpenModal.addEventListener('click', async function() {
+                modalBackdrop.style.display = 'flex';
+                tempFile = null;
+                resetModalStates();
+                await startCamera();
+            });
+        }
+        if (btnCloseModal) {
+            btnCloseModal.addEventListener('click', function() {
+                modalBackdrop.style.display = 'none';
+                stopCamera();
+            });
+        }
+        async function startCamera() {
+            try {
+                activeStream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: { width: 640, height: 480 }
+                });
+                liveFeed.srcObject = activeStream;
+                liveFeed.style.display = 'block';
+            } catch (err) {
+                console.error("Camera access failed:", err);
+                alert("Unable to access local camera devices.");
+            }
+        }
+        function stopCamera() {
+            if (activeStream) {
+                activeStream.getTracks().forEach(track => track.stop());
+                activeStream = null;
+            }
+            stopTimer();
+        }
+
+        function resetModalStates() {
+            photoPreview.style.display = 'none';
+            liveFeed.style.display = 'block';
+            btnSnapPhoto.style.display = 'inline-flex';
+            btnRetakeSnap.style.display = 'none';
+            btnStartRecord.style.display = 'inline-flex';
+            btnPauseRecord.style.display = 'none';
+            btnStopRecord.style.display = 'none';
+            btnSaveToDevice.style.display = 'none';
+            errPhoto.style.display = 'none';
+            errVideo.style.display = 'none';
+            stopTimer();
+            btnStartRecord.className = "cam-btn-circle action-capture";
+            btnStartRecord.title = "Start Recording";
+            btnStartRecord.innerHTML = '<i class="fa-solid fa-circle"></i>';
+        }
+        
+        togglePhoto.addEventListener('click', function() {
+            if (currentMode === 'photo') return;
+            currentMode = 'photo';
+            togglePhoto.classList.add('active');
+            toggleVideo.classList.remove('active');
+            photoGroup.style.display = 'flex';
+            videoGroup.style.display = 'none';
+            tempFile = null;
+            resetModalStates();
+        });
+
+        toggleVideo.addEventListener('click', function() {
+            if (currentMode === 'video') return;
+            currentMode = 'video';
+            toggleVideo.classList.add('active');
+            togglePhoto.classList.remove('active');
+            videoGroup.style.display = 'flex';
+            photoGroup.style.display = 'none';
+            tempFile = null;
+            resetModalStates();
+        });
+
+        function startTimer() {
+            totalSeconds = 0;
+            timerDisplay.textContent = "00:00";
+            videoTimerBadge.style.display = 'flex';
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                totalSeconds++;
+                const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+                const seconds = String(totalSeconds % 60).padStart(2, '0');
+                timerDisplay.textContent = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            videoTimerBadge.style.display = 'none';
+        }
+
+        function pauseTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        function resumeTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                totalSeconds++;
+                const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+                const seconds = String(totalSeconds % 60).padStart(2, '0');
+                timerDisplay.textContent = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        // Photo Capture
+        btnSnapPhoto.addEventListener('click', function() {
+            const canvas = document.createElement('canvas');
+            canvas.width = liveFeed.videoWidth || 640;
+            canvas.height = liveFeed.videoHeight || 480;
+            canvas.getContext('2d').drawImage(liveFeed, 0, 0, canvas.width, canvas.height);
+            
+            canvas.toBlob((blob) => {
+                const file = new File([blob], `live_snapshot_${Date.now()}.jpg`, { type: "image/jpeg" });
+                const currentTotalSize = capturedPhotos.reduce((sum, f) => sum + f.size, 0);
+                if (currentTotalSize + file.size > 5 * 1024 * 1024) {
+                    errPhoto.textContent = "Adding this photo would exceed the cumulative 5MB limit.";
+                    errPhoto.style.display = 'block';
+                    return;
+                }
+                
+                errPhoto.style.display = 'none';
+                tempFile = file;
+                photoPreview.src = URL.createObjectURL(blob);
+                liveFeed.style.display = 'none';
+                photoPreview.style.display = 'block';
+                btnSnapPhoto.style.display = 'none';
+                btnRetakeSnap.style.display = 'inline-flex';
+                btnSaveToDevice.style.display = 'inline-flex';
+            }, 'image/jpeg');
+        });
+
+        btnRetakeSnap.addEventListener('click', function() {
+            tempFile = null;
+            photoPreview.style.display = 'none';
+            liveFeed.style.display = 'block';
+            btnSnapPhoto.style.display = 'inline-flex';
+            btnRetakeSnap.style.display = 'none';
+            btnSaveToDevice.style.display = 'none';
+        });
+
+        // Recording
+        btnStartRecord.addEventListener('click', function() {
+            if (btnStartRecord.classList.contains('action-refresh')) {
+                tempFile = null;
+                resetModalStates();
+                return;
+            }
+
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(activeStream, { mimeType: 'video/webm' });
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                stopTimer();
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const file = new File([blob], `live_video_${Date.now()}.webm`, { type: "video/webm" });
+                const currentTotalSize = capturedVideos.reduce((sum, f) => sum + f.size, 0);
+                if (currentTotalSize + file.size > 25 * 1024 * 1024) {
+                    errVideo.textContent = "Adding this video would exceed the cumulative 25MB limit.";
+                    errVideo.style.display = 'block';
+                    return;
+                }
+                
+                errVideo.style.display = 'none';
+                tempFile = file;
+                btnSaveToDevice.style.display = 'inline-flex';
+            };
+            mediaRecorder.start();
+            startTimer(); 
+
+            btnStartRecord.style.display = 'none';
+            btnPauseRecord.style.display = 'inline-flex';
+            btnPauseRecord.innerHTML = '<i class="fa-solid fa-pause"></i>';
+            btnPauseRecord.title = "Pause Recording";
+            btnStopRecord.style.display = 'inline-flex';
+        });
+
+        btnPauseRecord.addEventListener('click', function() {
+            if (!mediaRecorder) return;
+
+            if (mediaRecorder.state === "recording") {
+                mediaRecorder.pause();
+                pauseTimer();
+                btnPauseRecord.innerHTML = '<i class="fa-solid fa-play"></i>';
+                btnPauseRecord.title = "Resume Recording";
+            } else if (mediaRecorder.state === "paused") {
+                mediaRecorder.resume();
+                resumeTimer();
+                btnPauseRecord.innerHTML = '<i class="fa-solid fa-pause"></i>';
+                btnPauseRecord.title = "Pause Recording";
+            }
+        });
+
+        btnStopRecord.addEventListener('click', function() {
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+            }
+            btnStopRecord.style.display = 'none';
+            btnPauseRecord.style.display = 'none';
+            btnStartRecord.style.display = 'inline-flex';
+            btnStartRecord.className = "cam-btn-circle action-refresh";
+            btnStartRecord.title = "Retake Video";
+            btnStartRecord.innerHTML = '<i class="fa-solid fa-rotate"></i>';
+        });
+
+        btnSaveToDevice.addEventListener('click', function() {
+            if (!tempFile) {
+                alert("Please capture a photo or record a video first.");
+                return;
+            }
+
+            if (currentMode === 'photo') {
+                capturedPhotos.push(tempFile);
+                updateInputFiles(photoInput, capturedPhotos);
+                renderStatusList(mainPhotoPreviewList, capturedPhotos, 'photo');
+            } else {
+                capturedVideos.push(tempFile);
+                updateInputFiles(videoInput, capturedVideos);
+                renderStatusList(mainVideoPreviewList, capturedVideos, 'video');
+            }
+
+            stagedMediaSection.style.display = 'block';
+            tempFile = null;
+            resetModalStates();
+        });
+
+        function updateInputFiles(inputElement, fileArray) {
+            const dataTransfer = new DataTransfer();
+            fileArray.forEach(file => dataTransfer.items.add(file));
+            inputElement.files = dataTransfer.files;
+        }
+
+        function renderStatusList(targetContainer, fileArray, type) {
+            if (fileArray.length === 0) {
+                targetContainer.innerHTML = '';
+                targetContainer.style.display = 'none';
+                return;
+            }
+
+            targetContainer.innerHTML = fileArray.map((file, index) => `
+                <div class="preview-file-item" data-index="${index}">
+                    <span>
+                        <i class="fa-regular ${type === 'photo' ? 'fa-image' : 'fa-solid fa-video'}" style="color: var(--orange-primary);"></i> 
+                        ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)
+                    </span>
+                    <div class="preview-actions">
+                        <button type="button" class="remove-file-btn" data-index="${index}">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            targetContainer.querySelectorAll('.remove-file-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const idx = parseInt(this.getAttribute('data-index'));
+                    
+                    if (type === 'photo') {
+                        capturedPhotos.splice(idx, 1);
+                        updateInputFiles(photoInput, capturedPhotos);
+                        renderStatusList(targetContainer, capturedPhotos, 'photo');
+                    } else {
+                        capturedVideos.splice(idx, 1);
+                        updateInputFiles(videoInput, capturedVideos);
+                        renderStatusList(targetContainer, capturedVideos, 'video');
+                    }
+
+                    if (capturedPhotos.length === 0 && capturedVideos.length === 0) {
+                        stagedMediaSection.style.display = 'none';
+                    }
+                });
+            });
+            targetContainer.style.display = 'flex';
+        }
+
+        if (monitoringForm) {
+            monitoringForm.addEventListener('submit', function(event) {
+                const photoCount = capturedPhotos.length;
+                const videoCount = capturedVideos.length;
+                let validationErrors = [];
+
+                if (photoCount < 3) {
+                    validationErrors.push(`You have staged ${photoCount} photo(s). At least 3 photos are required.`);
+                }
+
+                if (videoCount < 1) {
+                    validationErrors.push(`You have staged ${videoCount} video(s). At least 1 video is required.`);
+                }
+
+                if (validationErrors.length > 0) {
+                    event.preventDefault(); 
+                    alert("Submission Checklist Failed:\n\n" + validationErrors.join("\n"));
+                }
+            });
+        }
+
+        const appSelector = document.getElementById("appSelector");
+        if (appSelector) {
+            appSelector.addEventListener("change", function() {
+                window.location.href = "{{ url_for('monitoring_bp.monitoring_view') }}?app_id=" + this.value;
+            });
+        }
+    });
+</script>
+</body>
+</html>

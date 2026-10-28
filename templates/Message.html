@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messages - Tails of Freedom</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/message.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+            <div class="header">
+                <h1>Messages</h1>
+                <p>Your conversations with the Tails of Freedom team</p>
+            </div>
+
+            <!--Chat History-->
+            <div class="messaging-container" id="messagingContainer">
+                <div class="chat-sidebar">
+                    <div class="chat-sidebar-header">
+                        <span>Conversations</span>
+                        {% if user_role != 'admin' %}
+                            <button class="btn-new-chat" onclick="AdminChat()">+ Shelter Chat</button>
+                        {% endif %}
+                    </div>
+                    <div class="conversation-list" id="conversationsContainer"></div>
+                </div>
+
+                <!--Chat Panel-->
+                <div class="chat-area" id="chatArea"></div>
+            </div>
+        </div>
+    </div>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    let activeConversationId = null;
+    let messagePollingInterval = null;
+    let conversationPollingInterval = null;
+    const currentUserId = "{{ session['user']['uid'] if session.get('user') else '' }}";
+    const currentUserRole = "{{ user_role if user_role else 'user' }}"; 
+
+    async function loadConversations(autoSelectId = null, preserveActive = true) {
+        try {
+            const res = await fetch('/api/conversations');
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                const container = document.getElementById('conversationsContainer');
+                const scrollPos = container.scrollTop;
+                container.innerHTML = '';
+
+                if (data.conversations.length === 0) {
+                    container.innerHTML = `<div style="padding: 20px; color: #94a3b8; font-size: 13px;">No conversations yet.</div>`;
+                    renderEmptyState();
+                    return;
+                }
+
+                let targetConv = null;
+                data.conversations.forEach((c) => {
+                    if (activeConversationId === c.id) {
+                        c.unread = false;
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = `conv-card ${activeConversationId === c.id ? 'active' : ''}`;
+                    card.setAttribute('data-id', c.id);
+                    card.onclick = () => selectConversation(c, card);
+                    let avatarHtml = '';
+                    if (c.photoURL) {
+                        avatarHtml = `<img class="avatar" src="${c.photoURL}" alt="Profile" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">`;
+                    } else if (c.displayName === 'Tails of Freedom Admin') {
+                        avatarHtml = `<div class="avatar">TF</div>`;
+                    } else {
+                        avatarHtml = `<div class="avatar"><i class="fa-regular fa-user"></i></div>`;
+                    }
+                    
+                    card.innerHTML = `
+                        ${avatarHtml}
+                        <div class="conv-info">
+                            <div class="conv-top">
+                                <span class="conv-name">${c.displayName || c.title || 'Tails of Freedom Admin'}</span>
+                                <span class="conv-date">${c.formattedDate || ''}</span>
+                            </div>
+                            <div class="conv-title">${c.subject || 'Application Update'}</div>
+                            <div class="conv-snippet">${c.lastMessage || 'No messages yet...'}</div>
+                            ${c.tag ? `<span class="badge">${c.tag}</span>` : ''}
+                        </div>
+                        ${c.unread ? '<div class="unread-dot"></div>' : ''}
+                    `;
+                    container.appendChild(card);
+
+                    if (autoSelectId && c.id === autoSelectId) {
+                        targetConv = c;
+                    }
+                });
+                container.scrollTop = scrollPos;
+            }
+        } catch (e) {
+            console.error("Error loading conversations:", e);
+        }
+    }
+
+    function isMobileView() {
+        return window.innerWidth <= 768;
+    }
+
+    function renderEmptyState() {
+        const chatArea = document.getElementById('chatArea');
+
+        if (currentUserRole === 'admin') {
+            chatArea.innerHTML = `
+                <div class="empty-state">
+                    <span class="sub-label">Inbox Empty</span>
+                    <h2>No Active Messages</h2>
+                    <p>There are currently no user inquiries or active conversations to display.</p>
+                </div>
+            `;
+            return;
+        }
+
+        chatArea.innerHTML = `
+            <div class="empty-state">
+                <span class="sub-label">Get In Touch</span>
+                <h2>Contact the Shelter</h2>
+                <p>Have a question or concern? We'd love to hear from you.</p>
+                <button class="btn-chat-admin" onclick="AdminChat()">Chat Shelter Directly</button>
+            </div>
+        `;
+    }
+
+    // Admin Directly Chat
+    async function AdminChat() {
+        try {
+            const res = await fetch('/api/conversations/admin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const data = await res.json();  
+            if (data.status === 'success') {
+                await loadConversations(data.conversation.id, false);
+
+                if (isMobileView()) {
+                    selectConversation(data.conversation);
+                }
+            }
+        } catch (e) {
+            console.error("Error starting admin conversation:", e);
+        }
+    }
+
+    function renderChatLayout(conv) {
+        const chatArea = document.getElementById('chatArea');
+        let headerAvatarHtml = '';
+        if (conv.photoURL) {
+            headerAvatarHtml = `<img class="avatar" src="${conv.photoURL}" alt="Profile" style="object-fit: cover;">`;
+        } else if (conv.displayName === 'Tails of Freedom Admin') {
+            headerAvatarHtml = `<div class="avatar" id="activeAvatar">TF</div>`;
+        } else {
+            headerAvatarHtml = `<div class="avatar" id="activeAvatar"><i class="fa-regular fa-user"></i></div>`;
+        }
+
+        chatArea.innerHTML = `
+            <div class="chat-header">
+                <button class="back-btn" onclick="closeMobileChat()" aria-label="Back to conversations">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                    </svg>
+                </button>
+                ${headerAvatarHtml}
+                <div class="chat-header-info">
+                    <h2 id="activeName">${conv.displayName || conv.title || 'Tails of Freedom Admin'}</h2>
+                    <p id="activeSub">${conv.subject || 'General Inquiry'}</p>
+                </div>
+            </div>
+            <div class="messages-wrapper" id="messagesContainer"></div>
+            <form class="chat-footer" id="chatForm">
+                <input type="text" class="input-box" id="messageInput" placeholder="Type a message..." required autocomplete="off">
+                <button type="submit" class="send-btn" aria-label="Send message">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                </button>
+            </form>
+        `;
+        document.getElementById('chatForm').addEventListener('submit', handleSend);
+    }
+
+    async function selectConversation(conv, element) {
+        activeConversationId = conv.id;
+        renderChatLayout(conv);
+        const messagingContainer = document.getElementById('messagingContainer');
+        messagingContainer.classList.add('mobile-chat-active');
+        const cardElement = element || document.querySelector(`.conv-card[data-id="${conv.id}"]`);
+
+        if (cardElement) {
+            document.querySelectorAll('.conv-card').forEach(el => el.classList.remove('active'));
+            cardElement.classList.add('active');
+            const dot = cardElement.querySelector('.unread-dot');
+            if (dot) {
+                dot.remove();
+            }
+        }
+
+        const navDot = document.getElementById('navUnreadDot');
+        if (navDot) navDot.remove();
+
+        try {
+            await fetch(`/api/conversations/${conv.id}/read`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (e) {
+            console.error("Error marking conversation as read:", e);
+        }
+        
+        await loadMessages(conv.id);
+    }
+
+    function closeMobileChat() {
+        const messagingContainer = document.getElementById('messagingContainer');
+        messagingContainer.classList.remove('mobile-chat-active');
+        document.querySelectorAll('.conv-card').forEach(el => el.classList.remove('active'));
+        activeConversationId = null;
+    }
+
+    async function loadMessages(convId, silent = false) {
+        if (!activeConversationId || activeConversationId !== convId) return;
+        try {
+            const res = await fetch(`/api/conversations/${convId}/messages`);
+            const data = await res.json();
+
+            if (data.status === 'success') {
+                const container = document.getElementById('messagesContainer');
+                if (!container) return;
+                
+                const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100;
+
+                const currentChildCount = container.children.length;
+                if (!silent || currentChildCount !== data.messages.length) {
+                    container.innerHTML = '';
+                    data.messages.forEach(msg => {
+                        const isOutgoing = msg.senderId === currentUserId;
+                        const row = document.createElement('div');
+                        row.className = `message-bubble-row ${isOutgoing ? 'outgoing' : 'incoming'}`;
+                        row.innerHTML = `
+                            <div class="bubble">${msg.text}</div>
+                            <div class="timestamp">${msg.formattedTime || ''}</div>
+                        `;
+                        container.appendChild(row);
+                    });
+
+                    if (!silent || isAtBottom) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Error loading messages:", e);
+        }
+    }
+
+    // Send Message
+    async function handleSend(e) {
+        e.preventDefault();
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+
+        if (!text || !activeConversationId) return;
+        input.value = '';
+        const container = document.getElementById('messagesContainer');
+        if (container) {
+            const row = document.createElement('div');
+            row.className = `message-bubble-row outgoing`;
+            row.innerHTML = `
+                <div class="bubble">${text}</div>
+                <div class="timestamp">Just now</div>
+            `;
+            container.appendChild(row);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        try {
+            const res = await fetch(`/api/conversations/${activeConversationId}/send`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+
+            if (res.ok) {
+                loadMessages(activeConversationId, true);
+            }
+        } catch (e) {
+            console.error("Error sending message:", e);
+        }
+    }
+    window.addEventListener('resize', () => {
+        if (!isMobileView()) {
+            document.getElementById('messagingContainer').classList.remove('mobile-chat-active');
+        }
+    });
+    setInterval(() => {
+        loadConversations(activeConversationId, true);
+        if (activeConversationId) {
+            loadMessages(activeConversationId, true);
+        }
+    }, 3000);
+
+    loadConversations();
+</script>
+</body>
+</html>

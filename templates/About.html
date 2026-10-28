@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About - Tails of Freedom</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/about.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div id="app" data-is-admin="{{ 'true' if is_admin else 'false' }}"></div>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <main class="content">
+
+        <section class="hero-section container-sm">
+            <span class="section-subtitle">Our Story</span>
+            <h1 class="section-title hero-title">About Tails of Freedom</h1>
+            <p class="hero-description">
+                Founded in 2019 in Silang, Cavite, we have dedicated nearly a decade to rescuing, rehabilitating, and rehoming animals in need across the Philippines.
+            </p>
+        </section>
+
+        <!--Mission Section-->
+        <section class="mission-section container-lg">
+            <div class="mission-grid">
+                <div class="mission-wrapper">
+                    <div class="mission-image">
+                        <img src="{{ url_for('static', filename='Assets/Images/about.jpg') }}" alt="Adopted Cat">
+                        <div class="stat-badge">
+                            <span class="stat-number">{{ stats.rehomed }}</span>
+                            <span class="stat-label">Animals Rehomed</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="mission-content">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <span class="section-subtitle" style="margin-bottom: 0;">{{ mission.subtitle or 'Our Mission' }}</span>
+                        {% if is_admin %}
+                        <button onclick="openEditMissionModal()" class="btn-icon" title="Edit Mission Section">
+                            <i data-lucide="edit-3" style="width: 1rem; height: 1rem;"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                    <h2 class="section-title">{{ mission.title }}</h2>
+                    <p>{{ mission.paragraph }}</p>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-val">{{ stats.stat1_val }}</div>
+                            <div class="stat-labels">{{ stats.stat1_label }}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-val">{{ stats.stat2_val }}</div>
+                            <div class="stat-labels">{{ stats.stat2_label }}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-val">{{ stats.stat3_val }}</div>
+                            <div class="stat-labels">{{ stats.stat3_label }}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-val">{{ stats.stat4_val }}</div>
+                            <div class="stat-labels">{{ stats.stat4_label }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!--Values Section-->
+        <section class="values-section">
+            <div class="container-lg" style="text-align: center;">
+                <span class="section-subtitle">What We Stand For</span>
+                <h2 class="section-title">Our Core Values</h2>
+                <div class="values-grid">
+                    <div class="value-card">
+                        <div class="value-icon-circle">
+                            <i data-lucide="heart" style="width: 1.25rem; height: 1.25rem;"></i>
+                        </div>
+                        <h3>Compassion</h3>
+                        <p>We treat every animal with dignity, patience, and unconditional love.</p>
+                    </div>
+                    <div class="value-card">
+                        <div class="value-icon-circle">
+                            <i data-lucide="award" style="width: 1.25rem; height: 1.25rem;"></i>
+                        </div>
+                        <h3>Integrity</h3>
+                        <p>Transparent operations, honest communications, and ethical practices in all we do.</p>
+                    </div>
+                    <div class="value-card">
+                        <div class="value-icon-circle">
+                            <i data-lucide="users" style="width: 1.25rem; height: 1.25rem;"></i>
+                        </div>
+                        <h3>Community</h3>
+                        <p>We believe animal welfare is everyone's responsibility and build bridges between people and pets.</p>
+                    </div>
+                    <div class="value-card">
+                        <div class="value-icon-circle">
+                            <i data-lucide="home" style="width: 1.25rem; height: 1.25rem;"></i>
+                        </div>
+                        <h3>Safety</h3>
+                        <p>Every animal in our care receives proper shelter, nutrition, veterinary care, and emotional support.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!--Timeline Section-->
+        <section class="journey-section container-sm">
+            <div class="journey-header">
+                <span class="section-subtitle">Since 2019</span>
+                <h2 class="section-title">Our Journey</h2>
+                {% if is_admin %}
+                <div style="margin-top: 1rem;">
+                    <button onclick="openAddModal()" class="btn-primary">
+                        <i data-lucide="plus" style="width: 1rem; height: 1rem;"></i> Add Journey Milestone
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            <div class="timeline">
+                {% for item in journey_items %}
+                <div class="timeline-item">
+                    <div class="timeline-badge">{{ item.year }}</div>
+                    <div class="timeline-card">
+                        <div class="timeline-content">
+                            <h3>{{ item.title }}</h3>
+                            <p>{{ item.description }}</p>
+                        </div>
+                        {% if is_admin %}
+                        <div class="timeline-actions">
+                            <button onclick="openEditModal(this)" 
+                                    data-id="{{ item.id }}"
+                                    data-year="{{ item.year }}"
+                                    data-title="{{ item.title }}"
+                                    data-description="{{ item.description }}"
+                                    class="btn-icon"
+                                    title="Edit">
+                                <i data-lucide="edit-3" style="width: 1rem; height: 1rem;"></i>
+                            </button>
+                            <button onclick="deleteMilestone('{{ item.id }}')" class="btn-icon btn-icon-danger" title="Delete">
+                                <i data-lucide="trash-2" style="width: 1rem; height: 1rem;"></i>
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!--Visit Section-->
+        <section class="visit-section container-lg">
+            <div class="visit-box">
+                <h2 class="section-title" style="margin-bottom: 1.5rem;">Visit Our Shelter</h2>
+                <div class="visit-grid">
+                    <div class="contact-list">
+                        <div class="contact-item">
+                            <div class="contact-icon">
+                                <i data-lucide="map-pin" style="width: 1rem; height: 1rem;"></i>
+                            </div>
+                            <span class="contact-text">Sabutan Silang, Cavite 4118, Philippines</span>
+                        </div>
+                        <div class="contact-item">
+                            <div class="contact-icon">
+                                <i data-lucide="clock" style="width: 1rem; height: 1rem;"></i>
+                            </div>
+                            <span class="contact-text">Open daily from 8:00 AM - 5:00 PM</span>
+                        </div>
+                        <div class="contact-item">
+                            <div class="contact-icon">
+                                <i data-lucide="phone" style="width: 1rem; height: 1rem;"></i>
+                            </div>
+                            <span class="contact-text">+63 936 995 8628</span>
+                        </div>
+                        <div class="contact-item">
+                            <div class="contact-icon">
+                                <i data-lucide="mail" style="width: 1rem; height: 1rem;"></i>
+                            </div>
+                            <span class="contact-text">papeloniaaileen@gmail.com</span>
+                        </div>
+                        <div class="visit-note">
+                            <strong style="color: #0f172a; font-weight: 600;">Walk-ins welcome!</strong> No appointment needed for shelter visits. However, for formal adoption meetings, please visit via our online platform for a smoother experience.
+                        </div>
+                    </div>
+                    <div class="map-card">
+                        <div class="map-container">
+                            <div id="Map"></div>
+                        </div>
+                        <div style="padding: 1rem 0; text-align: center;">
+                            <a href="https://www.google.com/maps/search/?api=1&query=14.24972,120.98140" target="_blank" class="map-link">
+                                Open in Google Maps <i data-lucide="arrow-right" style="width: 0.875rem; height: 0.875rem;"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!--Modal Mission-->
+        {% if is_admin %}
+        <div id="missionModal" class="modal-overlay hidden">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h3>Edit Mission</h3>
+                    <button onclick="closeMissionModal()" class="btn-close">
+                        <i data-lucide="x" style="width: 1.25rem; height: 1.25rem;"></i>
+                    </button>
+                </div>
+                <form id="missionForm" onsubmit="handleMissionSubmit(event)">
+                    <div class="form-group">
+                        <label class="form-label">Subtitle</label>
+                        <input type="text" id="missionSubtitle" value="{{ mission.subtitle }}" required class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Main Title</label>
+                        <input type="text" id="missionTitle" value="{{ mission.title }}" required class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Paragraph</label>
+                        <textarea id="missionParagraph" rows="4" required class="form-textarea">{{ mission.paragraph }}</textarea>
+                    </div>
+                    <div class="modal-footer" style="margin-top: 1rem;">
+                        <button type="button" onclick="closeMissionModal()" class="btn-secondary">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!--Modal Timeline-->
+        <div id="journeyModal" class="modal-overlay hidden">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Add Milestone</h3>
+                    <button onclick="closeModal()" class="btn-close">
+                        <i data-lucide="x" style="width: 1.25rem; height: 1.25rem;"></i>
+                    </button>
+                </div>
+                <form id="journeyForm" onsubmit="handleFormSubmit(event)">
+                    <input type="hidden" id="milestoneId" value="">
+                    <div class="form-group">
+                        <label class="form-label">Year / Tag</label>
+                        <input type="text" id="milestoneYear" required placeholder="e.g. 2025 or Today" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Title</label>
+                        <input type="text" id="milestoneTitle" required placeholder="e.g. New Facility Opened" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea id="milestoneDesc" rows="3" required placeholder="Brief description of the milestone..." class="form-textarea"></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" onclick="closeModal()" class="btn-secondary">Cancel</button>
+                        <button type="submit" class="btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+        </main>
+    </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    lucide.createIcons();
+
+    function openEditMissionModal() {
+        document.getElementById('missionModal').classList.remove('hidden');
+    }
+
+    function closeMissionModal() {
+        document.getElementById('missionModal').classList.add('hidden');
+    }
+
+    async function handleMissionSubmit(event) {
+        event.preventDefault();
+        
+        const payload = {
+            subtitle: document.getElementById('missionSubtitle').value,
+            title: document.getElementById('missionTitle').value,
+            paragraph: document.getElementById('missionParagraph').value
+        };
+
+        try {
+            const response = await fetch('/api/mission/edit', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                alert(data.message || 'An error occurred.');
+            }
+        } catch (err) {
+            alert('Network error: ' + err.message);
+        }
+    }
+
+    // Modal
+    function openAddModal() {
+        document.getElementById('modalTitle').innerText = 'Add Journey Milestone';
+        document.getElementById('milestoneId').value = '';
+        document.getElementById('milestoneYear').value = '';
+        document.getElementById('milestoneTitle').value = '';
+        document.getElementById('milestoneDesc').value = '';
+        document.getElementById('journeyModal').classList.remove('hidden');
+    }
+
+    function openEditModal(button) {
+        const id = button.dataset.id;
+        const year = button.dataset.year;
+        const title = button.dataset.title;
+        const desc = button.dataset.description;
+        document.getElementById('modalTitle').innerText = 'Edit Journey Milestone';
+        document.getElementById('milestoneId').value = id;
+        document.getElementById('milestoneYear').value = year;
+        document.getElementById('milestoneTitle').value = title;
+        document.getElementById('milestoneDesc').value = desc;
+        document.getElementById('journeyModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+        document.getElementById('journeyModal').classList.add('hidden');
+    }
+
+    async function handleFormSubmit(event) {
+        event.preventDefault();
+        const id = document.getElementById('milestoneId').value;
+        const year = document.getElementById('milestoneYear').value;
+        const title = document.getElementById('milestoneTitle').value;
+        const description = document.getElementById('milestoneDesc').value;
+        const endpoint = id ? `/api/journey/edit/${id}` : '/api/journey/add';
+        const method = id ? 'PUT' : 'POST';
+
+        try {
+            const response = await fetch(endpoint, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ year, title, description })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                alert(data.message || 'An error occurred.');
+            }
+        } catch (err) {
+            alert('Network error: ' + err.message);
+        }
+    }
+
+    // Delete
+    async function deleteMilestone(id) {
+        if (!confirm('Are you sure you want to delete this journey milestone?')) return;
+
+        try {
+            const response = await fetch(`/api/journey/delete/${id}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                alert(data.message || 'Failed to delete milestone.');
+            }
+        } catch (err) {
+            alert('Network error: ' + err.message);
+        }
+    }
+
+    // Shelter Coordinates
+    document.addEventListener("DOMContentLoaded", function () {
+        const shelterLatLng = [14.24972, 120.98140];
+        const map = L.map('Map', {
+            center: shelterLatLng,
+            zoom: 13,
+            zoomControl: true,
+            scrollWheelZoom: true,
+            dragging: true
+        });
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            minZoom: 8,
+            maxZoom: 19
+        }).addTo(map);
+
+        // Shelter Marker
+        const customIcon = L.icon({
+            iconUrl: "{{ url_for('static', filename='Assets/Images/red.webp') }}",
+            iconSize: [22, 22],
+            iconAnchor: [11, 11]
+        });
+
+        L.marker(shelterLatLng, { icon: customIcon })
+            .addTo(map)
+            .bindPopup(`
+                <div style="font-family: inherit; text-align: center; padding: 2px 0;">
+                    <span style="color: #4ade80; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em;">
+                        Animal Shelter Location
+                    </span>
+                    <div style="margin-top: 4px;">
+                        <strong style="color: #f99e5d; font-size: 0.95rem; font-weight: 700;">
+                            Tails of Freedom Animal Haven
+                        </strong>
+                    </div>
+                </div>
+            `, {
+                className: 'black-popup'
+            });
+
+        setTimeout(() => map.invalidateSize(), 200);
+    });
+</script>
+</body>
+</html>

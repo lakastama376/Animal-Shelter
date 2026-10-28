@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/content-management.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+            <div class="header">
+                <div>
+                    <h1>Content Management</h1>
+                    <p>Manage articles, announcements, and educational content</p>
+                </div>
+                <button class="btn-orange" onclick="openModal('articleModal')">
+                    <i class="fa-solid fa-plus"></i> New Article
+                </button>
+            </div>
+
+            <!--Tabs-->
+            <div class="tabs">
+                <button id="btn-articlesPanel" class="tab-btn active" onclick="switchTab('articlesPanel')">Published Articles</button>
+                <button id="btn-matchingPanel" class="tab-btn" onclick="switchTab('matchingPanel')">Pet Matching Content</button>
+                <button id="btn-eligibilityPanel" class="tab-btn" onclick="switchTab('eligibilityPanel')">Eligibility Content</button>
+                <button id="btn-postPanel" class="tab-btn" onclick="switchTab('postPanel')">Posting Content</button>
+            </div>
+
+            <!--Articles Content Panel-->
+            <div id="articlesPanel" class="panel active content-card">
+                <h2>Published Articles</h2>
+                <div class="landscape-list">
+                    {% for article in articles %}
+                    <div class="landscape-item" id="item-Articles-{{ article.id }}">
+                        <div class="item-left">
+                            <img class="item-thumb" src="{{ article.imageUrl }}" alt="Thumb">
+                            <div class="item-details">
+                                <h4>{{ article.title }}</h4>
+                                <div class="meta-tags">
+                                    <span class="badge-cat">{{ article.category }}</span>
+                                    <span>{{ article.author }}</span>
+                                    <span>&bull;</span>
+                                    <span>{{ article.readTime }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="item-actions">
+                            <button class="action-btn view-article-trigger" 
+                                    title="View Article" 
+                                    data-url="{{ url_for('article_content_bp.view_article', article_id=article.id) }}">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                            <button class="action-btn" title="Edit Article" 
+                                    data-id="{{ article.id }}"
+                                    data-title="{{ article.title }}"
+                                    data-category="{{ article.category }}"
+                                    data-author="{{ article.author }}"
+                                    data-readtime="{{ article.readTime }}"
+                                    data-imageurl="{{ article.imageUrl }}"
+                                    data-content="{{ article.content }}"
+                                    onclick="openEditArticleModal(this)">
+                                <i class="fa-regular fa-pen-to-square"></i>
+                            </button>
+                            <button class="action-btn delete-btn" title="Delete Article" onclick="deleteItem('Articles', '{{ article.id }}')">
+                                <i class="fa-regular fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p style="color:#64748b; font-size:14px;">No educational articles posted yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!--Pet Matching Content Panel-->
+            <div id="matchingPanel" class="panel content-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap: 12px;">
+                    <h2>Pet Matching Question Pool</h2>
+                    <button class="btn-orange" style="padding:8px 14px; font-size:13px;" onclick="openQuestionModal('PetMatchingQuestions')">
+                        <i class="fa-solid fa-plus"></i> Add Question
+                    </button>
+                </div>
+                <div class="q-list">
+                    {% for q in matching_questions %}
+                    <div class="q-row" id="item-PetMatchingQuestions-{{ q.id }}">
+                        <span>{{ q.questionText }}</span>
+                        <div class="item-actions">
+                            <button class="action-btn" title="Edit Question"
+                                    data-id="{{ q.id }}"
+                                    data-collection="PetMatchingQuestions"
+                                    data-text="{{ q.questionText }}"
+                                    data-type="{{ q.type or 'default' }}"
+                                    data-articleid=""
+                                    data-choices='{{ q.choices | tojson | safe if q.choices else "[]" }}'
+                                    onclick="openEditQuestionModal(this)">
+                                <i class="fa-regular fa-pen-to-square"></i>
+                            </button>
+                            <button class="action-btn delete-btn" title="Delete Question" onclick="deleteItem('PetMatchingQuestions', '{{ q.id }}')">
+                                <i class="fa-regular fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p style="color:#64748b; font-size:14px;">No matching evaluation parameters set.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Posting Content Panel -->
+            <div id="postPanel" class="panel content-card">
+                <div class="panel-header">
+                    <h2>Post Content</h2>
+                </div>
+                <div class="question-split-container">
+                    <div class="question-box">
+                        <form id="PostForm" onsubmit="submitPost(event)" enctype="multipart/form-data">
+                            <div class="form-group">
+                                <label>Target Platforms</label>
+                                <div class="platform-checkbox-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="platformFB" value="facebook" checked> 
+                                        <i class="fa-brands fa-facebook icon-fb"></i> Facebook
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="platformIG" value="instagram" checked> 
+                                        <i class="fa-brands fa-instagram icon-ig"></i> Instagram
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="Message">Message</label>
+                                <textarea id="Message" rows="4" required placeholder="Write your post message here..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="MediaFiles">Upload Attachments <small class="sub-label-text">(Required for Instagram)</small></label>
+                                <input type="file" id="MediaFiles" name="media_files" multiple accept="image/*,video/*">
+                            </div>
+                            <button type="submit" id="SubmitBtn" class="btn-orange submit-btn-full">
+                                <i class="fa-solid fa-paper-plane"></i> Publish
+                            </button>
+                        </form>
+                    </div>
+                    <div class="question-box">
+                        <div class="box-title-header">
+                            <h3>Recent Published Posts <i class="fa-solid fa-clock-rotate-left header-icon"></i></h3>
+                        </div>
+                        <div class="q-list" id="recentPostsList">
+                            {% for post in social_posts|reverse %}
+                            <div class="q-row" id="item-SocialPosts-{{ post.id }}">
+                                <div class="q-info-container">
+                                    <div class="post-meta-header">
+                                        {% if post.PostId %}
+                                            <i class="fa-brands fa-facebook icon-fb" title="Posted to Facebook"></i>
+                                        {% endif %}
+                                        {% if post.IgPostId %}
+                                            <i class="fa-brands fa-instagram icon-ig" title="Posted to Instagram"></i>
+                                        {% endif %}
+                                        <span class="post-message-text">{{ post.message }}</span>
+                                    </div>
+                                </div>
+                                <div class="item-actions post-actions-column">
+                                    <button class="action-btn delete-btn" title="Delete Post" onclick="deleteItem('SocialPosts', '{{ post.id }}')">
+                                        <i class="fa-regular fa-trash-can"></i>
+                                    </button>
+                                    <span class="post-timestamp">{{ post.formatted_date }}</span>
+                                </div>
+                            </div>
+                            {% else %}
+                            <p class="empty-list-text">No published posts available.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!--Eligibility Content Panel-->
+            <div id="eligibilityPanel" class="panel content-card">
+                <div class="panel-header">
+                    <h2>Eligibility Questionnaire Strategy</h2>
+                    <button class="btn-orange" style="padding:8px 14px; font-size:13px;" onclick="openQuestionModal('EligibilityQuestions')">
+                        <i class="fa-solid fa-plus"></i> Add Strategy Parameter
+                    </button>
+                </div>
+                <div class="question-split-container">
+                    <div class="question-box">
+                        <h3>Default Section Questions<i class="fa-solid fa-lock" style="font-size:12px; color:#94a3b8;"></i></h3>
+                        <div class="q-list">
+                            {% for q in eligibility_questions if q.type == 'default' %}
+                            <div class="q-row" id="item-EligibilityQuestions-{{ q.id }}">
+                                <div class="q-info-container">
+                                    <span>{{ q.questionText }}</span>
+                                </div>
+                                <div class="item-actions">
+                                    <button class="action-btn" title="Edit Question"
+                                            data-id="{{ q.id }}"
+                                            data-collection="EligibilityQuestions"
+                                            data-text="{{ q.questionText }}"
+                                            data-type="{{ q.type }}"
+                                            data-articleid="{{ q.articleId if q.articleId else '' }}"
+                                            data-choices='{{ q.choices | tojson | safe if q.choices else "[]" }}'
+                                            onclick="openEditQuestionModal(this)">
+                                        <i class="fa-regular fa-pen-to-square"></i>
+                                    </button>
+                                    <button class="action-btn delete-btn" title="Delete Rule" onclick="deleteItem('EligibilityQuestions', '{{ q.id }}')">
+                                        <i class="fa-regular fa-trash-can"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                <div class="question-box">
+                    <h3>Random Generated Inside Article Content<i class="fa-solid fa-shuffle shuffle-icon"></i></h3>
+                    <div class="filter-wrapper">
+                        <select id="articleTargetFilter" onchange="filterRandomQuestionsByTarget()" class="article-filter-select">
+                            <option value="all">---Show Recent Added Articles---</option>
+                            {% for article in articles|reverse %}
+                            <option value="{{ article.id | lower }}">{{ article.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="q-list" id="randomQuestionsList">
+                        {% for q in eligibility_questions|reverse if q.type == 'random' %}
+                            {% set linked_title = "Unknown Article" %}
+                            {% for article in articles %}
+                                {% if article.id|string == q.articleId|string %}
+                                    {% set linked_title = article.title %}
+                                {% endif %}
+                            {% endfor %}
+                            <div class="q-row random-q-item" 
+                                id="item-EligibilityQuestions-{{ q.id }}"
+                                data-article-id="{{ q.articleId | lower }}">
+                                <div class="q-info-container">
+                                    <span>{{ q.questionText }}</span>
+                                    {% if q.articleId %}
+                                    <small class="linked-article-tag">
+                                        <i class="fa-solid fa-link"></i> {{ linked_title }} <span class="article-id-subtext">(ID: {{ q.articleId }})</span>
+                                    </small>
+                                    {% endif %}
+                                </div>
+                                <div class="item-actions">
+                                    <button class="action-btn" title="Edit Question"
+                                            data-id="{{ q.id }}"
+                                            data-collection="EligibilityQuestions"
+                                            data-text="{{ q.questionText }}"
+                                            data-type="{{ q.type }}"
+                                            data-articleid="{{ q.articleId if q.articleId else '' }}"
+                                            data-choices='{{ q.choices | tojson | safe if q.choices else "[]" }}'
+                                            onclick="openEditQuestionModal(this)">
+                                        <i class="fa-regular fa-pen-to-square"></i>
+                                    </button>
+                                    <button class="action-btn delete-btn" title="Delete Rule" onclick="deleteItem('EligibilityQuestions', '{{ q.id }}')">
+                                        <i class="fa-regular fa-trash-can"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        {% else %}
+                            <p class="empty-list-text">No custom parameter sets defined yet.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--Article Content Modal-->
+    <div class="modal-overlay" id="articleModal">
+        <div class="modal-box" style="max-width: 850px; width: 90%;">
+            <div class="modal-header">
+                <h3>Post Educational Content</h3>
+                <button class="close-modal" onclick="closeModal('articleModal')">&times;</button>
+            </div>
+            <form id="articleForm" onsubmit="submitArticle(event)">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label>Article Title</label>
+                        <input type="text" id="artTitle" required placeholder="e.g., Guide to Adopting Dogs">
+                    </div>
+                    <div class="form-group">
+                        <label>Category Label</label>
+                        <select id="artCategory">
+                            <option value="Adoption Guide">Adoption Guide</option>
+                            <option value="Pet Care">Pet Care</option>
+                            <option value="Ownership">Ownership</option>
+                            <option value="Rescue">Rescue</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label>Author Name</label>
+                        <input type="text" id="artAuthor" required value="{{ user_profile.fullName if user_profile else 'Admin' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Estimated Read Time</label>
+                        <input type="text" id="artReadTime" placeholder="e.g., 6 min read" value="5 min read">
+                    </div>
+                    <div class="form-group">
+                        <label>Image URL Resource</label>
+                        <input type="url" id="artImage" placeholder="https://images.unsplash.com/...">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Article Content body</label>
+                <div class="style-toolbar">
+                    <button type="button" onclick="executeFormat('bold')" title="Bold"><i class="fa-solid fa-bold"></i></button>
+                    <button type="button" onclick="executeFormat('insertUnorderedList')" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
+                    <button type="button" onclick="executeFormat('insertOrderedList')" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
+                    <button type="button" onclick="executeFormat('justifyLeft')" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
+                    <button type="button" onclick="executeFormat('justifyCenter')" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
+                    <button type="button" onclick="executeFormat('justifyRight')" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
+                    <button type="button" onclick="executeFormat('justifyFull')" title="Justify"><i class="fa-solid fa-align-justify"></i></button>
+                    <select onchange="executeFormat('fontSize', this.value); this.value='';">
+                        <option value="">Size...</option>
+                        <option value="2">Small</option>
+                        <option value="4">Normal</option>
+                        <option value="5">Large</option>
+                        <option value="7">Extra Large</option>
+                    </select>
+                    <select onchange="executeFormat('foreColor', this.value); this.value='';">
+                        <option value="">Color...</option>
+                        <option value="#334155">Slate</option>
+                        <option value="#ef4444">Red</option>
+                        <option value="#f97316">Orange</option>
+                        <option value="#22c55e">Green</option>
+                    </select>
+                    <button type="button" onclick="insertLiveCenteredImage()" style="background: #ffedd5; color: #ea580c; font-weight: 600; white-space: nowrap;">
+                        <i class="fa-solid fa-image"></i> Insert Centered Image
+                    </button>
+                </div>
+                    <div id="artContentEditor" class="editor-container" contenteditable="true" placeholder="Write your educational content here..."></div>
+                </div>
+                <button type="submit" class="btn-orange" style="width:100%; justify-content:center;">Publish Material</button>
+            </form>
+        </div>
+    </div>
+
+    <!--Edit Article Modal-->
+    <div class="modal-overlay" id="editArticleModal">
+        <div class="modal-box" style="max-width: 850px; width: 90%;">
+            <div class="modal-header">
+                <h3>Edit Educational Content</h3>
+                <button class="close-modal" onclick="closeModal('editArticleModal')">&times;</button>
+            </div>
+            <form id="editArticleForm" onsubmit="submitEditArticle(event)">
+                <input type="hidden" id="editArtId">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label>Article Title</label>
+                        <input type="text" id="editArtTitle" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Category Label</label>
+                        <select id="editArtCategory">
+                            <option value="Adoption Guide">Adoption Guide</option>
+                            <option value="Pet Care">Pet Care</option>
+                            <option value="Ownership">Ownership</option>
+                            <option value="Rescue">Rescue</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label>Author Name</label>
+                        <input type="text" id="editArtAuthor" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Estimated Read Time</label>
+                        <input type="text" id="editArtReadTime">
+                    </div>
+                    <div class="form-group">
+                        <label>Image URL Resource</label>
+                        <input type="url" id="editArtImage">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Article Content body</label>
+                <div class="style-toolbar">
+                    <button type="button" onclick="executeFormat('bold')" title="Bold"><i class="fa-solid fa-bold"></i></button>
+                    <button type="button" onclick="executeFormat('insertUnorderedList')" title="Bullet List"><i class="fa-solid fa-list-ul"></i></button>
+                    <button type="button" onclick="executeFormat('insertOrderedList')" title="Numbered List"><i class="fa-solid fa-list-ol"></i></button>
+                    <button type="button" onclick="executeFormat('justifyLeft')" title="Align Left"><i class="fa-solid fa-align-left"></i></button>
+                    <button type="button" onclick="executeFormat('justifyCenter')" title="Align Center"><i class="fa-solid fa-align-center"></i></button>
+                    <button type="button" onclick="executeFormat('justifyRight')" title="Align Right"><i class="fa-solid fa-align-right"></i></button>
+                    <button type="button" onclick="executeFormat('justifyFull')" title="Justify"><i class="fa-solid fa-align-justify"></i></button>
+                    <select onchange="executeFormat('fontSize', this.value); this.value='';">
+                        <option value="">Size...</option>
+                        <option value="2">Small</option>
+                        <option value="4">Normal</option>
+                        <option value="5">Large</option>
+                        <option value="7">Extra Large</option>
+                    </select>
+                    <select onchange="executeFormat('foreColor', this.value); this.value='';">
+                        <option value="">Color...</option>
+                        <option value="#334155">Slate</option>
+                        <option value="#ef4444">Red</option>
+                        <option value="#f97316">Orange</option>
+                        <option value="#22c55e">Green</option>
+                    </select>
+                    <button type="button" onclick="insertCenteredImage('editArtContentEditor')" style="background: #ffedd5; color: #ea580c; font-weight: 600; white-space: nowrap;">
+                        <i class="fa-solid fa-image"></i> Insert Centered Image
+                    </button>
+                    </div>
+                    <div id="editArtContentEditor" class="editor-container" contenteditable="true"></div>
+                </div>
+                <button type="submit" class="btn-orange" style="width:100%; justify-content:center;">Update Material</button>
+            </form>
+        </div>
+    </div>
+
+    <!--Question Modal -->
+    <div class="modal-overlay" id="questionModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="questionModalTitle">Add Configuration Query</h3>
+                <button class="close-modal" onclick="closeModal('questionModal')">&times;</button>
+            </div>
+            <form id="questionForm" onsubmit="submitQuestion(event)">
+                <input type="hidden" id="targetCollection">
+                <div class="form-group">
+                    <label>Question Statement Text</label>
+                    <input type="text" id="questionText" required placeholder="Type the structural question here...">
+                </div>
+                <div class="form-group">
+                    <label>Answer Choices & Suitability</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <input type="text" id="choiceInput" placeholder="Add option text..." style="flex: 2;">
+                        <select id="choiceStatus" style="flex: 1; padding: 0 8px; border-radius: 8px; border: 1px solid #cbd5e1;">
+                            <option value="correct">🎯 Correct</option>
+                            <option value="good">👍 Good Answer</option>
+                            <option value="incorrect">❌ Incorrect</option>
+                        </select>
+                        <button type="button" class="btn-orange" style="padding: 0 16px; border-radius: 8px; font-size: 13px;" onclick="addAdvancedChoiceItem('choicesContainer', 'choiceInput', 'choiceStatus')">Add</button>
+                    </div>
+                    <div id="choicesContainer" style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0;"></div>
+                </div>
+                <div class="form-group" id="strategyTypeWrapper">
+                    <label>System Evaluation Type</label>
+                    <select id="questionType" onchange="toggleArticleMapping(this.value, 'linkedArticleWrapper', 'linkedArticleId')">
+                        <option value="default">Default Section Question</option>
+                        <option value="random">Randomly Generated Inside Content</option>
+                    </select>
+                </div>
+                <div class="form-group" id="linkedArticleWrapper" style="display: none;">
+                    <label>Target Reference Article Source</label>
+                    <select id="linkedArticleId">
+                        <option value="">-- Choose Context Reference Article --</option>
+                        {% for article in articles %}
+                        <option value="{{ article.id }}">{{ article.title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn-orange" style="width:100%; justify-content:center;">Save Configurations</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Question Modal -->
+    <div class="modal-overlay" id="editQuestionModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="editQuestionModalTitle">Edit Configuration Query</h3>
+                <button class="close-modal" onclick="closeModal('editQuestionModal')">&times;</button>
+            </div>
+            <form id="editQuestionForm" onsubmit="submitEditQuestion(event)">
+                <input type="hidden" id="editTargetCollection">
+                <input type="hidden" id="editQuestionId">
+                <div class="form-group">
+                    <label>Question Statement Text</label>
+                    <input type="text" id="editQuestionText" required>
+                </div>
+                <div class="form-group">
+                    <label>Answer Choices & Suitability</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <input type="text" id="editChoiceInput" placeholder="Add option text..." style="flex: 2;">
+                        <select id="editChoiceStatus" style="flex: 1; padding: 0 8px; border-radius: 8px; border: 1px solid #cbd5e1;">
+                            <option value="correct">🎯 Correct</option>
+                            <option value="good">👍 Good Answer</option>
+                            <option value="incorrect">❌ Incorrect</option>
+                        </select>
+                        <button type="button" class="btn-orange" style="padding: 0 16px; border-radius: 8px; font-size: 13px;" onclick="addAdvancedChoiceItem('editChoicesContainer', 'editChoiceInput', 'editChoiceStatus')">Add</button>
+                    </div>
+                    <div id="editChoicesContainer" style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0;"></div>
+                </div>
+                <div class="form-group" id="editStrategyTypeWrapper">
+                    <label>System Evaluation Type</label>
+                    <select id="editQuestionType" onchange="toggleArticleMapping(this.value, 'editLinkedArticleWrapper', 'editLinkedArticleId')">
+                        <option value="default">Default Section Question</option>
+                        <option value="random">Randomly Generated Inside Content</option>
+                    </select>
+                </div>
+                <div class="form-group" id="editLinkedArticleWrapper" style="display: none;">
+                    <label>Target Reference Article Source</label>
+                    <select id="editLinkedArticleId">
+                        <option value="">-- Choose Context Reference Article --</option>
+                        {% for article in articles %}
+                        <option value="{{ article.id }}">{{ article.title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn-orange" style="width:100%; justify-content:center;">Update Configurations</button>
+            </form>
+        </div>
+    </div>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    // Tabs
+    let activeChoicesList = [];
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        const targetedButton = document.getElementById(`btn-${tabId}`);
+        const targetedPanel = document.getElementById(tabId);
+        
+        if (targetedButton && targetedPanel) {
+            targetedButton.classList.add('active');
+            targetedPanel.classList.add('active');
+            localStorage.setItem('activeManagementTab', tabId);
+        }
+    }
+
+    // Post Content
+    function submitPost(e) {
+        e.preventDefault();
+        const submitBtn = document.getElementById('SubmitBtn');
+        const message = document.getElementById('Message').value;
+        const fileInput = document.getElementById('MediaFiles');
+        const formData = new FormData();
+        formData.append('message', message);
+
+        if (document.getElementById('platformFB').checked) {
+            formData.append('platforms', 'facebook');
+        }
+        if (document.getElementById('platformIG').checked) {
+            formData.append('platforms', 'instagram');
+        }
+        if (!document.getElementById('platformFB').checked && !document.getElementById('platformIG').checked) {
+            alert('Please select at least one platform to publish to.');
+            return;
+        }
+        if (document.getElementById('platformIG').checked && fileInput.files.length === 0) {
+            alert('An attachment (image/video) is required when posting to Instagram.');
+            return;
+        }
+
+        const addedFileSignatures = new Set();
+        for (let i = 0; i < fileInput.files.length; i++) {
+            const file = fileInput.files[i];
+            const fileSignature = `${file.name}-${file.size}-${file.lastModified}`;
+            
+            if (!addedFileSignatures.has(fileSignature)) {
+                addedFileSignatures.add(fileSignature);
+                formData.append('media_files', file);
+            }
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Posting...';
+        
+        fetch('/content-management/post-content', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            submitBtn.disabled = false;
+            if (data.success) {
+                submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> Published!';
+                document.getElementById('PostForm').reset();
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Publish';
+                alert(data.message || 'Error posting content');
+            }
+        })
+        .catch(err => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Publish';
+            console.error('Server error:', err.message);
+        });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const preservedTab = localStorage.getItem('activeManagementTab');
+        if (preservedTab && document.getElementById(preservedTab)) {
+            switchTab(preservedTab);
+        }
+    });
+
+    function toggleArticleMapping(selectedValue, containerElementId, selectFieldId) {
+        const articleContainer = document.getElementById(containerElementId);
+        if (articleContainer) {
+            if (selectedValue === 'random') {
+                articleContainer.style.display = 'block';
+            } else {
+                articleContainer.style.display = 'none';
+                const selectField = document.getElementById(selectFieldId);
+                if (selectField) selectField.value = ""; 
+            }
+        }
+    }
+    window.addEventListener('DOMContentLoaded', () => {
+        const preservedTab = localStorage.getItem('activeManagementTab');
+        if (preservedTab && document.getElementById(preservedTab)) {
+            switchTab(preservedTab);
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.body.addEventListener('click', (e) => {
+            const trigger = e.target.closest('.view-article-trigger');
+            if (trigger) {
+                const targetUrl = trigger.getAttribute('data-url');
+                window.location.href = targetUrl; 
+            }
+        });
+    });
+    function openModal(id) { 
+        document.getElementById(id).classList.add('open'); 
+    }
+    function closeModal(id) { 
+        document.getElementById(id).classList.remove('open'); 
+    }
+    function executeFormat(command, value = null) {
+        document.execCommand(command, false, value);
+    }
+
+    function insertLiveCenteredImage() {
+        const imgUrl = prompt("Enter the Image URL address:");
+        if (!imgUrl) return;
+        const editor = document.getElementById('artContentEditor');
+        if (editor) {
+            editor.focus();
+        }
+        const imgHtml = `<div style="text-align: center; margin: 16px 0;"><img src="${imgUrl}" alt="Article Image" style="width: 100%; max-height: 420px; object-fit: cover; border-radius: 8px;"></div><p><br></p>`;
+        document.execCommand('insertHTML', false, imgHtml);
+    }
+
+    function insertCenteredImage(editorId) {
+        const imgUrl = prompt("Enter the Image URL address:");
+        if (!imgUrl) return;
+        const editor = document.getElementById(editorId); 
+        if (editor) {
+            editor.focus();
+        }
+        const imgHtml = `<div style="text-align: center; margin: 16px 0;"><img src="${imgUrl}" alt="Article Image" style="width: 100%; max-height: 420px; object-fit: cover; border-radius: 8px;"></div><p><br></p>`;
+        document.execCommand('insertHTML', false, imgHtml);
+    }
+
+    function getEditorContent(editorId) {
+        return document.getElementById(editorId).innerHTML;
+    }
+
+    function openQuestionModal(targetCollection) {
+        document.getElementById('targetCollection').value = targetCollection;
+        const typeWrapper = document.getElementById('strategyTypeWrapper');
+        const title = document.getElementById('questionModalTitle');
+        document.getElementById('questionText').value = "";
+        document.getElementById('choiceInput').value = "";
+        document.getElementById('choiceStatus').value = "correct";
+        document.getElementById('questionType').value = "default";
+        document.getElementById('linkedArticleWrapper').style.display = "none";
+        document.getElementById('linkedArticleId').value = "";
+        activeChoicesList = [];
+        renderChoicesContainer('choicesContainer');
+        
+        if (targetCollection === 'PetMatchingQuestions') {
+            title.innerText = "Add Matching Evaluation Parameter";
+            typeWrapper.style.display = "none";
+        } else {
+            title.innerText = "Add Eligibility Check Rule";
+            typeWrapper.style.display = "block";
+        }
+        openModal('questionModal');
+    }
+
+    function addAdvancedChoiceItem(containerId, inputId, statusId) {
+        const field = document.getElementById(inputId);
+        const statusField = document.getElementById(statusId);
+        const itemText = field.value.trim();
+        const itemStatus = statusField.value;
+        
+        if (!itemText) return;
+        const isDuplicate = activeChoicesList.some(choice => choice.text.toLowerCase() === itemText.toLowerCase());
+        
+        if (!isDuplicate) {
+            activeChoicesList.push({
+                text: itemText,
+                status: itemStatus
+            });
+            renderChoicesContainer(containerId);
+        }
+        
+        field.value = "";
+        statusField.value = "correct"; 
+    }
+
+    function removeChoiceItem(index, containerId) {
+        activeChoicesList.splice(index, 1);
+        renderChoicesContainer(containerId);
+    }
+
+    function renderChoicesContainer(containerId) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = "";
+        activeChoicesList.forEach((choice, idx) => {
+            let badgeBackground = '#fee2e2'; 
+            let badgeTextColor = '#991b1b';
+            let labelText = '❌ Incorrect';
+
+            if (choice.status === 'correct') {
+                badgeBackground = '#dcfce7';
+                badgeTextColor = '#166534';
+                labelText = '🎯 Correct';
+            } else if (choice.status === 'good') {
+                badgeBackground = '#fef9c3';
+                badgeTextColor = '#854d0e';
+                labelText = '👍 Good';
+            }
+
+            const badgeRow = document.createElement('div');
+            badgeRow.style = "display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 6px 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px; width: 100%; box-sizing: border-box; margin-bottom: 2px;";
+            
+            badgeRow.innerHTML = `
+                <span style="font-weight: 500; color: #334155;">${choice.text}</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="background: ${badgeBackground}; color: ${badgeTextColor}; font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 600;">${labelText}</span>
+                    <i class="fa-solid fa-xmark" style="cursor:pointer; color:#ef4444;" onclick="removeChoiceItem(${idx}, '${containerId}')"></i>
+                </div>
+            `;
+            container.appendChild(badgeRow);
+        });
+    }
+
+    // Articles
+    function submitArticle(e) {
+        e.preventDefault();
+        const payload = {
+            title: document.getElementById('artTitle').value,
+            category: document.getElementById('artCategory').value,
+            author: document.getElementById('artAuthor').value,
+            readTime: document.getElementById('artReadTime').value,
+            imageUrl: document.getElementById('artImage').value,
+            content: getEditorContent('artContentEditor') 
+        };
+
+        fetch('/content-management/article/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) { window.location.reload(); }
+            else { alert(data.message); }
+        });
+    }
+
+    function openEditArticleModal(button) {
+        document.getElementById('editArtId').value = button.dataset.id;
+        document.getElementById('editArtTitle').value = button.dataset.title;
+        document.getElementById('editArtCategory').value = button.dataset.category;
+        document.getElementById('editArtAuthor').value = button.dataset.author;
+        document.getElementById('editArtReadTime').value = button.dataset.readtime;
+        document.getElementById('editArtImage').value = button.dataset.imageurl;
+        document.getElementById('editArtContentEditor').innerHTML = button.dataset.content || "";
+        openModal('editArticleModal');
+    }
+
+    function submitEditArticle(e) {
+        e.preventDefault();
+        const articleId = document.getElementById('editArtId').value;
+        const payload = {
+            title: document.getElementById('editArtTitle').value,
+            category: document.getElementById('editArtCategory').value,
+            author: document.getElementById('editArtAuthor').value,
+            readTime: document.getElementById('editArtReadTime').value,
+            imageUrl: document.getElementById('editArtImage').value,
+            content: getEditorContent('editArtContentEditor') 
+        };
+
+        fetch(`/content-management/article/edit/${articleId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) { window.location.reload(); }
+            else { alert(data.message); }
+        });
+    }
+
+    // Questions
+    function submitQuestion(e) {
+        e.preventDefault();
+        const collection = document.getElementById('targetCollection').value;
+        const payload = {
+            targetCollection: collection,
+            questionText: document.getElementById('questionText').value,
+            type: document.getElementById('questionType').value,
+            choices: activeChoicesList,
+            articleId: document.getElementById('linkedArticleId').value || null 
+        };
+
+        fetch(`/content-management/question/add/${collection}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) { window.location.reload(); }
+            else { alert(data.message); }
+        });
+    }
+
+    function submitEditQuestion(e) {
+        e.preventDefault();
+        const collection = document.getElementById('editTargetCollection').value;
+        const questionId = document.getElementById('editQuestionId').value;
+        const payload = {
+            questionText: document.getElementById('editQuestionText').value,
+            type: document.getElementById('editQuestionType').value,
+            choices: activeChoicesList,
+            articleId: document.getElementById('editLinkedArticleId').value || null
+        };
+
+        fetch(`/content-management/question/edit/${collection}/${questionId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) { window.location.reload(); }
+            else { alert(data.message); }
+        });
+    }
+
+    function openEditQuestionModal(button) {
+        const targetCollection = button.dataset.collection;
+        document.getElementById('editTargetCollection').value = targetCollection;
+        document.getElementById('editQuestionId').value = button.dataset.id;
+        document.getElementById('editQuestionText').value = button.dataset.text;
+        const currentType = button.dataset.type || 'default';
+        document.getElementById('editQuestionType').value = currentType;
+        const typeWrapper = document.getElementById('editStrategyTypeWrapper');
+        const title = document.getElementById('editQuestionModalTitle');
+        const editArticleWrapper = document.getElementById('editLinkedArticleWrapper');
+        document.getElementById('editChoiceInput').value = "";
+        document.getElementById('editChoiceStatus').value = "correct";
+
+        if (targetCollection === 'PetMatchingQuestions') {
+            title.innerText = "Edit Matching Evaluation Parameter";
+            typeWrapper.style.display = "none";
+            editArticleWrapper.style.display = "none";
+        } else {
+            title.innerText = "Edit Eligibility Check Rule";
+            typeWrapper.style.display = "block";
+            if (currentType === 'random') {
+                editArticleWrapper.style.display = "block";
+                document.getElementById('editLinkedArticleId').value = button.dataset.articleId || button.dataset.articleid || "";
+            } else {
+                editArticleWrapper.style.display = "none";
+                document.getElementById('editLinkedArticleId').value = "";
+            }
+        }
+        try {
+            const parsedChoices = button.dataset.choices ? JSON.parse(button.dataset.choices) : [];
+            activeChoicesList = parsedChoices.map(c => typeof c === 'string' ? { text: c, status: 'correct' } : c);
+        } catch(e) {
+            activeChoicesList = [];
+        }
+        
+        renderChoicesContainer('editChoicesContainer');
+        openModal('editQuestionModal');
+    }
+
+    function filterRandomQuestionsByTarget() {
+        const selector = document.getElementById('articleTargetFilter');
+        const selectedTargetId = selector.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('.random-q-item');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const rowArticleId = (row.getAttribute('data-article-id') || '').toLowerCase().trim();
+            const matchesTarget = (selectedTargetId === 'all') || (rowArticleId === selectedTargetId);
+            
+            if (matchesTarget) {
+                if (selectedTargetId === 'all') {
+                    if (visibleCount < 4) {
+                        row.style.display = 'flex';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                } else {
+                    row.style.display = 'flex';
+                }
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+    document.addEventListener("DOMContentLoaded", () => {
+        filterRandomQuestionsByTarget();
+    })
+
+    function deleteItem(collection, id) {
+        if (confirm("Are you sure you want to delete this resource content?")) {
+            fetch(`/content-management/delete/${collection}/${id}`, { method: 'DELETE' }) 
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const element = document.getElementById(`item-${collection}-${id}`);
+                    if (element) element.remove();
+                } else {
+                    alert(data.message);
+                }
+            });
+        }
+    }
+</script>
+</body>
+</html>

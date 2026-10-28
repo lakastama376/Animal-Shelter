@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rescue Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/rescue-management.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+            <div class="container">
+                <div class="header-wrap">
+                    <div class="header">
+                        <h1>{{ 'Rescue Management' if role == 'Admin' else 'Rescue Reports' }}</h1>
+                        <p class="header-subtitle">
+                            {{ 'Review and dispatch emergency rescue requests.' if role == 'Admin' else 'Track the status of animals you reported for rescue.' }}
+                        </p>
+                    </div>
+                    {% if role != 'Admin' %}
+                    <a href="{{ url_for('rescue_report_bp.index') }}" class="btn-new-report">
+                        <i class="fa-solid fa-triangle-exclamation"></i> New Report
+                    </a>
+                    {% endif %}
+                </div>
+                {% if not reports %}
+                    <div class="empty-state">
+                        <i class="fa-solid fa-shield-cat empty-icon"></i>
+                        <p>No active rescue reports found at this time.</p>
+                    </div>
+                {% else %}
+
+                    <!--Admin Interface-->
+                    {% if role == 'Admin' %}
+                        <div class="filter-container">
+                            <div class="filter-pill active" onclick="filterTable('All')">All</div>
+                            <div class="filter-pill" onclick="filterTable('Submitted')">Submitted ({{ counts.get('Submitted', 0) }})</div>
+                            <div class="filter-pill" onclick="filterTable('Under Review')">Under Review ({{ counts.get('Under Review', 0) }})</div>
+                            <div class="filter-pill" onclick="filterTable('Dispatched')">Dispatched ({{ counts.get('Dispatched', 0) }})</div>
+                            <div class="filter-pill" onclick="filterTable('Resolved')">Resolved ({{ counts.get('Resolved', 0) }})</div>
+                            <div class="filter-pill" onclick="filterTable('Rejected')">Rejected ({{ counts.get('Rejected', 0) }})</div>
+                        </div>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Animal / Location</th>
+                                        <th>Reporter</th>
+                                        <th>Condition</th>
+                                        <th>Submitted</th>
+                                        <th>Status</th>
+                                        <th style="text-align: right;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminTableBody">
+                                    {% for report in reports %}
+                                    <tr data-status="{{ report.status }}" data-report='{{ report | tojson }}'>
+                                        <td>
+                                            <div class="media-preview">
+                                                {% if report.media and report.media[0] %}
+                                                    <img src="{{ report.media[0] }}" class="media-img" alt="Animal Media">
+                                                {% else %}
+                                                    <div class="media-img-fallback"><i class="fa-solid fa-paw"></i></div>
+                                                {% endif %}
+                                                <div>
+                                                    <strong>{{ report.animalType or 'Unknown' }}</strong>
+                                                    <div style="font-size:0.8rem; color: var(--text-muted);">
+                                                        <i class="fa-solid fa-location-dot"></i> 
+                                                        {% if report.latitude and report.longitude %}
+                                                            {{ "%.5f"|format(report.latitude|float) }}, {{ "%.5f"|format(report.longitude|float) }}
+                                                        {% else %}
+                                                            {{ report.locationText or 'N/A' }}
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ report.reporter_name }}</td>
+                                        <td>{{ report.animalCondition }}</td>
+                                        <td>{{ report.formatted_submitted }}</td>
+                                        <td>
+                                            <span class="badge 
+                                                {% if report.status == 'Submitted' %}badge-submitted
+                                                {% elif report.status == 'Under Review' %}badge-review
+                                                {% elif report.status == 'Dispatched' %}badge-dispatched
+                                                {% elif report.status == 'Resolved' %}badge-resolved
+                                                {% elif report.status == 'Rejected' %}badge-rejected{% endif %}">
+                                                {{ report.status }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="action-row" style="justify-content: flex-end;">
+                                                <button class="btn-action btn-view" title="View Full Info" onclick="openViewModal(this)">
+                                                    <i class="fa-regular fa-eye"></i>
+                                                </button>
+                                                {% if report.status in ['Submitted', 'Under Review'] %}
+                                                    <button class="btn-action" title="Dispatch Team" onclick="updateRescueStatus('{{ report.id }}', 'Dispatched')">
+                                                        <i class="fa-solid fa-truck-medical"></i>
+                                                    </button>
+                                                {% elif report.status == 'Dispatched' %}
+                                                    <button class="btn-action" title="Mark Resolved" onclick="updateRescueStatus('{{ report.id }}', 'Resolved')">
+                                                        <i class="fa-solid fa-check"></i>
+                                                    </button>
+                                                {% endif %}
+                                                {% if report.status != 'Resolved' %}
+                                                    <button class="btn-action" title="Reject Report" onclick="updateRescueStatus('{{ report.id }}', 'Rejected')">
+                                                        <i class="fa-solid fa-xmark"></i>
+                                                    </button>
+                                                {% endif %}
+                                                <button class="btn-action" title="Reject Report" onclick="updateRescueStatus('{{ report.id }}', 'Rejected')">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                    <!--Reporter Interface-->
+                    {% else %}
+                        {% for report in reports %}
+                            <div class="app-card">
+                                <div class="card-meta">
+                                    <div class="report-info-block">
+                                        {% if report.media and report.media[0] %}
+                                            <img src="{{ report.media[0] }}" class="media-img" style="width: 64px; height: 64px;" alt="Report Preview">
+                                        {% else %}
+                                            <div class="media-img-fallback" style="width: 64px; height: 64px;"><i class="fa-solid fa-paw"></i></div>
+                                        {% endif %}
+                                        <div>
+                                            <h3 class="report-title">Report #{{ loop.revindex }}</h3>
+                                            <p class="sub-timeline-text">Submitted on {{ report.formatted_submitted }}</p>
+                                            <div class="details-tags">
+                                                <span class="tag"><i class="fa-solid fa-paw" style="color:var(--primary);"></i> {{ report.animalType or 'Animal' }}</span>
+                                                <span class="tag">
+                                                    <i class="fa-solid fa-location-dot" style="color:#ef4444;"></i> 
+                                                        {% if report.locationText %}
+                                                            {{ report.locationText }}
+                                                        {% elif report.latitude and report.longitude %}
+                                                            GPS: {{ "%.5f"|format(report.latitude|float) }}, {{ "%.5f"|format(report.longitude|float) }}
+                                                        {% else %}
+                                                            Location details unavailable
+                                                        {% endif %}
+                                                </span>
+                                                <span class="tag"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i> {{ report.animalCondition or 'Condition' }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <span class="badge 
+                                        {% if report.status == 'Submitted' %}badge-submitted
+                                        {% elif report.status == 'Under Review' %}badge-review
+                                        {% elif report.status == 'Dispatched' %}badge-dispatched
+                                        {% elif report.status == 'Resolved' %}badge-resolved
+                                        {% elif report.status == 'Rejected' %}badge-rejected{% endif %}">
+                                        {{ report.status }}
+                                    </span>
+                                </div>
+                                <div class="status-info-box">
+                                    <i class="fa-regular fa-clock"></i>
+                                    <span>
+                                        {% if report.status == 'Submitted' %}
+                                            Report logged. Waiting for assigned rescue coordinators to accept.
+                                        {% elif report.status == 'Under Review' %}
+                                            Report is being reviewed by our rescue coordinators.
+                                        {% elif report.status == 'Dispatched' %}
+                                            Rescue team dispatched to the location!
+                                        {% elif report.status == 'Resolved' %}
+                                            Rescue completed! The animal is now safe and secured.
+                                        {% else %}
+                                            Report closed or flagged as duplicate.
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="tracker-line">
+                                    <div class="step-node completed">
+                                        <div class="node-bubble"><i class="fa-solid fa-check"></i></div>
+                                        <span>Submitted</span>
+                                    </div>
+                                    <div class="line-segment {{ 'completed' if report.status in ['Under Review', 'Dispatched', 'Resolved'] }}"></div>
+                                    <div class="step-node {{ 'active' if report.status == 'Under Review' }} {{ 'completed' if report.status in ['Dispatched', 'Resolved'] }}">
+                                        <div class="node-bubble">
+                                            {% if report.status in ['Dispatched', 'Resolved'] %}<i class="fa-solid fa-check"></i>{% else %}2{% endif %}
+                                        </div>
+                                        <span>Under Review</span>
+                                    </div>
+                                    <div class="line-segment {{ 'completed' if report.status in ['Dispatched', 'Resolved'] }}"></div>
+                                    <div class="step-node {{ 'active' if report.status == 'Dispatched' }} {{ 'completed' if report.status == 'Resolved' }}">
+                                        <div class="node-bubble">
+                                            {% if report.status == 'Resolved' %}<i class="fa-solid fa-check"></i>{% else %}3{% endif %}
+                                        </div>
+                                        <span>Dispatched</span>
+                                    </div>
+                                    <div class="line-segment {{ 'completed' if report.status == 'Resolved' }}"></div>
+                                    <div class="step-node {{ 'active' if report.status == 'Resolved' }} {{ 'completed' if report.status == 'Resolved' }}">
+                                        <div class="node-bubble">
+                                            {% if report.status == 'Resolved' %}<i class="fa-solid fa-check"></i>{% else %}4{% endif %}
+                                        </div>
+                                        <span>Resolved</span>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!--Admin View Modal-->
+    <div id="viewReportModal" class="modal-backdrop" onclick="handleModalBackdropClick(event)">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title">Rescue Report Details</h3>
+                <button class="modal-close" onclick="closeViewModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Reporter Name</span>
+                        <span class="info-value" id="modalReporter">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Contact Info</span>
+                        <span class="info-value" id="modalContact">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Animal Type</span>
+                        <span class="info-value" id="modalAnimalType">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Animal Condition</span>
+                        <span class="info-value" id="modalCondition">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Pinned GPS Location</span>
+                        <span class="info-value" id="modalGPS">--</span>
+                        <a id="modalMapLink" href="#" target="_blank" class="map-link" style="display:none;">
+                            <i class="fa-solid fa-map-pin"></i> Open in Google Maps
+                        </a>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Status</span>
+                        <span class="info-value" id="modalStatus">--</span>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="modal-section-title">Location Notes / Landmark</h4>
+                    <div class="modal-text-block" id="modalLocationText">No location details provided.</div>
+                </div>
+                <div>
+                    <h4 class="modal-section-title">Description</h4>
+                    <div class="modal-text-block" id="modalDescription">No description provided.</div>
+                </div>
+                <div id="additionalNotesContainer">
+                    <h4 class="modal-section-title">Additional Notes</h4>
+                    <div class="modal-text-block" id="modalNotes">No additional notes provided.</div>
+                </div>
+                <div>
+                    <h4 class="modal-section-title">Rescue Report Media Attachments</h4>
+                    <div class="modal-media-grid" id="modalMediaGrid">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+    <div id="lightboxModal" class="modal-backdrop" style="z-index: 1100;" onclick="closeLightbox()">
+        <div class="lightbox-card" onclick="event.stopPropagation()">
+            <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+            <img id="lightboxImage" class="lightbox-content" src="" alt="Photo Preview">
+        </div>
+    </div>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    // Filter
+    function filterTable(status) {
+        const rows = document.querySelectorAll('#adminTableBody tr');
+        const pills = document.querySelectorAll('.filter-pill');
+        pills.forEach(p => p.classList.remove('active'));
+        event.target.classList.add('active');
+        rows.forEach(row => {
+            if (status === 'All' || row.dataset.status === status) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function updateRescueStatus(reportId, status) {
+        if (!confirm(`Are you sure you want to change this report status to ${status}?`)) return;
+
+        fetch(`/rescue/update-status/${reportId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: status })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert('Update failed: ' + data.message);
+            }
+        })
+        .catch(err => console.error(err));
+    }
+
+    function openLightbox(imageUrl) {
+        const lightboxImg = document.getElementById('lightboxImage');
+        if (lightboxImg) lightboxImg.src = imageUrl;
+        
+        const lightboxModal = document.getElementById('lightboxModal');
+        if (lightboxModal) lightboxModal.classList.add('active');
+    }
+
+    function closeLightbox() {
+        const lightboxModal = document.getElementById('lightboxModal');
+        if (lightboxModal) lightboxModal.classList.remove('active');
+    }
+
+   // View Modal
+    function openViewModal(buttonEl) {
+        const row = buttonEl.closest('tr');
+        if (!row || !row.dataset.report) return;
+        const report = JSON.parse(row.dataset.report);
+        document.getElementById('modalReporter').textContent = report.reporter_name || 'Anonymous';
+        document.getElementById('modalContact').textContent = report.contactInfo || 'N/A';
+        document.getElementById('modalAnimalType').textContent = report.animalType || 'N/A';
+        document.getElementById('modalCondition').textContent = report.animalCondition || 'N/A';
+        document.getElementById('modalStatus').textContent = report.status || 'N/A';
+        
+        const gpsElement = document.getElementById('modalGPS');
+        const mapLink = document.getElementById('modalMapLink');
+        
+        if (report.latitude && report.longitude) {
+            const lat = parseFloat(report.latitude).toFixed(5);
+            const lng = parseFloat(report.longitude).toFixed(5);
+            gpsElement.textContent = `${lat}, ${lng}`;
+            mapLink.href = `https://www.google.com/maps?q=${report.latitude},${report.longitude}`;
+            mapLink.style.display = 'inline-flex';
+
+        } else {
+            gpsElement.textContent = 'Not pinned';
+            mapLink.style.display = 'none';
+        }
+
+        document.getElementById('modalLocationText').textContent = report.locationText || 'No location details provided.';
+        document.getElementById('modalDescription').textContent = report.description || 'No description provided.';
+        const notesContainer = document.getElementById('additionalNotesContainer');
+        if (report.additionalNotes) {
+            notesContainer.style.display = 'block';
+            document.getElementById('modalNotes').textContent = report.additionalNotes;
+        } else {
+            notesContainer.style.display = 'none';
+        }
+
+        const mediaGrid = document.getElementById('modalMediaGrid');
+        mediaGrid.innerHTML = '';
+
+        if (report.media && report.media.length > 0) {
+            report.media.forEach((src, index) => {
+                const isVideo = (index === 3) || src.includes('video') || src.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i);
+                
+                if (isVideo) {
+                    const videoContainer = document.createElement('div');
+                    videoContainer.className = 'modal-media-item-container';
+                    
+                    const video = document.createElement('video');
+                    video.src = src;
+                    video.controls = true;
+                    video.preload = 'metadata';
+                    video.className = 'modal-media-item';
+                    video.style.width = '100%';
+                    video.style.maxHeight = '250px';
+                    video.style.objectFit = 'contain';
+                    
+                    video.onerror = () => {
+                        videoContainer.innerHTML = `<a href="${src}" target="_blank" class="btn-action" style="padding: 10px 15px; display:inline-block; text-decoration:none;"><i class="fa-solid fa-download"></i> Download Video Attachment</a>`;
+                    };
+
+                    videoContainer.appendChild(video);
+                    mediaGrid.appendChild(videoContainer);
+                } else {
+                    const img = document.createElement('img');
+                    img.src = src;
+                    img.className = 'modal-media-item';
+                    img.alt = 'Rescue Attachment';
+                    img.title = 'Click to enlarge';
+                    img.onclick = () => openLightbox(src);
+                    mediaGrid.appendChild(img);
+                }
+            });
+        } else {
+            mediaGrid.innerHTML = '<span style="color: var(--text-muted); font-size: 0.875rem;">No media attached.</span>';
+        }
+        document.getElementById('viewReportModal').classList.add('active');
+    }
+
+    function closeViewModal() {
+        document.getElementById('viewReportModal').classList.remove('active');
+    }
+
+    function handleModalBackdropClick(event) {
+        if (event.target.id === 'viewReportModal') {
+            closeViewModal();
+        }
+    }
+</script>
+</body>
+</html>

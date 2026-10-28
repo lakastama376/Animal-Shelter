@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tails of Freedom Animal Haven</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/home.css') }}">
+        <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    <meta id="session-metadata" data-logged-in="{% if is_logged_in %}true{% else %}false{% endif %}">
+    {% include 'Navbar.html' %}
+
+    <section class="hero">
+        <img src="{{ url_for('static', filename='Assets/Images/cover.jpg') }}" alt="Animal Haven Cover Background" class="hero-bg">
+        <div class="hero-overlay"></div>
+        <div class="hero-buttons">
+            <a href="{{ url_for('pet_public_bp.pet_list') }}" class="btn-nav">Browse adoptable pets</a>
+            <a href="{{ url_for('rescue_report_bp.index') }}" class="btn-nav">Report a stray</a>
+            <a href="{{ url_for('eligibility_checker_bp.index') }}" class="btn-nav">Adopt a pet</a>
+            <a href="{{ url_for('donation_bp.index') }}" class="btn-nav">Support the shelter</a>
+        </div>
+    </section>
+    <section class="intro">
+        <h2>Every rescued animal deserves a forever home</h2>
+        <p>Tails of Freedom Animal Haven connects stray and rescued dogs and cats in Silang, Cavite with loving families ready to give them a permanent home.</p>
+        <div class="intro-cards-grid">
+            <div class="intro-card">
+                <div class="intro-icon"><i class="fa-solid fa-paw"></i></div>
+                <h3>Rescue & Rehabilitate</h3>
+                <p>We rescue stray, abandoned, and abused animals and provide full medical care, nutrition, and emotional rehabilitation.</p>
+            </div>
+            <div class="intro-card">
+                <div class="intro-icon"><i class="fa-solid fa-house-chimney-user"></i></div>
+                <h3>Match & Adopt</h3>
+                <p>Our careful matching process connects pets with families who can provide the perfect forever home for their unique personality.</p>
+            </div>
+            <div class="intro-card">
+                <div class="intro-icon"><i class="fa-solid fa-heart"></i></div>
+                <h3>Support & Educate</h3>
+                <p>We educate the community on responsible pet ownership, animal welfare laws, and how everyone can make a difference.</p>
+            </div>
+        </div>
+    </section>
+
+    <!--Pets Section-->
+    <section class="featured">
+        <div class="section-header">
+            <div class="showcase-title">
+                <span class="section-tag">Find Your Companion</span>
+                <h2>Featured Pets</h2>
+                <p class="section-subtitle">These wonderful animals are waiting for their forever families</p>
+            </div>
+            <a href="{{ url_for('pet_public_bp.pet_list') }}" class="view-all-link">
+                View All Pets <i class="fa-solid fa-arrow-right"></i>
+            </a>
+        </div>
+        <div class="showcase-container">
+            <div class="showcase-slider">
+                <div class="slider" id="pet3dSlider">
+                    {% for pet in pets %}
+                    <div class="slider-item {% if loop.first %}active{% endif %}" 
+                        data-index="{{ loop.index0 }}"
+                        data-id="{{ pet.id }}">
+                        <img src="{{ pet.images[0] if pet.images else 'https://via.placeholder.com/300x400' }}" alt="{{ pet.petName }}">
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="showcase-details">
+                {% for pet in pets %}
+                <div class="showcase-card-details {% if loop.first %}active{% endif %}" data-index="{{ loop.index0 }}">
+                    <div class="showcase-header">
+                        <div>
+                            <h2 class="showcase-pet-name">{{ pet.petName }}</h2>
+                            <p class="showcase-pet-breed">{{ pet.breed }}</p>
+                        </div>
+                        <button class="btn-favorite-circle {% if pet.is_favorited %}is-favorite{% endif %}" 
+                                data-id="{{ pet.id }}" 
+                                title="Add to Wishlist">
+                            <i class="{% if pet.is_favorited %}fa-solid{% else %}fa-regular{% endif %} fa-heart fa-lg"></i>
+                        </button>
+                    </div>
+                    <div class="showcase-meta-grid">
+                        <div class="meta-box">
+                            <i class="fa-regular fa-calendar-days meta-icon"></i>
+                            <div>
+                                <span class="meta-label">Age</span>
+                                <span class="meta-value">{{ pet.age }}</span>
+                            </div>
+                        </div>
+                        <div class="meta-box">
+                            <i class="fa-regular fa-star meta-icon"></i>
+                            <div>
+                                <span class="meta-label">Gender</span>
+                                <span class="meta-value">{{ pet.gender }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="showcase-story-box">
+                        <h3><i class="fa-solid fa-paw"></i> {{ pet.petName }}'s Story</h3>
+                        <p>{{ pet.description or (pet.petName ~ ' was rescued and is looking for a loving forever home.') }}</p>
+                    </div>
+                    <div class="showcase-actions">
+                        <a href="{{ url_for('pet_profile_bp.pet_profile', id=pet.id) if pet_profile_bp is defined else '/pet-management/profile/' ~ pet.id }}" class="btn-profile">
+                            View Full Profile
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+                <button class="showcase-nav prev" id="prevPetBtn" aria-label="Previous Pet">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <button class="showcase-nav next" id="nextPetBtn" aria-label="Next Pet">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!--Process Section-->
+    <section class="process">
+        <span class="section-tag">Simple Process</span>
+        <h2>How Adoption Works</h2>
+        <p style="color: var(--text-muted); margin-top: -30px; margin-bottom: 50px;">From browsing to bringing your pet home — the entire process is done online.</p>
+        <div class="steps-container">
+            <div class="step-card">
+                <div class="step-number">1</div>
+                <div class="step-icon"><i class="fa-solid fa-clipboard-check"></i></div>
+                <h3>Take the Eligibility Check</h3>
+                <p>Answer quick questions to confirm you're ready to give a pet a loving home.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">2</div>
+                <div class="step-icon"><i class="fa-solid fa-paw"></i></div>
+                <h3>Choose Your Pet</h3>
+                <p>Browse profiles of available dogs and cats and save your favorites to your wishlist.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">3</div>
+                <div class="step-icon"><i class="fa-solid fa-file-invoice"></i></div>
+                <h3>Submit Your Application</h3>
+                <p>Fill out the adoption form and upload your valid ID and proof of address online.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">4</div>
+                <div class="step-icon"><i class="fa-solid fa-house-chimney-user"></i></div>
+                <h3>Visit & Take Them Home</h3>
+                <p>Schedule a shelter visit, meet your pet, and officially welcome them into your family.</p>
+            </div>
+        </div>
+        <a href="{{ url_for('eligibility_checker_bp.index') }}" class="btn-survey">Start your Adoption Journey &gt;&gt;</a>
+    </section>
+
+    <!--Services Section-->
+    <section class="services">
+        <span class="section-tag">What We Offer</span>
+        <h2>Our Services</h2>
+        <p style="color: var(--text-muted); margin-top: -20px; margin-bottom: 50px;">Everything you need from adopting a pet to reporting a stray animal in your community.</p>
+        <div class="services-grid">
+            <div class="service-card">
+                <div class="service-icon"><i class="fa-solid fa-paw"></i></div>
+                <h3>Pet Adoption</h3>
+                <p>Browse available dogs and cats, complete an eligibility check, and apply online. Track your application status every step of the way.</p>
+                <a href="{{ url_for('pet_public_bp.pet_list') }}" class="service-link">Start adopting <i class="fa-solid fa-chevron-right" style="font-size:0.8rem"></i></a>
+            </div>
+            <div class="service-card">
+                <div class="service-icon"><i class="fa-solid fa-bullhorn"></i></div>
+                <h3>Rescue Reporting</h3>
+                <p>Found a stray or injured animal? Submit a report with photos, a short video, and your GPS-detected location - all within the shelter's service area.</p>
+                <a href="{{ url_for('rescue_report_bp.management_view') }}" class="service-link">Report a stray <i class="fa-solid fa-chevron-right" style="font-size:0.8rem"></i></a>
+            </div>
+            <div class="service-card">
+                <div class="service-icon"><i class="fa-solid fa-heart"></i></div>
+                <h3>Donations</h3>
+                <p>Support the shelter with a monetary donation via QR Ph or coordinate an in-kind donation of food, medicine, or supplies.</p>
+                <a href="{{ url_for('donation_bp.index') }}" class="service-link">Donate now <i class="fa-solid fa-chevron-right" style="font-size:0.8rem"></i></a>
+            </div>
+        </div>
+    </section>
+
+    <!--Shelter Activity Section-->
+    <section class="shelter-posts">
+        <span class="section-tag">Latest Updates</span>
+        <h2>Shelter Activity</h2>
+        <p style="color: var(--text-muted); margin-top: 5px; margin-bottom: 30px;">Recent updates, donations received, and shelter news.</p>
+        <div class="posts-grid">
+            {% if posts %}
+                {% set first_post = posts[0] %}
+                {% set first_media = first_post.mediaUrls if first_post.mediaUrls and first_post.mediaUrls|length > 0 else ([first_post.image] if first_post.image else []) %}
+                <div class="post-card feature-post {% if not first_post.has_image %}text-only-card{% endif %}" 
+                    style="cursor: pointer;"
+                    data-caption="{{ first_post.caption|e }}"
+                    data-media-urls='{{ first_media | tojson | safe }}'
+                    data-date="{{ first_post.date }}"
+                    data-source="{{ first_post.source }}"
+                    data-fb-url="{{ first_post.fb_url }}"
+                    data-ig-url="{{ first_post.ig_url }}"
+                    onclick="openPostModal(this)">
+                    <div class="post-image-wrapper">
+                        {% if first_media|length > 0 %}
+                            <img src="{{ first_media[0] }}" alt="{{ first_post.caption }}" class="post-image">
+                            {% if first_media|length > 1 %}
+                                <div class="multi-media-badge"><i class="fa-solid fa-clone"></i> {{ first_media|length }}</div>
+                            {% endif %}
+                        {% else %}
+                            <div class="text-post-placeholder">
+                                <p class="text-post-body">"{{ first_post.caption }}"</p>
+                            </div>
+                        {% endif %}
+                        <div class="post-overlay">
+                            <p class="post-caption">{{ first_post.caption }}</p>
+                            <div class="post-meta">
+                                <span class="post-source">
+                                    {% if 'facebook' in first_post.platforms and 'instagram' in first_post.platforms %}
+                                        <i class="fa-brands fa-facebook"></i> <i class="fa-brands fa-instagram"></i> Facebook & Instagram
+                                    {% elif 'facebook' in first_post.platforms %}
+                                        <i class="fa-brands fa-facebook"></i> facebook.com
+                                    {% elif 'instagram' in first_post.platforms %}
+                                        <i class="fa-brands fa-instagram"></i> instagram.com
+                                    {% else %}
+                                        <i class="fa-solid fa-share-nodes"></i> {{ first_post.source }}
+                                    {% endif %}
+                                </span>
+                                <span>•</span>
+                                <span class="post-date">{{ first_post.date }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="posts-grid-right">
+                    {% for post in posts[1:5] %}
+                    {% set post_media = post.mediaUrls if post.mediaUrls and post.mediaUrls|length > 0 else ([post.image] if post.image else []) %}
+                    <div class="post-card {% if not post.has_image %}text-only-card{% endif %}" 
+                        style="cursor: pointer;"
+                        data-caption="{{ post.caption|e }}"
+                        data-media-urls='{{ post_media | tojson | safe }}'
+                        data-date="{{ post.date }}"
+                        data-source="{{ post.source }}"
+                        data-fb-url="{{ post.fb_url }}"
+                        data-ig-url="{{ post.ig_url }}"
+                        onclick="openPostModal(this)">
+                        <div class="post-image-wrapper">
+                            {% if post_media|length > 0 %}
+                                <img src="{{ post_media[0] }}" alt="{{ post.caption }}" class="post-image">
+                                {% if post_media|length > 1 %}
+                                    <div class="multi-media-badge"><i class="fa-solid fa-clone"></i> {{ post_media|length }}</div>
+                                {% endif %}
+                            {% else %}
+                                <div class="text-post-placeholder">
+                                    <p class="text-post-body">"{{ post.caption }}"</p>
+                                </div>
+                            {% endif %}
+                            <div class="post-overlay">
+                                <p class="post-caption">{{ post.caption }}</p>
+                                <div class="post-meta">
+                                    <span class="post-source">
+                                        {% if 'facebook' in post.platforms and 'instagram' in post.platforms %}
+                                            <i class="fa-brands fa-facebook"></i> <i class="fa-brands fa-instagram"></i> Multi-platform
+                                        {% elif 'facebook' in post.platforms %}
+                                            <i class="fa-brands fa-facebook"></i> facebook.com
+                                        {% elif 'instagram' in post.platforms %}
+                                            <i class="fa-brands fa-instagram"></i> instagram.com
+                                        {% else %}
+                                            <i class="fa-solid fa-share-nodes"></i> {{ post.source }}
+                                        {% endif %}
+                                    </span>
+                                    <span>•</span>
+                                    <span class="post-date">{{ post.date }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div id="extra-posts-container" style="display: none;">
+                    {% for post in posts[5:] %}
+                    {% set post_media = post.mediaUrls if post.mediaUrls and post.mediaUrls|length > 0 else ([post.image] if post.image else []) %}
+                    <div class="post-card" 
+                        data-caption="{{ post.caption|e }}"
+                        data-media-urls='{{ post_media | tojson | safe }}'
+                        data-date="{{ post.date }}"
+                        data-source="{{ post.source }}"
+                        data-fb-url="{{ post.fb_url }}"
+                        data-ig-url="{{ post.ig_url }}">
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p>No shelter updates available right now.</p>
+            {% endif %}
+        </div>
+    </section>
+
+    <!--Educational Resources Section-->
+    <section class="education" style="background: var(--bg-light);">
+        <span class="section-tag">Learn & Grow</span>
+        <div class="section-header">
+            <div>
+                <h2>Education Resources</h2>
+                <p style="color: #666; margin-top: 4px; font-size: 0.95rem;">
+                    Guides, tips, and resources for pet owners and advocates
+                </p>
+            </div>
+            <a href="{{ url_for('article_list_bp.list_articles') }}" class="view-all-link">
+                All Articles <i class="fa-solid fa-arrow-right"></i>
+            </a>
+        </div>
+        <div class="edu-grid">
+            {% for article in articles %}
+            <div class="edu-card">
+                <a href="{{ url_for('article_content_bp.view_article', article_id=article.id) }}" class="edu-card-link">
+                    <div class="edu-img-container">
+                        <img src="{{ article.coverImage or article.cover_image_url or article.imageUrl or article.image or 'https://images.unsplash.com/photo-1544568100-847a948585b9?w=600' }}" 
+                            alt="{{ article.title }}"
+                            onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1544568100-847a948585b9?w=600';">
+                    </div>
+                    <div class="edu-details">
+                        <span class="edu-tag">{{ article.category }}</span>
+                        <h3>{{ article.title }}</h3>
+                        <p style="margin-bottom: 10px;">{{ article.content | striptags | truncate(180) }}</p>
+                        <div class="edu-footer">
+                            <span class="edu-author"><i class="fa-regular fa-user"></i> {{ article.author }}</span>
+                            <span class="edu-readtime"><i class="fa-regular fa-bookmark"></i> {{ article.readTime }}</span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% else %}
+            <p>No educational articles available right now.</p>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!--Donation Wall Section-->
+    <section class="donors">
+        <span class="section-tag">Our Amazing Supporters</span>
+        <h2>Donor Wall</h2>
+        <p class="donors-subtitle">These generous hearts make our mission possible</p>
+        <div class="donor-grid">
+            {% for donor in donors[:3] %}
+            <div class="donor-card" 
+                style="cursor: pointer;" 
+                data-name="{{ (donor.donorName or 'Anonymous Donor')|e }}"
+                data-date="{{ (donor.date or '')|e }}"
+                data-description="{{ (donor.description or donor.notes or '')|e }}"
+                data-photo="{{ (donor.photoURL or '')|e }}"
+                data-media="{{ (donor.media or [])|tojson|forceescape }}"
+                onclick="openDonorMediaModal(this)">
+                <div class="donor-header">
+                    {% if donor.photoURL %}
+                    <img class="donor-avatar" src="{{ donor.photoURL }}" alt="{{ donor.donorName }}">
+                    {% else %}
+                    <div class="donor-avatar"><i class="fa-regular fa-user"></i></div>
+                    {% endif %}
+                    <div class="donor-info">
+                        <h4>{{ donor.donorName or 'Anonymous Donor' }}</h4>
+                        <span class="donor-badge badge-{{ (donor.badge or 'Supporter')|lower }}">
+                            {% if donor.badge == 'Sponsor' %}
+                                🏆 Sponsor
+                            {% elif donor.badge == 'Hero' %}
+                                🏅 Hero
+                            {% else %}
+                                ⭐ Supporter
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                <p class="donor-quote">"{{ donor.description or donor.notes or 'Happy to support!' }}"</p>
+            </div>
+            {% endfor %}
+        </div>
+        <a href="{{ url_for('donation_bp.index') }}" class="btn-supporter"><i class="fa-solid fa-heart"></i> Become a Supporter</a>
+    </section>
+
+    <!-- Modal View Post Activity -->
+    <div id="post-modal" class="modal-overlay" onclick="handlePostOverlayClick(event)">
+        <div class="post-modal-card">
+            <button class="close-btn" onclick="closePostModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <button id="post-modal-prev" class="modal-nav-btn prev-btn" onclick="changePostModal(-1)" aria-label="Previous Post">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <button id="post-modal-next" class="modal-nav-btn next-btn" onclick="changePostModal(1)" aria-label="Next Post">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+            <div class="post-modal-header">
+                <div class="post-modal-meta">
+                    <span id="post-modal-source"></span> • <span id="post-modal-date"></span>
+                </div>
+                <p id="post-modal-caption"></p>
+            </div>
+            <div class="post-modal-media" id="post-modal-media-container">
+                <img id="post-modal-image" src="" alt="Post content image">
+                <div id="media-dropdown-wrapper" class="media-dropdown-container" style="display: none;">
+                    <button class="media-menu-btn" onclick="toggleMediaDropdown(event)" title="Select photo">
+                        <i class="fa-solid fa-ellipsis-vertical"></i>
+                    </button>
+                    <div id="media-dropdown-menu" class="media-dropdown-content">
+                    </div>
+                </div>
+            </div>
+            <div class="post-modal-footer">
+                <a id="post-modal-fb-link" href="#" target="_blank" class="post-modal-btn fb-btn" style="display:none;">
+                    <i class="fa-brands fa-facebook"></i> View on Facebook
+                </a>
+                <a id="post-modal-ig-link" href="#" target="_blank" class="post-modal-btn ig-btn" style="display:none;">
+                    <i class="fa-brands fa-instagram"></i> View on Instagram
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal View Donors -->
+    <div id="donor-modal" class="modal-overlay" onclick="handleOverlayClick(event)">
+        <div class="modal-card">
+            <button class="close-btn" onclick="closeDonorMediaModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="donor-header">
+                <div id="modal-avatar"></div>
+                <div>
+                    <h3 id="modal-name"></h3>
+                    <span id="modal-date"></span>
+                </div>
+            </div>
+            <p id="description"></p>
+            <div class="carousel-container" id="carousel-container">
+                <button class="carousel-nav-btn prev-btn" id="modal-prev-btn" onclick="changeDonorMedia(-1)">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <div id="media-gallery"></div>
+                <button class="carousel-nav-btn next-btn" id="modal-next-btn" onclick="changeDonorMedia(1)">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!--Adoption Section-->
+    <section class="cta-banner">
+        <h2>Ready to Change a Life?</h2>
+        <p>Every adoption saves two lives - the animal you adopt, and the space it creates for another to be rescued.</p>
+        <div class="cta-actions">
+            <a href="{{ url_for('pet_public_bp.pet_list') }}" class="btn-cta-white">Start Adopting</a>
+            <a href="{{ url_for('pet_matching_bp.index') }}" class="btn-cta-outline">Find My Match</a>
+        </div>
+    </section>
+
+    <!--Footer-->
+    <footer>
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <h3>Tails of Freedom Animal Haven</h3>
+                <p>Every rescued animal deserves a forever home. Connecting loving families with animals.</p>
+                <div class="social-icons">
+                    <a href="https://web.facebook.com/tailsoffreedom"><i class="fa-brands fa-facebook-f"></i></a>
+                    <a href="https://www.instagram.com/tailsoffreedom/"><i class="fa-brands fa-instagram"></i></a>
+                </div>
+            </div>
+            <div class="footer-links">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="{{ url_for('home_bp.home') }}">Home</a></li>
+                    <li><a href="{{ url_for('about_bp.about_page') }}">About Us</a></li>
+                    <li><a href="{{ url_for('pet_public_bp.pet_list') }}">Adopt a Pet</a></li>
+                    <li><a href="{{ url_for('donation_bp.index') }}">Donate</a></li>
+                    <li><a href="{{ url_for('contact_bp.contact_page') }}">Contact Us</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h3>Adopt & Help</h3>
+                <ul>
+                    <li><a href="{{ url_for('pet_public_bp.pet_list') }}">Browse Pets</a></li>
+                    <li><a href="{{ url_for('pet_matching_bp.index') }}">Pet Matching</a></li>
+                    <li><a href="{{ url_for('rescue_report_bp.index') }}">Report a Stray</a></li>
+                    <li><a href="{{ url_for('donation_bp.index') }}">Donor Wall</a></li>
+                </ul>
+            </div>
+            <div class="footer-contact">
+                <h3>Visit Us</h3>
+                <p><i class="fa-solid fa-location-dot"></i> Sabutan Silang, Cavite - Philippines</p>
+                <p><i class="fa-solid fa-clock"></i> 8:00 AM - 5:00 PM daily</p>
+                <p><i class="fa-solid fa-phone"></i> +63 936 995 8628</p>
+                <p><i class="fa-solid fa-envelope"></i> papeloniaaileen@gmail.com</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Tails of Freedom Animal Haven. All rights reserved.</p>
+            <p>Made with <i class="fa-solid fa-heart" style="color:#ef4444"></i> for animals in Silang, Cavite - PH</p>
+        </div>
+    </footer>
+</main>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    const metaElement = document.getElementById('session-metadata');
+    const IS_LOGGED_IN = metaElement ? metaElement.dataset.loggedIn === 'true' : false;
+    const LOGIN_URL = "/login";
+
+    // Post Content
+    let allPostCards = [];
+    let currentPostIndex = 0;
+    let currentMediaList = [];
+    let currentMedia = 0;
+
+    function openPostModal(cardElement) {
+        allPostCards = Array.from(document.querySelectorAll('.post-card'));
+        currentPostIndex = allPostCards.indexOf(cardElement);
+
+        if (currentPostIndex === -1) {
+            currentPostIndex = 0;
+        }
+
+        renderPostModalContent();
+        const modal = document.getElementById('post-modal');
+        modal.style.display = 'flex';
+    }
+
+    function renderPostModalContent() {
+        if (allPostCards.length === 0) return;
+        const currentCard = allPostCards[currentPostIndex];
+        const caption = currentCard.getAttribute('data-caption') || '';
+        const date = currentCard.getAttribute('data-date') || '';
+        const source = currentCard.getAttribute('data-source') || '';
+        const fbUrl = currentCard.getAttribute('data-fb-url') || '';
+        const igUrl = currentCard.getAttribute('data-ig-url') || '';
+        let mediaUrls = [];
+        try {
+            mediaUrls = JSON.parse(currentCard.getAttribute('data-media-urls') || '[]');
+        } catch (e) {
+            mediaUrls = [];
+        }
+
+        currentMediaList = mediaUrls;
+        currentMedia = 0;
+        document.getElementById('post-modal-caption').innerText = caption;
+        document.getElementById('post-modal-date').innerText = date;
+        document.getElementById('post-modal-source').innerText = source;
+        updateModalMediaDisplay();
+        buildMediaDropdownOptions();
+
+        const fbBtn = document.getElementById('post-modal-fb-link');
+        const igBtn = document.getElementById('post-modal-ig-link');
+        if (fbUrl && fbUrl !== '') {
+            fbBtn.href = fbUrl;
+            fbBtn.style.display = 'inline-flex';
+        } else {
+            fbBtn.style.display = 'none';
+        }
+        
+        if (igUrl && igUrl !== '') {
+            igBtn.href = igUrl;
+            igBtn.style.display = 'inline-flex';
+        } else {
+            igBtn.style.display = 'none';
+        }
+
+        const prevBtn = document.getElementById('post-modal-prev');
+        const nextBtn = document.getElementById('post-modal-next');
+        const displayNav = allPostCards.length > 1 ? 'flex' : 'none';
+        if (prevBtn) prevBtn.style.display = displayNav;
+        if (nextBtn) nextBtn.style.display = displayNav;
+    }
+
+    function updateModalMediaDisplay() {
+        const mediaContainer = document.getElementById('post-modal-media-container');
+        const imgElem = document.getElementById('post-modal-image');
+        const modalCard = document.querySelector('.post-modal-card');
+        const dropdownWrapper = document.getElementById('media-dropdown-wrapper');
+
+        if (currentMediaList.length > 0 && currentMediaList[currentMedia]) {
+            imgElem.src = currentMediaList[currentMedia];
+            mediaContainer.style.display = 'flex';
+            modalCard.classList.remove('text-only-modal');
+
+            if (currentMediaList.length > 1) {
+                dropdownWrapper.style.display = 'block';
+            } else {
+                dropdownWrapper.style.display = 'none';
+            }
+        } else {
+            imgElem.src = '';
+            mediaContainer.style.display = 'none';
+            modalCard.classList.add('text-only-modal');
+            dropdownWrapper.style.display = 'none';
+        }
+    }
+
+    function buildMediaDropdownOptions() {
+        const menuContainer = document.getElementById('media-dropdown-menu');
+        menuContainer.innerHTML = '';
+
+        if (currentMediaList.length <= 1) return;
+        currentMediaList.forEach((url, index) => {
+            const item = document.createElement('div');
+            item.className = `media-dropdown-item ${index === currentMedia ? 'active' : ''}`;
+            item.innerHTML = `<i class="fa-regular fa-image"></i> Photo ${index + 1}`;
+            item.onclick = (e) => {
+                e.stopPropagation();
+                currentMedia = index;
+                updateModalMediaDisplay();
+                buildMediaDropdownOptions(); 
+                menuContainer.style.display = 'none';
+            };
+            menuContainer.appendChild(item);
+        });
+    }
+
+    function toggleMediaDropdown(event) {
+        event.stopPropagation();
+        const menu = document.getElementById('media-dropdown-menu');
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    }
+
+    window.addEventListener('click', () => {
+        const menu = document.getElementById('media-dropdown-menu');
+        if (menu) menu.style.display = 'none';
+    });
+
+    function changePostModal(direction) {
+        if (allPostCards.length === 0) return;
+        currentPostIndex = (currentPostIndex + direction + allPostCards.length) % allPostCards.length;
+        renderPostModalContent();
+    }
+
+    function closePostModal() {
+        const modal = document.getElementById('post-modal');
+        modal.style.display = 'none';
+    }
+
+    function handlePostOverlayClick(event) {
+        if (event.target.id === 'post-modal') {
+            closePostModal();
+        }
+    }
+
+    // Donor Modal
+    let currentModalMediaList = [];
+    let currentMediaIndex = 0;
+
+    function openDonorMediaModal(cardElement) {
+        const donorName = cardElement.getAttribute('data-name');
+        const donorDate = cardElement.getAttribute('data-date');
+        const descriptionText = cardElement.getAttribute('data-description');
+        const photoURL = cardElement.getAttribute('data-photo');
+        
+        try {
+            const rawAttr = cardElement.getAttribute('data-media');
+            let rawMedia = JSON.parse(rawAttr || '[]');
+
+            if (typeof rawMedia === 'string') {
+                rawMedia = [rawMedia];
+            }
+
+            if (Array.isArray(rawMedia)) {
+                currentModalMediaList = rawMedia.map(item => {
+                    if (typeof item === 'string') {
+                        const isVideo = item.match(/\.(mp4|webm|ogg)(\?.*)?$/i);
+                        return { url: item, type: isVideo ? 'video' : 'image' };
+                    }
+                    if (typeof item === 'object' && item !== null) {
+                        const mediaUrl = item.url || item.src || item.link || '';
+                        const isVideo = item.type === 'video' || mediaUrl.match(/\.(mp4|webm|ogg)(\?.*)?$/i);
+                        return { url: mediaUrl, type: isVideo ? 'video' : 'image' };
+                    }
+                    return item;
+                }).filter(item => item && item.url);
+            } else {
+                currentModalMediaList = [];
+            }
+        } catch (e) {
+            console.error("Error parsing donor media:", e);
+            currentModalMediaList = [];
+        }
+
+        document.getElementById('modal-name').innerText = donorName || 'Anonymous Donor';
+        document.getElementById('modal-date').innerText = donorDate || '';
+        
+        const descElement = document.getElementById('description');
+        if (descriptionText && descriptionText.trim() !== '') {
+            descElement.innerText = `"${descriptionText}"`;
+            descElement.style.display = 'block';
+        } else {
+            descElement.innerText = '';
+            descElement.style.display = 'none';
+        }
+
+        const avatarContainer = document.getElementById('modal-avatar');
+        if (photoURL) {
+            avatarContainer.innerHTML = `<img src="${photoURL}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">`;
+        } else {
+            avatarContainer.innerHTML = `<div style="width: 48px; height: 48px; border-radius: 50%; background: #cbd5e1; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 1.125rem;"><i class="fa-regular fa-user"></i></div>`;
+        }
+
+        currentMediaIndex = 0;
+        renderDonorMedia();
+
+        const modal = document.getElementById('donor-modal');
+        modal.style.display = 'flex';
+    }
+
+    function renderDonorMedia() {
+        const gallery = document.getElementById('media-gallery');
+        const prevBtn = document.getElementById('modal-prev-btn');
+        const nextBtn = document.getElementById('modal-next-btn');
+        const carouselContainer = document.getElementById('carousel-container');
+
+        if (!currentModalMediaList || currentModalMediaList.length === 0) {
+            carouselContainer.style.display = 'none';
+            gallery.innerHTML = '';
+            return;
+        }
+
+        carouselContainer.style.display = 'block';
+        const m = currentModalMediaList[currentMediaIndex];
+        gallery.innerHTML = `
+            <div style="border-radius: 12px; overflow: hidden; height: 350px; display: flex; align-items: center; justify-content: center;">
+                ${m.type === 'video'
+                    ? `<video src="${m.url}" controls style="max-width: 100%; max-height: 100%; object-fit: contain;"></video>`
+                    : `<img src="${m.url}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`
+                }
+            </div>
+        `;
+
+        if (currentModalMediaList.length > 1) {
+            prevBtn.style.display = 'flex';
+            nextBtn.style.display = 'flex';
+        } else {
+            prevBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
+        }
+    }
+
+    function changeDonorMedia(direction) {
+        if (!currentModalMediaList.length) return;
+        currentMediaIndex = (currentMediaIndex + direction + currentModalMediaList.length) % currentModalMediaList.length;
+        renderDonorMedia();
+    }
+
+    function closeDonorMediaModal() {
+        const modal = document.getElementById('donor-modal');
+        modal.style.display = 'none';
+    }
+
+    function handleOverlayClick(event) {
+        if (event.target.id === 'donor-modal') {
+            closeDonorMediaModal();
+        }
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeDonorMediaModal();
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const items = document.querySelectorAll(".slider-item");
+        const detailCards = document.querySelectorAll(".showcase-card-details");
+        const prevBtn = document.getElementById("prevPetBtn");
+        const nextBtn = document.getElementById("nextPetBtn");
+
+        if (items.length > 0) {
+            let currentIndex = 0;
+            const totalItems = items.length;
+
+            function updateCarousel() {
+                items.forEach((item, index) => {
+                    let offset = index - currentIndex;
+
+                    if (offset > totalItems / 2) {
+                        offset -= totalItems;
+                    } else if (offset < -totalItems / 2) {
+                        offset += totalItems;
+                    }
+
+                    item.classList.remove("active");
+
+                    if (offset === 0) {
+                        item.classList.add("active");
+                        item.style.transform = `translateX(0px) translateZ(250px) rotateY(0deg)`;
+                        item.style.opacity = "1";
+                        item.style.zIndex = "10";
+                    } else if (offset === 1) {
+                        item.style.transform = `translateX(180px) translateZ(100px) rotateY(-35deg)`;
+                        item.style.opacity = "0.9";
+                        item.style.zIndex = "5";
+                    } else if (offset === -1) {
+                        item.style.transform = `translateX(-180px) translateZ(100px) rotateY(35deg)`;
+                        item.style.opacity = "0.9";
+                        item.style.zIndex = "5";
+                    } else if (offset === 2 || offset === -2) {
+                        const direction = offset > 0 ? 1 : -1;
+                        item.style.transform = `translateX(${direction * 280}px) translateZ(0px) rotateY(${-direction * 50}deg)`;
+                        item.style.opacity = "0.5";
+                        item.style.zIndex = "1";
+                    } else {
+                        item.style.transform = `translateX(0px) translateZ(-200px) rotateY(0deg)`;
+                        item.style.opacity = "0";
+                        item.style.zIndex = "0";
+                    }
+                });
+
+                detailCards.forEach((card, index) => {
+                    if (index === currentIndex) {
+                        card.classList.add("active");
+                    } else {
+                        card.classList.remove("active");
+                    }
+                });
+            }
+
+            if (nextBtn) {
+                nextBtn.addEventListener("click", () => {
+                    currentIndex = (currentIndex + 1) % totalItems;
+                    updateCarousel();
+                });
+            }
+
+            if (prevBtn) {
+                prevBtn.addEventListener("click", () => {
+                    currentIndex = (currentIndex - 1 + totalItems) % totalItems;
+                    updateCarousel();
+                });
+            }
+
+            items.forEach((item, index) => {
+                item.addEventListener("click", () => {
+                    currentIndex = index;
+                    updateCarousel();
+                });
+            });
+
+            updateCarousel();
+        }
+
+        // Wishlist
+        document.querySelectorAll('.btn-favorite-circle').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (!IS_LOGGED_IN) {
+                    window.location.href = LOGIN_URL;
+                    return;
+                }
+
+                const petId = btn.getAttribute('data-id');
+                if (!petId) return;
+
+                const isAdded = btn.classList.contains('is-favorite');
+                const url = isAdded ? `/wishlist/remove/${petId}` : `/wishlist/add/${petId}`;
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const heartIcon = btn.querySelector('i');
+                        btn.classList.toggle('is-favorite');
+                        if (btn.classList.contains('is-favorite')) {
+                            heartIcon.className = 'fa-solid fa-heart fa-lg';
+                        } else {
+                            heartIcon.className = 'fa-regular fa-heart fa-lg';
+                        }
+                    } else {
+                        alert(data.message || "Could not complete update.");
+                    }
+                })
+                .catch(err => console.error("Wishlist sync error:", err));
+            });
+        });
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff; }
+        .header { color: #334155; margin-top: 0; }
+        .schedule-box { background-color: #f8fafc; border-left: 4px solid #64748b; padding: 15px; border-radius: 6px; margin: 20px 0; }
+        .info-box { background-color: #f8fafc; border-left: 4px solid #64748b; padding: 15px; border-radius: 6px; margin: 20px 0; }
+        .footer { margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 15px; color: #555; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!--Application-->
+        {% if status == 'Approved' %}
+            <h2 class="header">Adoption Application Approved</h2>
+            <p>Dear {{ applicant_name }},</p>
+            <p>We are pleased to inform you that your adoption application for <strong>{{ pet_name }}</strong> has been approved.</p>
+            <p>Our team will contact you shortly regarding the next steps and shelter visit details.</p>
+
+        {% elif status == 'Visit Scheduled' %}
+            <h2 class="header">Visitation Scheduled</h2>
+            <p>Dear {{ applicant_name }},</p>
+            <p>Your visitation schedule to meet <strong>{{ pet_name }}</strong> has been set.</p>
+            <div class="schedule-box">
+                <p style="margin: 0;"><strong>Scheduled Date & Time:</strong> {{ visitation_date }}</p>
+            </div>
+            <p>Please arrive on time. If you need to reschedule or have questions, feel free to reach out through your account.</p>
+
+        {% elif status == 'Adopted' %}
+            <h2 class="header">Adoption Complete</h2>
+            <p>Dear {{ applicant_name }},</p>
+            <p>Your adoption of <strong>{{ pet_name }}</strong> is officially complete. Thank you for welcoming {{ pet_name }} into your home.</p>
+            <div class="info-box">
+                <p style="margin: 0;"><strong>Post-Adoption Monitoring:</strong> Please log into your account weekly to submit your required 4-week monitoring updates and photos.</p>
+            </div>
+
+        {% elif status == 'Rejected' %}
+            <h2 class="header">Application Status Update</h2>
+            <p>Dear {{ applicant_name }},</p>
+            <p>Thank you for your interest in adopting <strong>{{ pet_name }}</strong> and taking the time to apply with Tails of Freedom Animal Haven.</p>
+            <p>After careful review, we are unable to proceed with your application for {{ pet_name }} at this time.</p>
+            <p>We encourage you to visit our platform in the future for other available pets.</p>
+
+        {% elif status == 'Monitoring Available' %}
+            <h2 class="header">Monitoring Update Available</h2>
+            <p>Dear {{ applicant_name }},</p>
+            <p>Your Week {{ week_number }} post-adoption monitoring update for <strong>{{ pet_name }}</strong> is now available to complete.</p>
+            <div class="info-box">
+                <p style="margin: 0;">Please log into your account to submit your weekly update along with photos or videos.</p>
+            </div>
+
+        {% elif status == 'Monitoring Submitted' %}
+            <h2 class="header">Monitoring Update Received</h2>
+            <p>Dear {{ applicant_name }},</p>
+            <p>Thank you for submitting your Week {{ week_number }} post-adoption update for <strong>{{ pet_name }}</strong>.</p>
+            {% if is_completed %}
+                <div class="info-box">
+                    <p style="margin: 0;"><strong>Monitoring Completed:</strong> You have successfully submitted all 4 weekly monitoring updates. Thank you for taking such great care of {{ pet_name }}!</p>
+                </div>
+            {% else %}
+                <p>We have received your submission and appreciate your effort in keeping us updated on {{ pet_name }}'s transition.</p>
+            {% endif %}
+        
+        <!--Rescue-->
+        {% elif status == 'Dispatched' %}
+            <h2 class="header">Rescue Team Dispatched</h2>
+            <p>Dear {{ reporter_name }},</p>
+            <p>Our rescue team has been dispatched for the rescue report regarding the <strong>{{ animal_type }}</strong> located at <strong>{{ location_text }}</strong>.</p>
+            <div class="info-box">
+                <p style="margin: 0;"><strong>Status:</strong> Dispatched. Our team is on the way to assist the animal.</p>
+            </div>
+
+        {% elif status == 'Resolved' %}
+            <h2 class="header">Rescue Report Resolved</h2>
+            <p>Dear {{ reporter_name }},</p>
+            <p>The rescue report for the <strong>{{ animal_type }}</strong> at <strong>{{ location_text }}</strong> has been successfully resolved.</p>
+            <p>Thank you for taking the time to report this and helping us keep animals safe!</p>
+
+        <!--Donation-->
+        {% elif status == 'Donation_Cash' %}
+            <h2 class="header">Thank You for Your Cash Donation!</h2>
+            <p>Dear {{ reporter_name }},</p>
+            <p>We have successfully received your generous cash donation of <strong>₱{{ amount }}</strong> via QR Ph.</p>
+            <div class="info-box">
+                <p style="margin: 0;"><strong>Payment Intent ID:</strong> {{ payment_id }}</p>
+            </div>
+            <p>Your support helps us continue providing shelter, care, and rescue operations for animals in need!</p>
+
+        {% elif status == 'Donation_InKind' %}
+            <h2 class="header">Thank You for Your Donation!</h2>
+            <p>Dear {{ reporter_name }},</p>
+            <p>Thank you for offering to donate <strong>{{ donation_type }}</strong>!</p>
+            <div class="info-box">
+                <p style="margin: 0;"><strong>Scheduled Date:</strong> {{ schedule }}</p>
+            </div>
+            <p>We have successfully received your generous donation.</p>
+            <p>Your support helps us continue providing shelter, care, and rescue operations for animals in need!</p>
+
+        {% elif status == 'Return Scheduled' %}
+            <h2 class="header">Pet Return Drop-off Scheduled</h2>
+            <p>Dear {{ applicant_name }},</p>
+            <p>Your drop-off schedule to return <strong>{{ pet_name }}</strong> to the shelter has been confirmed.</p>
+            <div class="schedule-box">
+                <p style="margin: 0;"><strong>Return Drop-off Date & Time:</strong> {{ return_date }}</p>
+            </div>
+            <p>Please bring the pet to the shelter on time. If you have any urgent concerns or need to modify this schedule, please reach out through your account.</p>
+        
+        {% elif status == 'Admin New Application' %}
+            <h2 class="header">New Adoption Application Received</h2>
+            <p>Hello Admin,</p>
+            <p><strong>{{ applicant_name }}</strong> has submitted a new adoption application for <strong>{{ pet_name }}</strong>.</p>
+            <div class="info-box">
+                <p style="margin: 0;">Please log in to your Adoption Management dashboard to review the applicant's details and verification documents.</p>
+            </div>
+        
+        {% elif status == 'Admin Return Requested' %}
+            <h2 class="header">New Pet Return Request</h2>
+            <p>Hello Admin,</p>
+            <p><strong>{{ applicant_name }}</strong> has submitted a request to return <strong>{{ pet_name }}</strong> to the shelter.</p>
+            <div class="info-box">
+                <p style="margin: 0 0 10px 0;"><strong>Reason for Return:</strong></p>
+                <p style="margin: 0; font-style: italic; color: #475569;">"{{ return_reason }}"</p>
+            </div>
+            <p>Please log in to your Adoption Management dashboard to review the request and schedule the drop-off date.</p>
+        
+        {% elif status == 'Admin New Rescue Report' %}
+            <h2 class="header">New Rescue Report Submitted</h2>
+            <p>Hello Admin,</p>
+            <p><strong>{{ reporter_name }}</strong> has submitted a new rescue report regarding a <strong>{{ animal_type }}</strong>.</p>
+            <div class="info-box">
+                <p style="margin: 0 0 8px 0;"><strong>Location:</strong> {{ location_text }}</p>
+                <p style="margin: 0;">Please log into your Rescue Management dashboard to review the photos, videos, and GPS coordinates.</p>
+            </div>
+            
+        {% endif %}
+        <div class="footer">
+            <p style="margin: 0;">Warm regards,<br><strong>Tails of Freedom Animal Haven Team</strong></p>
+        </div>
+    </div>
+</body>
+</html>

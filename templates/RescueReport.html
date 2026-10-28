@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report a Stray Animal</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.81.1/dist/L.Control.Locate.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='L.Control.Locate.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/rescue-report.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+            <div class="container">
+                <div class="header">
+                    <h1>Report a Stray Animal</h1>
+                    <p>Help us rescue animals in need. Your report could save a life.</p>
+                </div>
+
+                <!--Shelter Capacity-->
+                <div class="card">
+                    <div class="capacity-header">
+                        <span>Current Shelter Capacity</span>
+                        <span class="badge {{ 'accepting' if capacity.status == 'Accepting' else 'full' }}">
+                            {{ capacity.status }}
+                        </span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="shelterProgressBar" data-percentage="{{ capacity.percentage or 0 }}"></div>
+                    </div>
+                    <div class="capacity-text">
+                        {{ capacity.occupied }} of {{ capacity.max }} spaces occupied
+                    </div>
+                </div>
+                
+                <!--Rescue Report Form-->
+                {% if capacity.status == 'Accepting' %}
+                <form id="rescueReportForm" action="{{ url_for('rescue_report_bp.submit_report') }}" method="POST" enctype="multipart/form-data" class="card">
+                    <div class="form-group">
+                        <label class="required">Type of Animal</label>
+                        <input type="hidden" name="animalType" id="animalTypeInput" required>
+                        <div class="type-grid">
+                            <div class="type-tile" onclick="selectType('Dog')">Dog</div>
+                            <div class="type-tile" onclick="selectType('Cat')">Cat</div>
+                        </div>
+                        <div class="error-message" id="error-animalType">Please select the type of animal.</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="required">Location</label>
+                        <input type="text" name="location" required placeholder="Street name, barangay, city (e.g., Aguinaldo Highway near 7-Eleven, Silang)">
+                        <div class="hint">Be as specific as possible — landmarks help our team find the location faster.</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="required">Animal Condition</label>
+                        <input type="hidden" name="condition" id="conditionInput" required>
+                        <div class="condition-grid">
+                            <div class="condition-tile" onclick="selectCondition('Injured')">Injured</div>
+                            <div class="condition-tile" onclick="selectCondition('Malnourished')">Malnourished</div>
+                            <div class="condition-tile" onclick="selectCondition('Sick')">Sick</div>
+                            <div class="condition-tile" onclick="selectCondition('Abandoned/Lost')">Abandoned/Lost</div>
+                            <div class="condition-tile" onclick="selectCondition('In Danger')">In Danger</div>
+                            <div class="condition-tile" onclick="selectCondition('Appears Healthy')">Appears Healthy</div>
+                        </div>
+                        <div class="error-message" id="error-condition">Please select the animal's condition.</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Your Contact Information</label>
+                        <input type="text" name="contact" placeholder="Phone number or email address">
+                        <div class="hint">We'll contact you for updates and additional information if needed.</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="required">Description</label>
+                        <textarea name="description" rows="4" required placeholder="Describe the animal (species, color, size) and the situation you observed..."></textarea>
+                    </div>
+
+                    <!--Live Camera Capture-->
+                    <div class="form-group form-group-spaced">
+                        <label class="required">Rescue Report Media Check-in</label>
+                        <button type="button" class="submit-btn btn-launch-camera" id="btn-open-rescue-camera-modal">
+                            <i class="fa-solid fa-video"></i> Launch Live Photo/Video Capture
+                        </button>
+                        <div class="hint"><strong>3 Clear Photos and 1 Video Clip (Max-25MB)</strong> - Show the animal condition, environment, and one with you</div>
+                        <div class="error-message" id="error-media">Please capture the required 3 photos and 1 video.</div>
+                    </div>
+                    <input type="file" name="rescue_photos" id="input-rescue-photos" accept="image/jpeg" multiple class="hidden-input">
+                    <input type="file" name="rescue_videos" id="input-rescue-videos" accept="video/webm,video/mp4" class="hidden-input">
+                    <div id="staged-rescue-media-section" class="staged-media-container">
+                        <label class="staged-media-title">Media Attachments:</label>
+                        <div class="upload-preview-list" id="rescue-photo-previews"></div>
+                        <div class="upload-preview-list" id="rescue-video-previews"></div>
+                    </div>
+
+                    <!--Pin Location-->
+                    <div class="form-group">
+                        <label class="required">Pin GPS Location</label>
+                        <div class="hint">Click anywhere on the map inside the Silang boundary to pin the incident location.</div>
+                        <div class="error-message" id="error-gps">Please click on the map to pin the GPS location.</div>
+                        <input type="hidden" name="latitude" id="geoLatitude" required>
+                        <input type="hidden" name="longitude" id="geoLongitude" required>
+                        <div id="map" 
+                            data-enforce-boundary="{{ 'true' if capacity.enforceBoundary else 'false' }}"
+                            data-show-shelter-pin="{{ 'true' if capacity.showShelterPin else 'false' }}">
+                        </div>
+                        <div class="map-status-bar">
+                            <span id="coordDisplay">Coordinates: Not pinned yet</span>
+                            <span id="routeStatus" class="route-status"></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Additional Notes</label>
+                        <textarea name="additionalNotes" rows="3" placeholder="Any additional information that might help our team..."></textarea>
+                    </div>
+                    <button type="submit" class="submit-btn">Submit Rescue Report</button>
+                    {% else %}
+                    <div class="card" style="text-align: center; padding: 30px;">
+                        <h2>Intake Paused</h2>
+                        <p>Our shelter has reached max capacity or intake is temporarily paused. Please check back later or contact local authorities for urgent cases.</p>
+                    </div>
+                {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Camera Modal -->
+    <div class="modal-backdrop" id="rescue-camera-modal-backdrop">
+        <div class="camera-modal">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-circle-dot recording-indicator"></i> Live Media Recorder</h3>
+                <button type="button" class="btn-close-modal" id="btn-close-rescue-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="camera-mode-toggle">
+                    <button type="button" class="toggle-btn active" id="toggle-rescue-photo-mode">
+                        <i class="fa-solid fa-camera"></i> Take Photo
+                    </button>
+                    <button type="button" class="toggle-btn" id="toggle-rescue-video-mode">
+                        <i class="fa-solid fa-video"></i> Record Video
+                    </button>
+                </div>
+                <div class="camera-container">
+                    <div class="video-timer" id="rescue-video-timer-badge">
+                        <div class="timer-dot"></div>
+                        <span id="rescue-timer-display">00:00</span>
+                    </div>
+                    <video id="rescue-live-stream-feed" playsinline autoplay muted></video>
+                    <img id="rescue-modal-photo-preview" class="modal-photo-preview" alt="Snapshot Preview">
+                    <div class="camera-controls">
+                        <div id="rescue-photo-controls-group" class="control-group">
+                            <button type="button" class="cam-btn-circle action-capture" id="btn-rescue-snap-photo" title="Capture Snapshot">
+                                <i class="fa-solid fa-circle"></i>
+                            </button>
+                            <button type="button" class="cam-btn-circle action-refresh is-hidden" id="btn-rescue-retake-snap" title="Retake Snapshot">
+                                <i class="fa-solid fa-rotate"></i>
+                            </button>
+                        </div>
+                        <div id="rescue-video-controls-group" class="control-group is-hidden">
+                            <button type="button" class="cam-btn-circle action-capture" id="btn-rescue-start-record" title="Start Recording">
+                                <i class="fa-solid fa-circle"></i>
+                            </button>
+                            <button type="button" class="cam-btn-circle action-pause is-hidden" id="btn-rescue-pause-record" title="Pause Recording">
+                                <i class="fa-solid fa-pause"></i>
+                            </button>
+                            <button type="button" class="cam-btn-circle action-stop is-hidden" id="btn-rescue-stop-record" title="Stop Recording">
+                                <i class="fa-solid fa-stop"></i>
+                            </button>
+                        </div>
+                        <button type="button" class="cam-btn-circle action-save is-hidden" id="btn-rescue-save-to-device" title="Add to Submission">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="error-message" id="rescue-modal-error-photos">This photo exceeds the 5MB size limit.</div>
+                <div class="error-message" id="rescue-modal-error-videos">This video exceeds the 25MB size limit.</div>
+            </div>
+        </div>
+    </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script> 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.81.1/dist/L.Control.Locate.min.js" charset="utf-8"></script>
+<script src="{{ url_for('static', filename='L.Control.Locate.min.js') }}"></script>
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const mapElement = document.getElementById('map');
+        const enforceBoundary = mapElement.dataset.enforceBoundary === 'true';
+        const showShelterPin = mapElement.dataset.showShelterPin === 'true';
+        const progressBar = document.getElementById('shelterProgressBar');
+
+        if (progressBar) {
+            const percentage = progressBar.getAttribute('data-percentage');
+            progressBar.style.width = percentage + '%';
+        }
+
+        // Shelter Coordinates
+        const shelterLatLng = L.latLng(14.24972, 120.98140);
+        const map = L.map('map').setView(shelterLatLng, 13);
+
+        const myIcon = L.icon({
+            iconUrl: "/static/Assets/Images/red.webp",
+            iconSize: [30, 30],
+            iconAnchor: [15, 30],
+            popupAnchor: [0, -30]
+        });
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            minZoom: 7,
+            maxZoom: 19
+        }).addTo(map);
+
+        if (showShelterPin) {
+            L.marker(shelterLatLng, { icon: myIcon }).addTo(map)
+                .bindPopup(`
+                    <div class="map-popup-body" style="color: #4ade80;">Animal Shelter Location</div>
+                    <div class="map-popup-title" style="color: #f99e5d;">Tails of Freedom Animal Haven</div>
+                `, { className: 'map-popup' });
+        }
+
+        // Service Area Boundaries
+        const silangBoundary = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [120.93436, 14.27707], [120.92543, 14.27707], [120.92543, 14.26842],
+                                [120.92577, 14.25877], [120.92097, 14.24912], [120.92783, 14.23248],
+                                [120.93710, 14.21451], [120.93710, 14.19753], [120.94122, 14.18355],
+                                [120.94912, 14.17623], [120.95118, 14.15293], [120.95461, 14.14261],
+                                [120.95496, 14.13495], [120.96491, 14.13495], [120.97178, 14.13828],
+                                [120.99650, 14.14594], [121.00096, 14.14660], [121.00131, 14.15160],
+                                [121.01469, 14.15526], [121.02534, 14.18755], [121.02534, 14.18755],
+                                [121.03083, 14.19454], [121.03255, 14.20552], [121.03735, 14.20785],
+                                [121.03770, 14.20718], [121.04147, 14.21351], [121.05246, 14.21684],
+                                [121.04628, 14.22782], [121.05143, 14.23514], [121.05109, 14.24546],
+                                [121.05452, 14.25045], [121.05383, 14.25511], [121.04285, 14.25211],
+                                [121.03495, 14.24912], [121.03426, 14.25377], [121.04044, 14.26110],
+                                [121.03873, 14.27407], [121.02190, 14.28172], [121.00680, 14.27873],
+                                [121.00131, 14.27773], [121.00199, 14.28272], [120.99272, 14.28572],
+                                [120.98998, 14.27740], [120.99375, 14.26941], [120.99272, 14.26043],
+                                [120.97727, 14.26010], [120.97075, 14.26209], [120.96182, 14.26209],
+                                [120.95564, 14.25610], [120.95805, 14.24978], [120.94328, 14.24812],
+                                [120.93676, 14.25777], [120.93504, 14.26642], [120.93264, 14.27108],
+                                [120.93436, 14.27707]
+                            ]
+                        ]
+                    }
+                }
+            ]
+        };
+
+        const boundaryPolygonFeature = silangBoundary.features[0];
+        L.geoJSON(silangBoundary, {
+            style: {
+                color: enforceBoundary ? "#ff0000" : "#3b82f6",
+                weight: 2.5,
+                opacity: enforceBoundary ? 0.6 : 0.1,
+                fillOpacity: enforceBoundary ? 0.03 : 0.01,
+                dashArray: enforceBoundary ? null : '5, 5'
+            }
+        }).addTo(map);
+
+        L.control.locate({
+            position: 'topleft',
+            keepCurrentZoomLevel: true,
+            setView: 'untilPanOrZoom',
+            flyTo: true,
+            strings: { title: "Find my current location" }
+        }).addTo(map);
+
+        let pinnedMarker = null;
+        let pinnedCircle = null;
+
+        function processLocationPin(targetLatLng) {
+            const pt = turf.point([targetLatLng.lng, targetLatLng.lat]);
+            const isInside = turf.booleanPointInPolygon(pt, boundaryPolygonFeature);
+
+            if (enforceBoundary && !isInside) {
+                L.popup({ className: 'map-popup', closeButton: true })
+                    .setLatLng(targetLatLng)
+                    .setContent(`
+                        <div class="map-popup-content">
+                            <div class="map-popup-title">Invalid Service Area</div>
+                            <div class="map-popup-body">Your coordinate must be located within Silang Boundary.</div>
+                        </div>
+                    `)
+                    .openOn(map);
+                return;
+            }
+
+            document.getElementById('geoLatitude').value = targetLatLng.lat;
+            document.getElementById('geoLongitude').value = targetLatLng.lng;
+            document.getElementById('coordDisplay').innerText = `Lat: ${targetLatLng.lat.toFixed(5)}, Lng: ${targetLatLng.lng.toFixed(5)}`;
+            document.getElementById('routeStatus').innerText = "📍 Target Position Logged";
+
+            if (pinnedMarker) {
+                map.removeLayer(pinnedMarker);
+            }
+            if (pinnedCircle) {
+                map.removeLayer(pinnedCircle);
+            }
+
+            pinnedCircle = L.circle(targetLatLng, {
+                color: '#ef4444',
+                opacity: 0.7,
+                fillColor: '#ef4444',
+                fillOpacity: 0.15,
+                weight: 2,
+                radius: 200  
+            }).addTo(map);
+
+            pinnedMarker = L.marker(targetLatLng).addTo(map)
+                .bindPopup(`
+                    <div class="map-popup-title">Incident Location</div>
+                    <div class="map-popup-body"><b>Stray Animal Location</b></div>
+                `, { className: 'map-popup' })
+                .openPopup();
+        }
+
+        map.on('click', (e) => processLocationPin(e.latlng));
+        map.on('locationfound', (e) => processLocationPin(e.latlng));
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function (position) {
+                },
+                function () {
+                    console.log("Geolocation access dropped or timed out.");
+                }
+            );
+        }
+
+        // Live Camera
+        let activeStream = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let capturedPhotos = [];
+        let capturedVideos = [];
+        let tempFile = null;
+        let timerInterval = null;
+        let totalSeconds = 0;
+        let currentMode = 'photo';
+
+        const modalBackdrop = document.getElementById('rescue-camera-modal-backdrop');
+        const btnOpenModal = document.getElementById('btn-open-rescue-camera-modal');
+        const btnCloseModal = document.getElementById('btn-close-rescue-modal');
+        const togglePhoto = document.getElementById('toggle-rescue-photo-mode');
+        const toggleVideo = document.getElementById('toggle-rescue-video-mode');
+        const photoGroup = document.getElementById('rescue-photo-controls-group');
+        const videoGroup = document.getElementById('rescue-video-controls-group');
+        const liveFeed = document.getElementById('rescue-live-stream-feed');
+        const photoPreview = document.getElementById('rescue-modal-photo-preview');
+        const btnSnapPhoto = document.getElementById('btn-rescue-snap-photo');
+        const btnRetakeSnap = document.getElementById('btn-rescue-retake-snap');
+        const btnStartRecord = document.getElementById('btn-rescue-start-record');
+        const btnPauseRecord = document.getElementById('btn-rescue-pause-record');
+        const btnStopRecord = document.getElementById('btn-rescue-stop-record');
+        const btnSaveToDevice = document.getElementById('btn-rescue-save-to-device');
+        const photoInput = document.getElementById('input-rescue-photos');
+        const videoInput = document.getElementById('input-rescue-videos');
+        const mainPhotoPreviewList = document.getElementById('rescue-photo-previews');
+        const mainVideoPreviewList = document.getElementById('rescue-video-previews');
+        const stagedMediaSection = document.getElementById('staged-rescue-media-section');
+        const errPhoto = document.getElementById('rescue-modal-error-photos');
+        const errVideo = document.getElementById('rescue-modal-error-videos');
+        const videoTimerBadge = document.getElementById('rescue-video-timer-badge');
+        const timerDisplay = document.getElementById('rescue-timer-display');
+        const rescueForm = document.getElementById('rescueReportForm');
+
+        if (btnOpenModal) {
+            btnOpenModal.addEventListener('click', async function () {
+                modalBackdrop.style.display = 'flex';
+                tempFile = null;
+                resetModalStates();
+                await startCamera();
+            });
+        }
+
+        if (btnCloseModal) {
+            btnCloseModal.addEventListener('click', function () {
+                modalBackdrop.style.display = 'none';
+                stopCamera();
+            });
+        }
+
+        async function startCamera() {
+            try {
+                activeStream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: { width: 640, height: 480 }
+                });
+                liveFeed.srcObject = activeStream;
+                liveFeed.style.display = 'block';
+            } catch (err) {
+                console.warn("RetDynamic audio stream failed, retrying video only...", err);
+                try {
+                    activeStream = await navigator.mediaDevices.getUserMedia({
+                        audio: false,
+                        video: { width: 640, height: 480 }
+                    });
+                    liveFeed.srcObject = activeStream;
+                    liveFeed.style.display = 'block';
+                } catch (fallbackErr) {
+                    console.error("Camera access failed completely:", fallbackErr);
+                    alert("Unable to access local camera devices.");
+                }
+            }
+        }
+
+        function stopCamera() {
+            if (activeStream) {
+                activeStream.getTracks().forEach(track => track.stop());
+                activeStream = null;
+            }
+            stopTimer();
+        }
+
+        function resetModalStates() {
+            photoPreview.style.display = 'none';
+            liveFeed.style.display = 'block';
+            btnSnapPhoto.style.display = 'inline-flex';
+            btnRetakeSnap.style.display = 'none';
+            btnStartRecord.style.display = 'inline-flex';
+            btnPauseRecord.style.display = 'none';
+            btnStopRecord.style.display = 'none';
+            btnSaveToDevice.style.display = 'none';
+            errPhoto.style.display = 'none';
+            errVideo.style.display = 'none';
+            stopTimer();
+            btnStartRecord.className = "cam-btn-circle action-capture";
+            btnStartRecord.title = "Start Recording";
+            btnStartRecord.innerHTML = '<i class="fa-solid fa-circle"></i>';
+        }
+
+        togglePhoto?.addEventListener('click', function () {
+            if (currentMode === 'photo') return;
+            currentMode = 'photo';
+            togglePhoto.classList.add('active');
+            toggleVideo.classList.remove('active');
+            photoGroup.style.display = 'flex';
+            videoGroup.style.display = 'none';
+            tempFile = null;
+            resetModalStates();
+        });
+
+        toggleVideo?.addEventListener('click', function () {
+            if (currentMode === 'video') return;
+            currentMode = 'video';
+            toggleVideo.classList.add('active');
+            togglePhoto.classList.remove('active');
+            videoGroup.style.display = 'flex';
+            photoGroup.style.display = 'none';
+            tempFile = null;
+            resetModalStates();
+        });
+
+        // Timer
+        function startTimer() {
+            totalSeconds = 0;
+            timerDisplay.textContent = "00:00";
+            videoTimerBadge.style.display = 'flex';
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                totalSeconds++;
+                const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+                const seconds = String(totalSeconds % 60).padStart(2, '0');
+                timerDisplay.textContent = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            if (videoTimerBadge) videoTimerBadge.style.display = 'none';
+        }
+
+        function pauseTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        function resumeTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                totalSeconds++;
+                const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+                const seconds = String(totalSeconds % 60).padStart(2, '0');
+                timerDisplay.textContent = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        // Photo Capture
+        btnSnapPhoto?.addEventListener('click', function () {
+            const canvas = document.createElement('canvas');
+            canvas.width = liveFeed.videoWidth || 640;
+            canvas.height = liveFeed.videoHeight || 480;
+            canvas.getContext('2d').drawImage(liveFeed, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob((blob) => {
+                const file = new File([blob], `rescue_snapshot_${Date.now()}.jpg`, { type: "image/jpeg" });
+                const currentTotalSize = capturedPhotos.reduce((sum, f) => sum + f.size, 0);
+
+                if (currentTotalSize + file.size > 5 * 1024 * 1024) {
+                    errPhoto.textContent = "Adding this photo would exceed the cumulative 5MB limit.";
+                    errPhoto.style.display = 'block';
+                    return;
+                }
+
+                if (capturedPhotos.length >= 3) {
+                    errPhoto.textContent = "You cannot capture more than 3 photos.";
+                    errPhoto.style.display = 'block';
+                    return;
+                }
+
+                errPhoto.style.display = 'none';
+                tempFile = file;
+                photoPreview.src = URL.createObjectURL(blob);
+                liveFeed.style.display = 'none';
+                photoPreview.style.display = 'block';
+                btnSnapPhoto.style.display = 'none';
+                btnRetakeSnap.style.display = 'inline-flex';
+                btnSaveToDevice.style.display = 'inline-flex';
+            }, 'image/jpeg');
+        });
+
+        btnRetakeSnap?.addEventListener('click', function () {
+            tempFile = null;
+            photoPreview.style.display = 'none';
+            liveFeed.style.display = 'block';
+            btnSnapPhoto.style.display = 'inline-flex';
+            btnRetakeSnap.style.display = 'none';
+            btnSaveToDevice.style.display = 'none';
+        });
+
+        // Recording
+        btnStartRecord?.addEventListener('click', function () {
+            if (btnStartRecord.classList.contains('action-refresh')) {
+                tempFile = null;
+                resetModalStates();
+                return;
+            }
+
+            if (capturedVideos.length >= 1) {
+                errVideo.textContent = "You can only attach 1 video.";
+                errVideo.style.display = 'block';
+                return;
+            }
+
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(activeStream, { mimeType: 'video/webm' });
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                stopTimer();
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const file = new File([blob], `rescue_video_${Date.now()}.webm`, { type: "video/webm" });
+                const currentTotalSize = capturedVideos.reduce((sum, f) => sum + f.size, 0);
+
+                if (currentTotalSize + file.size > 25 * 1024 * 1024) {
+                    errVideo.textContent = "Adding this video would exceed the 25MB limit.";
+                    errVideo.style.display = 'block';
+                    return;
+                }
+
+                errVideo.style.display = 'none';
+                tempFile = file;
+                btnSaveToDevice.style.display = 'inline-flex';
+            };
+
+            mediaRecorder.start();
+            startTimer();
+
+            btnStartRecord.style.display = 'none';
+            btnPauseRecord.style.display = 'inline-flex';
+            btnPauseRecord.innerHTML = '<i class="fa-solid fa-pause"></i>';
+            btnPauseRecord.title = "Pause Recording";
+            btnStopRecord.style.display = 'inline-flex';
+        });
+
+        btnPauseRecord?.addEventListener('click', function () {
+            if (!mediaRecorder) return;
+            if (mediaRecorder.state === "recording") {
+                mediaRecorder.pause();
+                pauseTimer();
+                btnPauseRecord.innerHTML = '<i class="fa-solid fa-play"></i>';
+                btnPauseRecord.title = "Resume Recording";
+            } else if (mediaRecorder.state === "paused") {
+                mediaRecorder.resume();
+                resumeTimer();
+                btnPauseRecord.innerHTML = '<i class="fa-solid fa-pause"></i>';
+                btnPauseRecord.title = "Pause Recording";
+            }
+        });
+
+        btnStopRecord?.addEventListener('click', function () {
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+            }
+            btnStopRecord.style.display = 'none';
+            btnPauseRecord.style.display = 'none';
+            btnStartRecord.style.display = 'inline-flex';
+            btnStartRecord.className = "cam-btn-circle action-refresh";
+            btnStartRecord.title = "Retake Video";
+            btnStartRecord.innerHTML = '<i class="fa-solid fa-rotate"></i>';
+        });
+
+        btnSaveToDevice?.addEventListener('click', function () {
+            if (!tempFile) return;
+
+            if (currentMode === 'photo') {
+                capturedPhotos.push(tempFile);
+                updateInputFiles(photoInput, capturedPhotos);
+                renderStatusList(mainPhotoPreviewList, capturedPhotos, 'photo');
+            } else {
+                capturedVideos.push(tempFile);
+                updateInputFiles(videoInput, capturedVideos);
+                renderStatusList(mainVideoPreviewList, capturedVideos, 'video');
+            }
+
+            stagedMediaSection.style.display = 'block';
+            tempFile = null;
+            resetModalStates();
+        });
+
+        function updateInputFiles(inputElement, fileArray) {
+            if (!inputElement) return;
+            const dataTransfer = new DataTransfer();
+            fileArray.forEach(file => dataTransfer.items.add(file));
+            inputElement.files = dataTransfer.files;
+        }
+
+        function renderStatusList(targetContainer, fileArray, type) {
+            if (!targetContainer) return;
+            if (fileArray.length === 0) {
+                targetContainer.innerHTML = '';
+                targetContainer.style.display = 'none';
+                return;
+            }
+
+            targetContainer.innerHTML = fileArray.map((file, index) => `
+                <div class="preview-file-item" data-index="${index}">
+                    <span>
+                        <i class="fa-regular ${type === 'photo' ? 'fa-image' : 'fa-solid fa-video'}" style="color: var(--orange-primary, #f97316);"></i> 
+                        ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)
+                    </span>
+                    <div class="preview-actions">
+                        <button type="button" class="remove-file-btn" data-index="${index}">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            targetContainer.querySelectorAll('.remove-file-btn').forEach(button => {
+                button.addEventListener('click', function () {
+                    const idx = parseInt(this.getAttribute('data-index'), 10);
+                    if (type === 'photo') {
+                        capturedPhotos.splice(idx, 1);
+                        updateInputFiles(photoInput, capturedPhotos);
+                        renderStatusList(targetContainer, capturedPhotos, 'photo');
+                    } else {
+                        capturedVideos.splice(idx, 1);
+                        updateInputFiles(videoInput, capturedVideos);
+                        renderStatusList(targetContainer, capturedVideos, 'video');
+                    }
+
+                    if (capturedPhotos.length === 0 && capturedVideos.length === 0) {
+                        stagedMediaSection.style.display = 'none';
+                    }
+                });
+            });
+            targetContainer.style.display = 'flex';
+        }
+
+        function toggleError(inputId, errorId, isValid) {
+            const errorEl = document.getElementById(errorId);
+            if (errorEl) {
+                errorEl.style.display = isValid ? 'none' : 'block';
+            }
+        }
+
+        if (rescueForm) {
+            rescueForm.addEventListener('submit', function (event) {
+                let isFormValid = true;
+
+                const animalType = document.getElementById('animalTypeInput')?.value;
+                const animalTypeValid = animalType && animalType.trim() !== "";
+                toggleError('animalTypeInput', 'error-animalType', animalTypeValid);
+                if (!animalTypeValid) isFormValid = false;
+
+                const condition = document.getElementById('conditionInput')?.value;
+                const conditionValid = condition && condition.trim() !== "";
+                toggleError('conditionInput', 'error-condition', conditionValid);
+                if (!conditionValid) isFormValid = false;
+
+                const lat = document.getElementById('geoLatitude')?.value;
+                const lng = document.getElementById('geoLongitude')?.value;
+                const gpsValid = (lat && lng && lat.trim() !== "" && lng.trim() !== "");
+                toggleError('geoLatitude', 'error-gps', gpsValid);
+                if (!gpsValid) isFormValid = false;
+
+                const mediaValid = (capturedPhotos.length === 3 && capturedVideos.length === 1);
+                toggleError(null, 'error-media', mediaValid);
+                if (!mediaValid) isFormValid = false;
+
+                if (!isFormValid) {
+                    event.preventDefault();
+                    const firstError = document.querySelector('.error-message[style*="display: block"]');
+                    if (firstError) {
+                        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            });
+        }
+    });
+
+    function selectType(val) {
+        document.getElementById('animalTypeInput').value = val;
+        document.querySelectorAll('.type-tile').forEach(tile => {
+            tile.classList.toggle('selected', tile.innerText.trim() === val);
+        });
+    }
+
+    function selectCondition(val) {
+        document.getElementById('conditionInput').value = val;
+        document.querySelectorAll('.condition-tile').forEach(tile => {
+            tile.classList.toggle('selected', tile.innerText.trim() === val);
+        });
+    }
+
+    function updateFileLabel(input) {
+        const label = document.getElementById('fileLabel');
+        if (!label) return;
+
+        if (!input.files || input.files.length === 0) {
+            label.innerText = "";
+            return;
+        }
+
+        let photoCount = 0;
+        let videoCount = 0;
+        let totalSize = 0;
+        const maxCombinedSize = 25 * 1024 * 1024;
+
+        for (let i = 0; i < input.files.length; i++) {
+            const file = input.files[i];
+            totalSize += file.size;
+
+            if (file.type.startsWith('image/')) {
+                photoCount++;
+            } else if (file.type.startsWith('video/')) {
+                videoCount++;
+            }
+        }
+
+        if (totalSize > maxCombinedSize) {
+            alert(`The total size of your selected items (${(totalSize / (1024 * 1024)).toFixed(2)} MB) exceeds the maximum allowed 25 MB limit.`);
+            input.value = "";
+            label.innerText = "";
+            return;
+        }
+
+        if (photoCount !== 3 || videoCount !== 1) {
+            alert(`Invalid selection! You must select EXACTLY 3 photos and 1 video.\n\nYou currently have selected: ${photoCount} photo(s) and ${videoCount} video(s).`);
+            input.value = "";
+            label.innerText = "";
+            return;
+        }
+
+        label.style.color = "#166534";
+        label.innerText = `✓ Valid Selection! (${(totalSize / (1024 * 1024)).toFixed(2)} MB total size)\n` +
+            Array.from(input.files).map(f => `• ${f.name} (${(f.size / (1024 * 1024)).toFixed(2)} MB)`).join("\n");
+    }
+</script>
+</body>
+</html>

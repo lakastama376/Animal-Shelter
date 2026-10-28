@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/user-management.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+        <div class="container">
+            <div class="header">
+                <h1>User Management</h1>
+                <p>Manage system users, permissions, and account statuses.</p>
+            </div>
+
+            <!--Search Filter-->
+            <div class="control-wrapper">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="searchInput" placeholder="Search users by name, email, phone, or address..." onkeyup="filterUsers()">
+                </div>
+                <div class="filter-tabs">
+                    <button class="tab-btn active" onclick="setStatusFilter('all', this)">All</button>
+                    <button class="tab-btn" onclick="setStatusFilter('active', this)">Active</button>
+                    <button class="tab-btn" onclick="setStatusFilter('inactive', this)">Inactive</button>
+                    <button class="tab-btn" onclick="setStatusFilter('blocked', this)">Blocked</button>
+                </div>
+            </div>
+
+            <!--Table-->
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Contact</th>
+                            <th>Address</th>
+                            <th>Adoptions</th>
+                            <th>Rescues</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody">
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem;">Loading users...</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="table-footer" id="tableFooter">
+                    Showing 0 users
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!--View Modal User-->
+<div class="modal-overlay" id="viewModal">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h2>User Details</h2>
+            <button class="modal-close-btn" onclick="closeViewModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="view-profile-header">
+                <div id="viewAvatarContainer"></div>
+                <div>
+                    <div class="view-user-name" id="viewFullName">User Name</div>
+                    <div class="badges-wrapper">
+                        <span class="badge" id="viewRoleBadge">Role</span>
+                        <span class="badge" id="viewStatusBadge">Status</span>
+                    </div>
+                </div>
+            </div>
+            <div class="detail-grid">
+                <div class="detail-item full-width">
+                    <div class="detail-label">Email Address</div>
+                    <div class="detail-value" id="viewEmail">-</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Phone Number</div>
+                    <div class="detail-value" id="viewPhone">-</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Joined On</div>
+                    <div class="detail-value" id="viewJoinedAt">-</div>
+                </div>
+                <div class="detail-item full-width">
+                    <div class="detail-label">Address</div>
+                    <div class="detail-value" id="viewAddress">-</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Adoptions Count</div>
+                    <div class="detail-value" id="viewAdoptionCount">0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Rescues Submitted</div>
+                    <div class="detail-value" id="viewRescueCount">0</div>
+                </div>
+                <div class="detail-item full-width">
+                    <div class="detail-label">Bio</div>
+                    <div class="detail-value" id="viewBio">No bio provided.</div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    let allUsers = [];
+    let filteredUsers = [];
+    let currentStatusFilter = 'all';
+    let currentPage = 1;
+    const itemsPerPage = 10;
+
+    document.addEventListener("DOMContentLoaded", fetchUsers);
+
+    async function fetchUsers() {
+        try {
+            const response = await fetch('/api/users');
+            if (response.status === 403) {
+                alert("Access Denied. You must be an Admin to view this page.");
+                window.location.href = "/";
+                return;
+            }
+            const data = await response.json();
+            if (data.status === 'success') {
+                allUsers = data.users.filter(user => user.role && user.role.toLowerCase() !== 'admin');
+                filterUsers();
+            } else {
+                alert("Error loading users: " + data.message);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    // Filter
+    function setStatusFilter(status, element) {
+        currentStatusFilter = status;
+        document.querySelectorAll('.filter-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
+        element.classList.add('active');
+        filterUsers();
+    }
+
+    function filterUsers() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        
+        filteredUsers = allUsers.filter(u => {
+            const userStatus = (u.status || 'active').toLowerCase();
+            const matchesStatus = (currentStatusFilter === 'all') || (userStatus === currentStatusFilter);
+
+            const matchesQuery = u.fullName?.toLowerCase().includes(query) || 
+                                u.email?.toLowerCase().includes(query) ||
+                                (u.phone && u.phone.toLowerCase().includes(query)) ||
+                                (u.address && u.address.toLowerCase().includes(query));
+            return matchesStatus && matchesQuery;
+        });
+
+        currentPage = 1; 
+        renderUsers();
+    }
+
+    function renderUsers() {
+        const tbody = document.getElementById('userTableBody');
+        const footer = document.getElementById('tableFooter');
+        const totalItems = filteredUsers.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+
+        if (currentPage > totalPages) currentPage = totalPages;
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+        const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+        if (totalItems === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <i class="fa-solid fa-users-slash empty-icon"></i>
+                            <h3>No users found</h3>
+                            <p>Try adjusting your search or filter options.</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        } else {
+            tbody.innerHTML = paginatedUsers.map(user => {
+                const userStatus = (user.status || 'active').toLowerCase();
+                const roleClass = `role-${(user.role || 'adopter').toLowerCase()}`;
+                const statusClass = `status-${userStatus}`;
+                const isBlocked = userStatus === 'blocked';
+
+                const avatarHtml = user.photoURL 
+                    ? `<img class="user-avatar" src="${user.photoURL}" alt="User Avatar">`
+                    : `<div class="user-avatar"><i class="fa-regular fa-user"></i></div>`;
+
+                const blockBtnHtml = isBlocked
+                    ? `<button class="btn-action unblock-btn" title="Unblock User" onclick="toggleBlockUser('${user.uid}', false)">
+                            <i class="fa-solid fa-circle-check"></i>
+                       </button>`
+                    : `<button class="btn-action block-btn" title="Block User" onclick="toggleBlockUser('${user.uid}', true)">
+                            <i class="fa-solid fa-ban"></i>
+                       </button>`;
+
+                return `
+                    <tr>
+                        <td>
+                            <div class="user-cell">
+                                ${avatarHtml}
+                                <span>${user.fullName || 'N/A'}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="contact-cell">
+                                <span class="email-text">${user.email || 'N/A'}</span>
+                                <span class="phone-text">${user.phone || 'N/A'}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="address-cell">${user.address || 'N/A'}</div>
+                        </td>
+                        <td class="stat-count">${user.adoptionCount ?? 0}</td>
+                        <td class="stat-count">${user.rescueReportsSubmitted ?? 0}</td>
+                        <td><span class="badge ${roleClass}">${user.role || 'Adopter'}</span></td>
+                        <td><span class="badge ${statusClass}">${capitalize(user.status || 'active')}</span></td>
+                        <td>
+                            <div class="action-row">
+                                <button class="btn-action view-btn" title="View Details" onclick="openViewModal('${user.uid}')">
+                                    <i class="fa-regular fa-eye"></i>
+                                </button>
+                                <button class="btn-action message-btn" title="Send Message" onclick="messageUser('${user.uid}')">
+                                    <i class="fa-regular fa-comment"></i>
+                                </button>
+                                ${blockBtnHtml}
+                                <button class="btn-action delete-btn" title="Delete User" onclick="deleteUser('${user.uid}')">
+                                    <i class="fa-regular fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        const showingText = totalItems === 0 
+            ? 'Showing 0 users' 
+            : `Showing ${startIndex + 1}–${endIndex} of ${totalItems} user${totalItems === 1 ? '' : 's'}`;
+
+        let paginationBtns = `<div class="page-controls">`;
+        paginationBtns += `
+            <button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+        `;
+
+        for (let i = 1; i <= totalPages; i++) {
+            paginationBtns += `
+                <button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">
+                    ${i}
+                </button>
+            `;
+        }
+
+        paginationBtns += `
+            <button class="page-btn" ${currentPage === totalPages || totalPages === 0 ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>`;
+        footer.innerHTML = `
+            <div>${showingText}</div>
+            ${totalPages > 1 ? paginationBtns : ''}
+        `;
+        footer.style.display = 'flex';
+        footer.style.justifyContent = 'space-between';
+        footer.style.alignItems = 'center';
+    }
+
+    function changePage(newPage) {
+        currentPage = newPage;
+        renderUsers();
+    }
+
+    function capitalize(str) {
+        if (!str) return '';
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    // Delete
+    async function deleteUser(uid) {
+        if (!confirm("Are you sure you want to permanently delete this user account? This action cannot be undone.")) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/users/${uid}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const data = await response.json();
+            if (data.status === 'success') {
+                fetchUsers();
+            } else {
+                alert(`Error: ${data.message}`);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("An error occurred while attempting to delete the user.");
+        }
+    }
+
+    // Block
+    async function toggleBlockUser(uid, shouldBlock) {
+        const actionText = shouldBlock ? "block" : "unblock";
+        if (!confirm(`Are you sure you want to ${actionText} this user?`)) return;
+
+        try {
+            const res = await fetch(`/api/users/${uid}/block`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ block: shouldBlock })
+            });
+
+            const data = await res.json();
+            if (data.status === 'success') {
+                fetchUsers();
+            } else {
+                alert(`Error: ${data.message}`);
+            }
+        } catch (e) {
+            console.error(e);
+            alert("An error occurred while updating the user status.");
+        }
+    }
+
+    // View Modal User
+    function openViewModal(uid) {
+        const user = allUsers.find(u => u.uid === uid);
+        if (!user) return;
+
+        const avatarContainer = document.getElementById('viewAvatarContainer');
+        if (user.photoURL) {
+            avatarContainer.innerHTML = `<img class="view-avatar-lg" src="${user.photoURL}" alt="User Avatar">`;
+        } else {
+            avatarContainer.innerHTML = `<div class="view-avatar-lg"><i class="fa-regular fa-user"></i></div>`;
+        }
+
+        document.getElementById('viewFullName').textContent = user.fullName || 'N/A';
+        
+        const roleBadge = document.getElementById('viewRoleBadge');
+        roleBadge.textContent = user.role || 'Adopter';
+        roleBadge.className = `badge role-${(user.role || 'adopter').toLowerCase()}`;
+        
+        const statusBadge = document.getElementById('viewStatusBadge');
+        statusBadge.textContent = capitalize(user.status || 'active');
+        statusBadge.className = `badge status-${(user.status || 'active').toLowerCase()}`;
+        
+        document.getElementById('viewEmail').textContent = user.email || 'N/A';
+        document.getElementById('viewPhone').textContent = user.phone || 'N/A';
+        document.getElementById('viewJoinedAt').textContent = user.joinedAt || 'N/A';
+        document.getElementById('viewAddress').textContent = user.address || 'N/A';
+        document.getElementById('viewAdoptionCount').textContent = user.adoptionCount ?? 0;
+        document.getElementById('viewRescueCount').textContent = user.rescueReportsSubmitted ?? 0;
+        document.getElementById('viewBio').textContent = user.bio || 'No bio provided.';
+        document.getElementById('viewModal').style.display = 'flex';    
+    }
+
+    function closeViewModal() {
+        document.getElementById('viewModal').style.display = 'none';
+    }
+
+    // Message directly to the User
+    async function messageUser(uid) {
+        try {
+            const response = await fetch(`/api/conversations/user/${uid}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const data = await response.json();
+            if (data.status === 'success' && data.conversation) {
+                window.location.href = `/messages?active=${data.conversation.id}`;
+            } else {
+                alert("Unable to open conversation: " + (data.message || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error(err);
+            alert("An error occurred while opening the messaging portal.");
+        }
+    }
+</script>
+</body>
+</html>

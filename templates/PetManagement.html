@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/pet-management.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+            <div class="container">
+                <div class="header">
+                    <div>
+                        <h1>Pet Management</h1>
+                        <p>Manage all animals in the shelter</p>
+                    </div>
+                    <button class="btn-add-pet" onclick="openModal('add')">
+                        <i class="fa-solid fa-plus"></i> Add New Pet
+                    </button>
+                </div>
+
+                <!--Search-->
+                <div class="control-wrapper">
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="tableSearch" placeholder="Search by name or breed..." oninput="filterTable()">
+                    </div>
+                    <div class="filter-tabs">
+                        <button class="tab-btn active" onclick="switchTab('All', this)">All</button>
+                        <button class="tab-btn" onclick="switchTab('Available', this)">Available</button>
+                        <button class="tab-btn" onclick="switchTab('Pending', this)">Pending</button>
+                        <button class="tab-btn" onclick="switchTab('Adopted', this)">Adopted</button>
+                    </div>
+                </div>
+
+                <!--Table-->
+                <div class="table-container">
+                    <div class="pet-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Animal</th>
+                                    <th>Breed</th>
+                                    <th>Age</th>
+                                    <th>Gender</th>
+                                    <th>Rescued</th>
+                                    <th>Status</th>
+                                    <th>Health Records</th>
+                                    <th class="text-right">ACTIONS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="petTableBody">
+                                {% for pet in pets %}
+                                <tr data-status="{{ pet.status }}" data-name="{{ pet.petName | lower }}" data-breed="{{ pet.breed | lower }}">
+                                    <td>
+                                        <div class="animal-cell">
+                                            <img class="animal-avatar" src="{{ pet.images[0] if pet.images else 'https://via.placeholder.com/150' }}" alt="">
+                                            <span>{{ pet.petName }}</span>
+                                        </div>
+                                    </td>
+                                    <td>{{ pet.breed if pet.breed else 'Unknown' }}</td>
+                                    <td>{{ pet.age }}</td>
+                                    <td>
+                                        <span class="badge badge-{{ pet.gender | lower }}">
+                                            {{ pet.gender }}
+                                        </span>
+                                    </td>
+                                    <td>{{ pet.rescueDate.strftime('%B %d, %Y') if pet.rescueDate.strftime is defined else pet.rescueDate }}</td>
+                                    <td>
+                                        <span class="status-pill status-{{ pet.status | lower }}">
+                                            <i class="fa-solid fa-circle" style="font-size:8px; margin-right:4px;"></i>{{ pet.status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="health-tags">
+                                            {% if pet.healthRecords %}
+                                                {% for record in pet.healthRecords %}
+                                                    <span class="health-tag tag-custom">{{ record }}</span>
+                                                {% endfor %}
+                                            {% else %}
+                                                <span style="color:#aaa; font-style:italic; font-size:12px;">None</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td class="actions-cell">
+                                        <button class="action-btn" title="View Pet Profile" onclick="viewPetDetails('{{ pet.id }}')"><i class="fa-regular fa-eye"></i></button>
+                                        <button class="action-btn" title="Edit" onclick="editPetRecord('{{ pet.id }}')"><i class="fa-regular fa-pen-to-square"></i></button>
+                                        <button class="action-btn delete-btn" title="Delete" onclick="deletePetRecord('{{ pet.id }}')"><i class="fa-regular fa-trash-can"></i></button>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="8" style="text-align: center; padding: 40px; color: #888;">No animal records found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-footer">
+                        <span id="tableCounter">Showing {{ pets|length }} entries</span>
+                        <div class="page-controls" id="pageControls"></div>
+                    </div>
+                </div>
+            </div>
+        </div> 
+    </div> 
+
+    <!--Pet Modal-->
+    <div class="modal-overlay" id="petModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add New Pet Record</h2>
+                <button class="modal-close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="petForm" method="POST" enctype="multipart/form-data">
+                <input type="hidden" id="petId" name="petId">
+                <input type="hidden" id="deletedImagesString" name="deletedImages" value="">
+                <input type="hidden" id="deletedVideosString" name="deletedVideos" value="">
+                <div class="modal-body">
+                    <div class="modal-form-grid">
+                        <div class="form-group">
+                            <label for="petName">Pet Name *</label>
+                            <input type="text" id="petName" name="petName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="type">Pet Type *</label>
+                            <input type="text" id="type" name="type" placeholder="e.g. Dog, Cat, Chinchilla, Bird" required>
+                        </div>
+                    </div>
+                    <div class="modal-form-grid">
+                        <div class="form-group">
+                            <label for="breed">Breed</label>
+                            <input type="text" id="breed" name="breed" placeholder="e.g. Labrador Mix">
+                        </div>
+                        <div class="form-group">
+                            <label for="age">Age</label>
+                            <input type="text" id="age" name="age" placeholder="e.g. 2 years / 6 months">
+                        </div>
+                    </div>
+                    <div class="modal-form-grid">
+                        <div class="form-group">
+                            <label for="gender">Gender *</label>
+                            <select id="gender" name="gender" required>
+                                <option value="">Select gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="status">Status *</label>
+                            <select id="status" name="status" required>
+                                <option value="Available">Available</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Adopted">Adopted</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group full-width" style="margin-bottom: 16px;">
+                        <label>Personality Traits</label>
+                        <div class="tags-input-container" id="personalityContainer">
+                            <input type="text" id="personalityInput" placeholder="Type trait and press Enter...">
+                        </div>
+                        <input type="hidden" id="personalityString" name="personality">
+                    </div>
+                    <div class="form-group full-width" style="margin-bottom: 16px;">
+                        <label>Compatibility</label>
+                        <div class="tags-input-container" id="compatibilityContainer">
+                            <input type="text" id="compatibilityInput" placeholder="Type compatibilities and press Enter...">
+                        </div>
+                        <input type="hidden" id="compatibilityString" name="compatibility">
+                    </div>
+                    <div class="modal-form-grid">
+                        <div class="form-group">
+                            <label for="activityLevel">Activity Level</label>
+                            <select id="activityLevel" name="activityLevel" required>
+                                <option value="Sedentary">Sedentary</option>
+                                <option value="Low">Lightly Active</option>
+                                <option value="Medium">Moderately Active</option>
+                                <option value="High">Very Active</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="rescueDate">Rescue Date *</label>
+                            <input type="date" id="rescueDate" name="rescueDate" required>
+                        </div>
+                    </div>
+                    <div class="form-group full-width" style="margin-bottom: 16px;">
+                        <label>Health Records & Medical Tags</label>
+                        <div class="tags-input-container" id="healthRecordsContainer">
+                            <input type="text" id="healthRecordsInput" placeholder="Type medical entry (e.g. Spayed, Vaccinated) and press Enter...">
+                        </div>
+                        <input type="hidden" id="healthRecordsString" name="healthRecords">
+                    </div>
+                    <div class="form-group full-width" style="margin-bottom: 16px;">
+                        <label for="healthDescription">Health Description</label>
+                        <textarea id="healthDescription" name="healthDescription" rows="2"></textarea>
+                    </div>
+                    <div class="form-group full-width" style="margin-bottom: 16px;">
+                        <label>Vaccination History</label>
+                        <div id="vaccineListContainer" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;"></div>
+                        <div class="vax-input-grid">
+                            <div class="vax-field full-width-m">
+                                <label for="vaxName">Vaccine Name</label>
+                                <input type="text" id="vaxName" placeholder="e.g. Rabies">
+                            </div>
+                            <div class="vax-field">
+                                <label for="vaxGiven">Given Date</label>
+                                <input type="text" id="vaxGiven" placeholder="e.g. Mar 2024">
+                            </div>
+                            <div class="vax-field">
+                                <label for="vaxDue">Due Date</label>
+                                <input type="text" id="vaxDue" placeholder="e.g. Mar 2025">
+                            </div>
+                            <div class="vax-btn-wrapper">
+                                <button type="button" class="btn-add-vax" onclick="addVaccineEntry()">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <input type="hidden" id="vaccinationHistoryString" name="vaccinationHistory">
+                    </div>
+                    <div class="modal-form-grid">
+                        <div class="form-group">
+                            <label for="images">Upload Additional Images</label>
+                            <input type="file" id="images" name="images" accept="image/*" multiple>
+                            
+                            <div class="saved-media-label" id="savedImagesHeading" style="display:none;">Saved Images (Hover to delete):</div>
+                            <div class="media-preview-grid" id="existingImagesContainer"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="storyVideos">Upload Additional Videos</label>
+                            <input type="file" id="storyVideos" name="storyVideos" accept="video/*" multiple>
+                            
+                            <div class="saved-media-label" id="savedVideosHeading" style="display:none;">Saved Videos (Hover to delete):</div>
+                            <div class="media-preview-grid" id="existingVideosContainer"></div>
+                        </div>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="description">Description</label>
+                        <textarea id="description" name="description" rows="4" placeholder="Write a short summary/story about the pet..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn-submit">Save Pet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    let currentTabStatus = 'All';
+    const personalityTraitsSet = new Set();
+    const compatibilitySet = new Set();
+    const healthRecordsSet = new Set();
+    const deletedImagesSet = new Set();
+    const deletedVideosSet = new Set();
+    let vaccineEntries = [];
+
+    function openModal(mode, data = null) {
+        const modal = document.getElementById('petModal');
+        const form = document.getElementById('petForm');
+        modal.style.display = 'flex';
+        
+        personalityTraitsSet.clear();
+        compatibilitySet.clear();
+        healthRecordsSet.clear();
+        deletedImagesSet.clear();
+        deletedVideosSet.clear();
+        vaccineEntries = [];
+        
+        document.getElementById('deletedImagesString').value = '';
+        document.getElementById('deletedVideosString').value = '';
+        document.getElementById('healthDescription').value = '';
+        document.getElementById('existingImagesContainer').innerHTML = '';
+        document.getElementById('existingVideosContainer').innerHTML = '';
+        document.getElementById('savedImagesHeading').style.display = 'none';
+        document.getElementById('savedVideosHeading').style.display = 'none';
+        
+        form.reset();
+        renderPillTags('personalityContainer', personalityTraitsSet, 'personalityInput');
+        renderPillTags('compatibilityContainer', compatibilitySet, 'compatibilityInput');
+        renderPillTags('healthRecordsContainer', healthRecordsSet, 'healthRecordsInput');
+        renderVaccineList();
+        
+        if (mode === 'add') {
+            document.getElementById('modalTitle').innerText = 'Add New Pet Record';
+            document.getElementById('petId').value = '';
+            form.action = "{{ url_for('pet_management_bp.add_pet') }}";
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('petModal').style.display = 'none';
+    }
+
+    function addVaccineEntry() {
+        const nameInput = document.getElementById('vaxName');
+        const givenInput = document.getElementById('vaxGiven');
+        const dueInput = document.getElementById('vaxDue');
+
+        const name = nameInput.value.trim();
+        const given = givenInput.value.trim();
+        const due = dueInput.value.trim();
+
+        if (name) {
+            vaccineEntries.push({ name, given, due });
+            nameInput.value = '';
+            givenInput.value = '';
+            dueInput.value = '';
+            renderVaccineList();
+        }
+    }
+
+    function removeVaccineEntry(index) {
+        vaccineEntries.splice(index, 1);
+        renderVaccineList();
+    }
+
+    function renderVaccineList() {
+        const container = document.getElementById('vaccineListContainer');
+        container.innerHTML = '';
+        
+        vaccineEntries.forEach((vax, index) => {
+            const item = document.createElement('div');
+            item.className = 'vaccine-item';
+            item.innerHTML = `
+                <div class="vaccine-item-info">
+                    <i class="fa-shield-halved fa-solid" style="color: #10b981;"></i>
+                    <strong>${vax.name}</strong>
+                </div>
+                <div class="vaccine-item-dates">
+                    Given: ${vax.given || 'N/A'} • Due: ${vax.due || 'N/A'}
+                    <button type="button" class="btn-remove-vax" onclick="removeVaccineEntry(${index})">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            `;
+            container.appendChild(item);
+        });
+
+        document.getElementById('vaccinationHistoryString').value = JSON.stringify(vaccineEntries);
+    }
+
+    let currentPage = 1;
+    const itemsPerPage = 10;
+
+    function filterTable() {
+        const query = document.getElementById('tableSearch').value.toLowerCase();
+        const rows = Array.from(document.querySelectorAll('#petTableBody tr')).filter(r => r.children.length > 1);
+
+        const visibleRows = rows.filter(row => {
+            const status = row.getAttribute('data-status');
+            const name = row.getAttribute('data-name');
+            const breed = row.getAttribute('data-breed');
+            const matchesStatus = (currentTabStatus === 'All' || status === currentTabStatus);
+            const matchesSearch = (name.includes(query) || breed.includes(query));
+            return matchesStatus && matchesSearch;
+        });
+
+        rows.forEach(r => r.style.display = 'none');
+        const totalItems = visibleRows.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+
+        if (currentPage > totalPages) currentPage = 1;
+
+        const start = (currentPage - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+        const pageRows = visibleRows.slice(start, end);
+        pageRows.forEach(r => r.style.display = '');
+        const displayedStart = totalItems > 0 ? start + 1 : 0;
+        const displayedEnd = Math.min(end, totalItems);
+        document.getElementById('tableCounter').innerText = `Showing ${displayedStart}-${displayedEnd} of ${totalItems} entries`;
+        renderPagination(totalPages);
+    }
+
+    function renderPagination(totalPages) {
+        const container = document.getElementById('pageControls');
+        container.innerHTML = '';
+
+        if (totalPages <= 1) return;
+        container.appendChild(createPgBtn('<i class="fa-solid fa-angles-left"></i>', 1, currentPage === 1));
+        container.appendChild(createPgBtn('<i class="fa-solid fa-chevron-left"></i>', currentPage - 1, currentPage === 1));
+
+        for (let i = 1; i <= totalPages; i++) {
+            const btn = createPgBtn(i, i, false);
+            if (i === currentPage) btn.classList.add('active');
+            container.appendChild(btn);
+        }
+
+        container.appendChild(createPgBtn('<i class="fa-solid fa-chevron-right"></i>', currentPage + 1, currentPage === totalPages));
+        container.appendChild(createPgBtn('<i class="fa-solid fa-angles-right"></i>', totalPages, currentPage === totalPages));
+    }
+
+    function createPgBtn(html, targetPage, disabled) {
+        const btn = document.createElement('button');
+        btn.className = 'page-btn';
+        btn.innerHTML = html;
+        btn.disabled = disabled;
+        btn.onclick = () => {
+            currentPage = targetPage;
+            filterTable();
+        };
+        return btn;
+    }
+
+    function switchTab(status, element) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        element.classList.add('active');
+        currentTabStatus = status;
+        currentPage = 1; 
+        filterTable();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        filterTable();
+    });
+
+    function registerPillInputListener(inputId, containerId, targetSet) {
+        const input = document.getElementById(inputId);
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const value = this.value.trim();
+                if(value && !targetSet.has(value)) {
+                    targetSet.add(value);
+                    renderPillTags(containerId, targetSet, inputId);
+                    this.value = '';
+                }
+            }
+        });
+    }
+
+    function syncPillsToHiddenInputs() {
+        const pVal = document.getElementById('personalityInput').value.trim();
+        if (pVal) personalityTraitsSet.add(pVal);
+
+        const cVal = document.getElementById('compatibilityInput').value.trim();
+        if (cVal) compatibilitySet.add(cVal);
+
+        const hVal = document.getElementById('healthRecordsInput').value.trim();
+        if (hVal) healthRecordsSet.add(hVal);
+
+        document.getElementById('personalityString').value = Array.from(personalityTraitsSet).join(',');
+        document.getElementById('compatibilityString').value = Array.from(compatibilitySet).join(',');
+        document.getElementById('healthRecordsString').value = Array.from(healthRecordsSet).join(',');
+        document.getElementById('vaccinationHistoryString').value = JSON.stringify(vaccineEntries);
+    }
+
+    function renderPillTags(containerId, targetSet, inputId) {
+        const container = document.getElementById(containerId);
+        const input = document.getElementById(inputId);
+        
+        container.innerHTML = '';
+        targetSet.forEach(tag => {
+            const pill = document.createElement('span');
+            pill.className = 'tag-pill';
+            pill.innerHTML = `${tag} <i class="fa-solid fa-xmark"></i>`;
+            pill.querySelector('i').onclick = () => {
+                targetSet.delete(tag);
+                renderPillTags(containerId, targetSet, inputId);
+            };
+            container.appendChild(pill);
+        });
+        container.appendChild(input);
+    }
+
+    registerPillInputListener('personalityInput', 'personalityContainer', personalityTraitsSet);
+    registerPillInputListener('compatibilityInput', 'compatibilityContainer', compatibilitySet);
+    registerPillInputListener('healthRecordsInput', 'healthRecordsContainer', healthRecordsSet);
+
+    document.getElementById('petForm').addEventListener('submit', function(e) {
+        syncPillsToHiddenInputs();
+    });
+
+    function editPetRecord(id) {
+        fetch(`/pet-management/api/${id}`)
+            .then(res => res.json())
+            .then(data => {
+                openModal('edit');
+                document.getElementById('modalTitle').innerText = 'Edit Pet Record';
+                document.getElementById('petId').value = id;
+                document.getElementById('petForm').action = "/pet-management/update";
+                document.getElementById('petName').value = data.petName || '';
+                document.getElementById('type').value = data.type || '';
+                document.getElementById('breed').value = data.breed || '';
+                document.getElementById('age').value = data.age || '';
+                document.getElementById('gender').value = data.gender || '';
+                document.getElementById('status').value = data.status || '';
+                document.getElementById('activityLevel').value = data.activityLevel || 'Medium';
+                document.getElementById('rescueDate').value = data.rescueDate || '';
+                document.getElementById('description').value = data.description || '';
+                document.getElementById('healthDescription').value = data.healthDescription || '';
+                
+                if(data.personality) {
+                    data.personality.forEach(t => personalityTraitsSet.add(t));
+                }
+                if(data.compatibility) {
+                    data.compatibility.forEach(c => compatibilitySet.add(c));
+                }
+                if(data.healthRecords) {
+                    data.healthRecords.forEach(h => healthRecordsSet.add(h));
+                }
+                if(data.vaccinationHistory) {
+                    vaccineEntries = Array.isArray(data.vaccinationHistory) ? data.vaccinationHistory : [];
+                }
+
+                renderPillTags('personalityContainer', personalityTraitsSet, 'personalityInput');
+                renderPillTags('compatibilityContainer', compatibilitySet, 'compatibilityInput');
+                renderPillTags('healthRecordsContainer', healthRecordsSet, 'healthRecordsInput');
+                renderVaccineList();
+
+                const imgContainer = document.getElementById('existingImagesContainer');
+                if (data.images && data.images.length > 0) {
+                    document.getElementById('savedImagesHeading').style.display = 'block';
+                    data.images.forEach(imgUrl => {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'media-preview-item';
+                        wrapper.innerHTML = `
+                            <img src="${imgUrl}" alt="Pet image">
+                            <div class="media-remove-overlay">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </div>
+                        `;
+                        wrapper.querySelector('.media-remove-overlay').onclick = () => {
+                            deletedImagesSet.add(imgUrl);
+                            document.getElementById('deletedImagesString').value = Array.from(deletedImagesSet).join('|||');
+                            wrapper.remove();
+                            if(imgContainer.children.length === 0) {
+                                document.getElementById('savedImagesHeading').style.display = 'none';
+                            }
+                        };
+                        imgContainer.appendChild(wrapper);
+                    });
+                }
+                const videoContainer = document.getElementById('existingVideosContainer');
+                if (data.storyVideos && data.storyVideos.length > 0) {
+                    document.getElementById('savedVideosHeading').style.display = 'block';
+                    data.storyVideos.forEach(vidUrl => {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'media-preview-item';
+                        wrapper.innerHTML = `
+                            <video src="${vidUrl}" muted style="width:100%; height:100%; object-fit:cover;"></video>
+                            <div class="media-remove-overlay">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </div>
+                        `;
+                        wrapper.querySelector('.media-remove-overlay').onclick = () => {
+                            deletedVideosSet.add(vidUrl);
+                            document.getElementById('deletedVideosString').value = Array.from(deletedVideosSet).join('|||');
+                            wrapper.remove();
+                            if(videoContainer.children.length === 0) {
+                                document.getElementById('savedVideosHeading').style.display = 'none';
+                            }
+                        };
+                        videoContainer.appendChild(wrapper);
+                    });
+                }
+            });
+    }
+
+    function deletePetRecord(id) {
+        if(confirm("Are you sure you want to completely remove this animal record?")) {
+            window.location.href = `/pet-management/delete/${id}`;
+        }
+    }
+
+    function viewPetDetails(id) {
+        window.location.href = `/pet-management/profile/${id}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const alerts = document.querySelectorAll('.alert-box.auto-dismiss');
+        alerts.forEach(function(alert) {
+            setTimeout(function() {
+                alert.style.transition = "opacity 0.5s ease";
+                alert.style.opacity = "0";
+                setTimeout(() => alert.remove(), 500);
+            }, 3000);
+        });
+    });
+</script>
+</body>
+</html>

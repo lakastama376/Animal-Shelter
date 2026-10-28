@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/auth-style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    <!--Tabs-->
+    <main class="auth-page_container">
+        <div class="auth-card">
+            <div class="auth-tabs">
+                <a href="{{ url_for('login') }}" class="tab-item">Sign In</a>
+                <a href="{{ url_for('signup') }}" class="tab-item active">Register</a>
+            </div>
+
+            <!--Register Form-->
+            <div class="auth-body">
+                <div class="brand-icon-container">
+                    <div class="brand-circle">
+                        <img class="logo-img-card" src="{{ url_for('static', filename='Assets/Images/logo.png') }}" alt="Tails of Freedom Logo" />
+                    </div>
+                </div>
+                <h2>Create Your Account</h2>
+                <p class="subtitle">Join our community of animal lovers</p>
+                <form class="auth-form-grid">
+                    <div class="input-group">
+                        <label for="first-name-input">First Name</label>
+                        <input type="text" id="first-name-input" name="first_name" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="last-name-input">Last Name</label>
+                        <input type="text" id="last-name-input" name="last_name" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="email-input">Email Address</label>
+                        <input type="email" id="email-input" name="email" placeholder="maria@example.com" required>
+                        <div id="email-error-message" class="error-msg"></div>
+                    </div>
+                    <div class="input-group">
+                        <label for="username-input">Username</label>
+                        <input type="text" id="username-input" name="username" placeholder="mariasantos" required>
+                    </div>
+                    <div class="input-group password-wrapper">
+                        <label for="password-input">Password</label>
+                        <div class="input-with-icon">
+                            <input type="password" id="password-input" name="password" 
+                                placeholder="Min. 8 chars - Qwertyu1!" 
+                                pattern="(?=.*\d)(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':&quot;\\|,.<>\/?]).{8,}"
+                                title="Must contain at least 8 characters, including 1 uppercase letter, 1 number, and 1 special character."
+                                required>
+                            <i class="fa-regular fa-eye toggle-password"></i>
+                        </div>
+                        <div id="password-error-message" class="error-msg"></div>
+                    </div>
+                    <div class="input-group password-wrapper">
+                        <label for="confirm-password-input">Confirm Password</label>
+                        <div class="input-with-icon">
+                            <input type="password" id="confirm-password-input" name="confirm_password" required>
+                            <i class="fa-regular fa-eye toggle-password"></i>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="contact-input">Contact Number</label>
+                        <input type="tel" id="contact-input" name="contact" placeholder="+63 917 000 0000" maxlength="13" required>
+                        <div id="contact-error-message" class="error-msg"></div>
+                    </div>
+                    <div class="input-group">
+                        <label for="address-input">Address</label>
+                        <input type="text" id="address-input" name="address" placeholder="City, Province" required>
+                    </div>
+                    <div class="form-full-width">
+                        <button type="submit" id="create-account-btn" class="login-btn">Create Account</button>
+                    </div>
+                </form>
+                <div class="signup-link-container">
+                    Already have an account? <a href="{{ url_for('login') }}">Sign in</a>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script src="{{ url_for('static', filename='login-auth.js') }}" type="module"></script>
+</body>
+</html>

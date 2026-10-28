@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ article.title }} - Article</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/article-content.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+            <article class="container">
+            {% if not is_retake %}
+                <a href="{{ url_for('article_list_bp.list_articles') }}" class="back-link">
+                    <i class="fa-solid fa-arrow-left"></i> Back to Articles
+                </a>
+                {% endif %}
+                <div class="badge-wrapper">
+                    <span class="badge">{{ article.category }}</span>
+                </div>
+                <h1 class="title">{{ article.title }}</h1>
+                <div class="meta">
+                    <div class="meta-item">
+                        <i class="fa-regular fa-user"></i>
+                        <span>{{ article.author }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fa-regular fa-calendar"></i>
+                        <span>{{ article.createdAt.strftime('%B %d, %Y') if article.createdAt else 'Recently Published' }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fa-regular fa-bookmark"></i>
+                        <span>{{ article.readTime }}</span>
+                    </div>
+                </div>
+                <div class="hero-wrapper">
+                    <img class="hero-image" src="{{ article.imageUrl or '/static/images/image_a15cbd.jpg' }}" alt="{{ article.title }}">
+                </div>
+                <div class="body-content">
+                    {{ article.content | safe }}
+                </div>
+
+                <!--Pop Up Quiz-->
+                {% if is_retake and questions %}
+                <div class="retake-container">
+                    <p class="retake-text">Finished reading? Test your understanding to unlock the next step!</p>
+                    <button id="openQuizBtn" onclick="openRetakeModal()" class="btn-orange">
+                        <i class="fa-solid fa-graduation-cap"></i> Take Eligibility Quiz
+                    </button>
+                </div>
+                {% endif %}
+            </article>
+        </div> 
+    </div> 
+
+    <!--Failed on Quiz-->
+    {% if is_retake %}
+        <div class="modal-overlay" id="retakeModal" style="display: none;">
+            <div class="modal-box" id="modalBoxContainer">
+                <button onclick="closeRetakeModal()" class="modal-close-btn">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+                {% if is_locked_out %}
+                <div class="lockout-container">
+                    <div class="lockout-icon">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                    </div>
+                    <h2 class="lockout-title">Quiz Locked</h2>
+                    <p class="lockout-text">
+                        You did not pass the eligibility quiz today. To make sure you're fully prepared, you can try again starting tomorrow:
+                    </p>
+                    <div class="lockout-timestamp-badge">
+                        {{ lockout_time }}
+                    </div>
+                </div>
+
+                <!--Article Quiz Modal-->
+                {% elif questions %}
+                <div id="quizFormWrapper">
+                    <div class="quiz-header">
+                        <h2><i class="fa-solid fa-graduation-cap"></i> Dynamic Eligibility Quiz</h2>
+                        <p>Complete all questions from this article to proceed!</p>
+                    </div>
+                    <div class="quiz-form-body">
+                        <form id="retakeQuizForm" onsubmit="submitAllRetakeAnswers(event)">
+                            {% for question in questions %}
+                            <div class="question-block">
+                                <h4><strong>Q{{ loop.index }}:</strong> {{ question.questionText }}</h4>
+                                <div class="choice-list">
+                                    {% for choice in question.choices %}
+                                    <label class="retake-choice-label">
+                                        <input type="radio" name="retakeAnswer_{{ question.id }}" value="{{ choice.text }}" required>
+                                        <span>{{ choice.text }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                            <button type="submit" class="btn-orange btn-submit-quiz">
+                                Submit Answers
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                <div id="quizResultWrapper" style="display: none; padding: 20px 0;"></div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    // Modal
+    function openRetakeModal() {
+        const modal = document.getElementById("retakeModal");
+        if (modal) {
+            modal.style.display = "flex";
+            document.body.style.overflow = "hidden";
+        }
+    }
+
+    function closeRetakeModal() {
+        const modal = document.getElementById("retakeModal");
+        if (modal) {
+            modal.style.display = "none";
+            document.body.style.overflow = "";
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const isLockedOut = "{{ 'true' if is_locked_out else 'false' }}" === 'true';
+        if (isLockedOut) {
+            openRetakeModal();
+        }
+    });
+
+    async function submitAllRetakeAnswers(event) {
+        event.preventDefault();
+        const petId = "{{ pet_id or '' }}";
+        const answersPayload = {};
+        const radioGroups = new Set();
+        
+        document.querySelectorAll('#retakeQuizForm input[type="radio"]').forEach(radio => {
+            radioGroups.add(radio.name);
+        });
+
+        for (let groupName of radioGroups) {
+            const selectedInput = document.querySelector(`input[name="${groupName}"]:checked`);
+            if (selectedInput) {
+                const questionId = groupName.replace("retakeAnswer_", "");
+                answersPayload[questionId] = selectedInput.value;
+            } else {
+                alert("Please answer all questions before submitting.");
+                return;
+            }
+        }
+        try {
+            const response = await fetch('/eligibility/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    answers: answersPayload,
+                    petId: petId
+                })
+            });
+            const result = await response.json();
+
+            if (response.status === 403 || result.lockoutUntil) {
+                window.location.reload();
+                return;
+            }
+
+            if (result.success) {
+                const formWrapper = document.getElementById("quizFormWrapper");
+                const resultWrapper = document.getElementById("quizResultWrapper");
+                const modalBox = document.getElementById("modalBoxContainer");
+
+                if (formWrapper && resultWrapper) {
+                    formWrapper.style.display = "none";
+                    resultWrapper.style.display = "block";
+
+                    if (result.passed) {
+                        modalBox.style.borderTop = "5px solid #10b981"; 
+                        resultWrapper.innerHTML = `
+                            <div style="text-align: center;">
+                                <div style="font-size: 60px; color: #10b981; margin-bottom: 15px;">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                </div>
+                                <h2 style="color: #1e293b; margin-bottom: 5px;">Congratulations!</h2>
+                                <p style="color: #64748b; font-size: 15px; margin-bottom: 25px;">You cleared the criteria with a stellar score!</p>   
+                                <div style="margin-bottom: 30px; text-align: left; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
+                                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; color: #475569; margin-bottom: 8px;">
+                                        <span>Readiness Score</span>
+                                        <span>${result.score_percentage}%</span>
+                                    </div>
+                                    <div style="width: 100%; background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 15px;">
+                                        <div style="background: #10b981; width: ${result.score_percentage}%; height: 100%;"></div>
+                                    </div>
+                                    <p style="color: #15803d; background: #f0fdf4; border: 1px solid #dcfce7; font-size: 14px; padding: 12px; border-radius: 8px; font-weight: 500; margin: 0;">
+                                        <i class="fa-solid fa-circle-info"></i> Your score of ${result.score_percentage}% shows you are ready. You may proceed to the next procedures.
+                                    </p>
+                                </div>
+                                <a href="${result.redirect_url}" class="btn-orange" style="padding: 12px 30px; font-size: 16px; border-radius: 10px; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; background: #10b981; color: white;">
+                                    Continue Application Process <i class="fa-solid fa-arrow-right"></i>
+                                </a>
+                            </div>
+                        `;
+                    } else {
+                        modalBox.style.borderTop = "5px solid #ef4444"; 
+                        resultWrapper.innerHTML = `
+                            <div style="text-align: center;">
+                                <div style="font-size: 60px; color: #ef4444; margin-bottom: 15px;">
+                                    <i class="fa-solid fa-circle-xmark"></i>
+                                </div>
+                                <h2 style="color: #1e293b; margin-bottom: 5px;">Quiz Not Cleared</h2>
+                                <p style="color: #64748b; font-size: 15px; margin-bottom: 25px;">You scored ${result.score_percentage}%. A minimum of 80% is required to pass.</p>
+                                <div style="background: #fff5f5; border: 1px solid #fee2e2; border-radius: 10px; padding: 20px; text-align: left; margin-bottom: 25px;">
+                                    <p style="color: #991b1b; font-size: 14px; font-weight: 500; line-height: 1.5; margin: 0;">
+                                        <i class="fa-solid fa-clock"></i> <strong>Try Again Tomorrow</strong><br>
+                                        You did not pass the eligibility check. To ensure proper comprehension of the material, you will be locked out from retrying this quiz until:
+                                    </p>
+                                    <div style="background: #fee2e2; color: #991b1b; padding: 10px; margin-top: 10px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 14px;">
+                                        ${result.lockoutUntil}
+                                    </div>
+                                </div>
+                                <button onclick="window.location.reload()" class="btn-orange" style="padding: 12px 30px; font-size: 15px; border-radius: 10px; background: #475569; color: white; border: none; cursor: pointer;">
+                                    Close and Refresh
+                                </button>
+                            </div>
+                        `;
+                    }
+                }
+            } else {
+                alert(result.message || "An evaluation error occurred.");
+            }
+        } catch (error) {
+            console.error("Error submitting evaluation retake answer:", error);
+            alert("Failed to submit answers. Please try again.");
+        }
+    }
+</script>
+{% endif %}
+</body>
+</html>

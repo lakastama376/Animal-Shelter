@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet Matching - Find Your Perfect Companion</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/pet-matching.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+            <!--Card Matching-->
+            <div class="container">
+                <div class="header">
+                    <img class="logo-circle" src="{{ url_for('static', filename='Assets/Images/logo.png') }}" alt="Tails of Freedom Logo" />
+                    <div class="info">
+                        <h2>Pet Matching</h2>
+                        <p>Find your perfect companion</p>
+                    </div>
+                </div>
+                <div id="viewFlow" class="view">
+                    <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+                    <div id="stepCounter" class="step-counter">Step 1 of 5</div>
+                    <h1 id="questionTitle">Loading preferences...</h1>
+                    <p class="subtitle">Honesty helps us find your perfect match</p>
+                    <div id="choicesGrid" class="choices-grid"></div>
+                    <div class="actions-row">
+                        <button id="btnBack" class="btn btn-secondary" onclick="handleBack()" style="display: none;"><i class="fa-solid fa-chevron-left"></i> Back</button>
+                        <button id="btnContinue" class="btn btn-primary" onclick="handleContinue()">Continue <i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div id="cardFlow" class="card-view">
+                    <div class="stats-header">
+                        <div class="stats-item"><span id="countReviewed">0</span>Reviewed</div>
+                        <div class="stats-item"><span id="countLiked">0</span>Liked</div>
+                        <div class="stats-item">
+                            Top Match
+                            <div class="match-bar-track"><div id="topMatchFill" class="match-bar-fill"></div></div>
+                        </div>
+                    </div>
+                    <div id="cardStack" class="card-stack"></div>
+                    <div class="empty-state" id="emptyStackState">
+                        <i class="fa-solid fa-heart-crack"></i>
+                        <h3>No More Matches Found</h3>
+                        <p style="color: var(--gray-muted); font-size:14px;">Try modifying your lifestyle filters to meet more local shelter arrivals.</p>
+                        <button class="btn btn-secondary" style="margin-top:12px;" onclick="location.reload()">Restart Quiz</button>
+                    </div>
+                    <div class="card-actions" id="actionButtonsRow">
+                        <button class="round-btn btn-dislike" onclick="swipeTopCard('left')"><i class="fa-solid fa-xmark"></i></button>
+                        <button class="round-btn btn-undo" onclick="undoLastAction()"><i class="fa-solid fa-rotate-left"></i></button>
+                        <button class="round-btn btn-like" onclick="swipeTopCard('right')"><i class="fa-solid fa-heart"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!--Match Modal-->
+            <div id="matchModal" class="modal-overlay">
+                <div class="modal-card">
+                    <button class="modal-close-btn" onclick="closeMatchModal()"><i class="fa-solid fa-xmark"></i></button>
+                    <div class="modal-image-wrap">
+                        <img id="modalPetImg" src="" alt="Matched Animal Portrait">
+                    </div>
+                    <div class="modal-body">
+                        <h2 class="modal-title">It's a Match!</h2>
+                        <p class="modal-subtitle">You and <strong id="modalPetName">Pet</strong> are a great match!</p>
+                        <p id="modalPetSubText" class="modal-subtext">Breed Mix · 3 years · Male</p>
+                        <div class="modal-compat-section">
+                            <div class="modal-compat-header">
+                                <span>Compatibility</span>
+                                <span id="modalCompatScore" class="compat-score-text">0%</span>
+                            </div>
+                            <div class="modal-compat-bar">
+                                <div id="modalCompatFill" class="modal-compat-fill"></div>
+                            </div>
+                        </div>
+                        <button class="btn-modal-action" onclick="handleApplicationRouting()">
+                            <i class="fa-solid fa-file-lines"></i> Start Adoption Application
+                        </button>
+                        <div class="secondary-actions">
+                            <a id="modalViewProfileBtn" href="#" class="btn-modal-sub">
+                                <span>View Profile</span>
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </a>
+                            <button id="modalWishlistBtn" class="btn-modal-sub" onclick="handleModalWishlistToggle()">
+                                <i id="modalWishlistIcon" class="fa-regular fa-bookmark fa-lg"></i>
+                                <span>Wishlist</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    const fallbackQuestions = [
+        { "questionText": "Choose your preferred companion?", "choices": [{ "text": "Dog", "icon": "fa-dog" }, { "text": "Cat", "icon": "fa-cat" }, { "text": "Either", "icon": "fa-running" }] },
+        { "questionText": "What age feels right?", "choices": [{ "text": "under 1 year", "icon": "fa-baby" }, { "text": "1-3 years", "icon": "fa-paw" }, { "text": "3-8 years", "icon": "fa-dog" }, { "text": "8+ years", "icon": "fa-hourglass-end" }, { "text": "Any Age", "icon": "fa-infinity" }] },
+        { "questionText": "How active is your lifestyle?", "choices": [{ "text": "Sedentary", "icon": "fa-couch" }, { "text": "Low", "icon": "fa-home" }, { "text": "Medium", "icon": "fa-bolt" }, { "text": "High", "icon": "fa-bolt-lightning" }] },
+        { "questionText": "Who's in your household?", "choices": [{ "text": "Living Solo", "icon": "fa-user" }, { "text": "Couple", "icon": "fa-user-friends" }, { "text": "Family with kids", "icon": "fa-child-composite" }, { "text": "Roommates", "icon": "fa-users" }] },
+        { "questionText": "Your pet experience?", "choices": [{ "text": "First Timer", "icon": "fa-graduation-cap" }, { "text": "Some experience", "icon": "fa-thumbs-up" }, { "text": "Experienced", "icon": "fa-award" }, { "text": "Expert [Trainer / Vet background]", "icon": "fa-user-md" }] }
+    ];
+
+    let currentStep = 0;
+    let questionsList = fallbackQuestions;
+    let selectedPreferences = {};
+    let matchedPetsArray = [];
+    let reviewedCount = 0;
+    let likedCount = 0;
+    let historyStack = [];
+    let activeCarouselTimer = null;
+    let currentModalPetId = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+        fetch('/matching/questions')
+            .then(res => res.json())
+            .then(data => { if(data.success && data.questions.length > 0) questionsList = data.questions; renderStep(); })
+            .catch(() => renderStep());
+    });
+
+    function renderStep() {
+        if (currentStep >= questionsList.length) { return processMatchingEngine(); }
+        const q = questionsList[currentStep];
+        document.getElementById("questionTitle").innerText = q.questionText;
+        document.getElementById("stepCounter").innerText = `Step ${currentStep + 1} of ${questionsList.length}`;
+        document.getElementById("progressFill").style.width = `${((currentStep + 1) / questionsList.length) * 100}%`;
+        document.getElementById("btnBack").style.display = currentStep > 0 ? "flex" : "none";
+        const grid = document.getElementById("choicesGrid");
+        grid.innerHTML = "";
+        q.choices.forEach(choice => {
+            const card = document.createElement("div");
+            card.className = `choice-card ${selectedPreferences[q.questionText] === choice.text ? 'selected' : ''}`;
+            card.onclick = () => {
+                document.querySelectorAll('.choice-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                selectedPreferences[q.questionText] = choice.text;
+            };
+            const iconClass = choice.icon || 'fa-paw';
+            card.innerHTML = `<div class="choice-icon"><i class="fa-solid ${iconClass}"></i></div>
+                              <div class="choice-text">${choice.text}</div>`;
+            grid.appendChild(card);
+        });
+    }
+
+    function handleContinue() {
+        const q = questionsList[currentStep];
+        if (!selectedPreferences[q.questionText]) { return alert("Please make a selection to continue."); }
+        currentStep++;
+        renderStep();
+    }
+
+    function handleBack() {
+        if (currentStep > 0) { currentStep--; renderStep(); }
+    }
+
+    // Access Route
+    const userIsEligible = "{{ 'true' if is_eligible else 'false' }}" === 'true';
+    function handleApplicationRouting() {
+        if (!currentModalPetId) return;
+
+        if (userIsEligible) {
+            window.location.href = `/apply/${currentModalPetId}`;
+        } else {
+            window.location.href = `/eligibility/${currentModalPetId}`;
+        }
+    }
+
+    // Matching Preferences
+    function processMatchingEngine() {
+        document.getElementById("viewFlow").style.display = "none";
+        document.getElementById("cardFlow").style.display = "flex";
+
+        fetch('/matching/calculate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ preferences: selectedPreferences })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                matchedPetsArray = data.matches;
+                buildCardStack();
+            }
+        });
+    }
+
+    // Card Stacking
+    function buildCardStack() {
+        clearInterval(activeCarouselTimer);
+        const stack = document.getElementById("cardStack");
+        stack.innerHTML = "";
+        
+        if (matchedPetsArray.length === 0) {
+            return displayEmptyState();
+        }
+
+        document.getElementById("topMatchFill").style.width = `${matchedPetsArray[0].matchPercentage}%`;
+        matchedPetsArray.forEach((pet, index) => {
+            const card = document.createElement("div");
+            card.className = "pet-card";
+            card.style.zIndex = matchedPetsArray.length - index;
+            let mediaItems = pet.images && pet.images.length > 0 ? [...pet.images] : [];
+            if (mediaItems.length === 0 && pet.video) mediaItems.push(pet.video);
+            if (mediaItems.length === 0) mediaItems.push('https://via.placeholder.com/400x300?text=No+Media');  
+            let mediaHtml = '';
+            let segmentHtml = '';
+            mediaItems.forEach((url, mediaIndex) => {
+                const isVideo = url.match(/\.(mp4|webm|ogg|mov)$/i) || (mediaIndex === 0 && !pet.images && pet.video);
+                const activeClass = mediaIndex === 0 ? 'class="active"' : '';
+                
+                if (isVideo) {
+                    mediaHtml += `<video src="${url}" ${activeClass} autoplay loop muted playsinline></video>`;
+                } else {
+                    mediaHtml += `<img src="${url}" ${activeClass} alt="">`;
+                }
+                
+                segmentHtml += `
+                    <div class="carousel-segment ${mediaIndex === 0 ? 'active' : ''}">
+                        <div class="carousel-segment-fill"></div>
+                    </div>
+                `;
+            });
+
+            let personalityHtml = '';
+            (pet.personality || pet.tags || ['Friendly', 'Playful']).forEach(trait => {
+                personalityHtml += `<span class="pill-badge pill-green">${trait}</span>`;
+            });
+
+            let compatibilityHtml = '';
+            (pet.compatibility || ['Kids Friendly']).forEach(env => {
+                compatibilityHtml += `<span class="pill-badge pill-orange">${env}</span>`;
+            });
+
+            let energyScore = 2;
+            if (pet.activityLevel === 'High') energyScore = 4;
+            else if (pet.activityLevel === 'Medium') energyScore = 3;
+            else if (pet.activityLevel === 'Low') energyScore = 2;
+            else if (pet.activityLevel === 'Sedentary') energyScore = 1;
+
+            card.innerHTML = `
+                <div class="pet-image-area">
+                    <div class="carousel-track">${segmentHtml}</div>
+                    ${mediaHtml}
+                    <div class="badge-status">Available Now</div>
+                    <div class="badge-match"><i class="fa-solid fa-heart"></i> ${pet.matchPercentage}%</div>
+                </div>
+                <div class="pet-details-area">
+                    <div class="pet-header-row">
+                        <div class="pet-meta-title">${pet.petName}</div>
+                        <div class="header-metric-inline">
+                            Activity ${renderDots(energyScore, 'energy')}
+                        </div>
+                    </div>
+                    <div class="pet-sub-attributes">${pet.breed || 'Mix'} • ${pet.age || 'Unknown Age'} • ${pet.gender}</div>
+                    <p class="pet-bio">${pet.description || 'No description provided.'}</p>
+                    <div class="pills-container">
+                        ${personalityHtml}
+                        ${compatibilityHtml}
+                    </div>
+                </div>
+            `;
+            if (index === 0) {
+                initSwipeGestures(card);
+                if (mediaItems.length > 1) {
+                    startTopCardCarousel(card, mediaItems.length);
+                }
+            }
+            stack.appendChild(card);
+        });
+    }
+
+    function startTopCardCarousel(cardElement, totalMediaItems) {
+        let currentMediaIndex = 0;
+        const imageArea = cardElement.querySelector('.pet-image-area');
+        const mediaElements = imageArea.querySelectorAll('img, video');
+        const segments = imageArea.querySelectorAll('.carousel-segment');
+        activeCarouselTimer = setInterval(() => {
+            segments[currentMediaIndex].classList.remove('active');
+            segments[currentMediaIndex].classList.add('viewed');
+            mediaElements[currentMediaIndex].classList.remove('active');
+            currentMediaIndex = (currentMediaIndex + 1) % totalMediaItems;
+
+            if (currentMediaIndex === 0) {
+                segments.forEach(seg => seg.classList.remove('viewed', 'active'));
+            }
+
+            segments[currentMediaIndex].classList.add('active');
+            mediaElements[currentMediaIndex].classList.add('active');
+        }, 7000);
+    }
+
+    function renderDots(activeCount, variant = '') {
+        let html = '<div class="dot-indicators">';
+        for (let i = 0; i < 4; i++) {
+            html += `<div class="dot ${i < activeCount ? 'filled ' + variant : ''}"></div>`;
+        }
+        html += '</div>';
+        return html;
+    }
+
+    function initSwipeGestures(card) {
+        let startX = 0, currentX = 0, isDragging = false;
+        const onDragStart = (e) => {
+            isDragging = true;
+            startX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            card.style.transition = 'none';
+            card.style.cursor = 'grabbing';
+        };
+        const onDragMove = (e) => {
+            if (!isDragging) return;
+            currentX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            const moveDistX = currentX - startX;
+            card.style.transform = `translateX(${moveDistX}px) rotate(${moveDistX / 18}deg)`;
+        };
+        const onDragEnd = () => {
+            if (!isDragging) return;
+            isDragging = false;
+            card.style.cursor = 'grab';
+            const totalSwipeDist = currentX - startX;
+            if (totalSwipeDist > 130) { swipeTopCard('right'); }
+            else if (totalSwipeDist < -130) { swipeTopCard('left'); }
+            else {
+                card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+                card.style.transform = 'translateX(0px) rotate(0deg)';
+            }
+        };
+        card.addEventListener('mousedown', onDragStart);
+        window.addEventListener('mousemove', onDragMove);
+        window.addEventListener('mouseup', onDragEnd);
+        card.addEventListener('touchstart', onDragStart, { passive: true });
+        window.addEventListener('touchmove', onDragMove, { passive: true });
+        window.addEventListener('touchend', onDragEnd);
+    }
+
+    function swipeTopCard(direction) {
+        clearInterval(activeCarouselTimer);
+        const cards = document.querySelectorAll('.pet-card');
+        if (cards.length === 0) return;
+        const topCard = cards[0];
+        const petData = matchedPetsArray.shift();
+        historyStack.push({ card: topCard, data: petData, dir: direction });
+        topCard.style.transition = 'transform 0.4s ease, opacity 0.4s ease';
+        topCard.style.transform = `translateX(${direction === 'left' ? '-160%' : '160%'}) rotate(${direction === 'left' ? '-25deg' : '25deg'})`;
+        topCard.style.opacity = "0";
+        reviewedCount++;
+
+        if (direction === 'right') {
+            likedCount++;
+            showMatchModal(petData);
+        }
+
+        updateStats();
+        setTimeout(() => {
+            topCard.remove();
+            if (matchedPetsArray.length > 0) { buildCardStack(); }
+            else if (document.getElementById("matchModal").style.display !== "flex") { displayEmptyState(); }
+        }, 350);
+    }
+
+    // Match Modal
+    function showMatchModal(pet) {
+        currentModalPetId = pet.id;
+        document.getElementById("modalPetName").innerText = pet.petName;
+        document.getElementById("modalPetSubText").innerText = `${pet.breed || 'Mix'} · ${pet.age || 'Unknown Age'} · ${pet.gender}`;
+        document.getElementById("modalCompatScore").innerText = `${pet.matchPercentage}%`;
+        document.getElementById("modalViewProfileBtn").href = `/pet-management/profile/${pet.id}`;
+        const wishlistBtn = document.getElementById("modalWishlistBtn");
+        const wishlistIcon = document.getElementById("modalWishlistIcon");
+        
+        if (pet.is_favorited) {
+            wishlistBtn.classList.add('is-favorite');
+            wishlistIcon.className = "fa-solid fa-bookmark fa-lg";
+        } else {
+            wishlistBtn.classList.remove('is-favorite');
+            wishlistIcon.className = "fa-regular fa-bookmark fa-lg";
+        }
+
+        let imgSrc = 'https://via.placeholder.com/400x300?text=No+Media';
+        if (pet.images && pet.images.length > 0) imgSrc = pet.images[0];
+        document.getElementById("modalPetImg").src = imgSrc;
+        const modal = document.getElementById("matchModal");
+        modal.style.display = "flex";
+        setTimeout(() => {
+            document.getElementById("modalCompatFill").style.width = `${pet.matchPercentage}%`;
+        }, 100);
+    }
+
+    // Pet Wishlist
+    function handleModalWishlistToggle() {
+        if (!currentModalPetId) return;
+        const metadataEl = document.getElementById("session-metadata");
+        const isLoggedIn = metadataEl ? metadataEl.getAttribute("data-logged-in") === "true" : true;
+        
+        if (!isLoggedIn) {
+            window.location.href = "/login";
+            return;
+        }
+
+        const btn = document.getElementById("modalWishlistBtn");
+        const icon = document.getElementById("modalWishlistIcon");
+        const isAdded = btn.classList.contains('is-favorite');
+        const url = isAdded ? `/wishlist/remove/${currentModalPetId}` : `/wishlist/add/${currentModalPetId}`;
+
+        if (isAdded) {
+            btn.classList.remove('is-favorite');
+            icon.className = "fa-regular fa-bookmark fa-lg";
+        } else {
+            btn.classList.add('is-favorite');
+            icon.className = "fa-solid fa-bookmark fa-lg";
+        }
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const petObj = historyStack.find(h => h.data.id === currentModalPetId)?.data || 
+                            matchedPetsArray.find(p => p.id === currentModalPetId);
+                if (petObj) {
+                    petObj.is_favorited = !isAdded;
+                }
+            } else {
+                alert(data.message || "Could not complete update.");
+                if (isAdded) {
+                    btn.classList.add('is-favorite');
+                    icon.className = "fa-solid fa-bookmark fa-lg";
+                } else {
+                    btn.classList.remove('is-favorite');
+                    icon.className = "fa-regular fa-bookmark fa-lg";
+                }
+            }
+        })
+        .catch(err => {
+            console.error("Modal wishlist connection trace error:", err);
+            alert("Network error processing wishlist update.");
+        });
+    }
+
+    function closeMatchModal() {
+        document.getElementById("modalCompatFill").style.width = `0%`;
+        document.getElementById("matchModal").style.display = "none";
+        currentModalPetId = null;
+        
+        if (matchedPetsArray.length === 0) {
+            displayEmptyState();
+        }
+    }
+
+    function undoLastAction() {
+        clearInterval(activeCarouselTimer);
+        if (historyStack.length === 0) return;
+        const lastAction = historyStack.pop();
+        matchedPetsArray.unshift(lastAction.data);
+        reviewedCount--;
+        if (lastAction.dir === 'right') likedCount--;
+        document.getElementById("cardStack").style.display = "block";
+        document.getElementById("actionButtonsRow").style.display = "flex";
+        document.getElementById("emptyStackState").style.display = "none";
+        updateStats();
+        buildCardStack();
+    }
+
+    function updateStats() {
+        document.getElementById("countReviewed").innerText = reviewedCount;
+        document.getElementById("countLiked").innerText = likedCount;
+        if(matchedPetsArray.length > 0) {
+            document.getElementById("topMatchFill").style.width = `${matchedPetsArray[0].matchPercentage}%`;
+        }
+    }
+
+    function displayEmptyState() {
+        clearInterval(activeCarouselTimer);
+        document.getElementById("cardStack").style.display = "none";
+        document.getElementById("actionButtonsRow").style.display = "none";
+        document.getElementById("emptyStackState").style.display = "flex";
+    }
+</script>
+</body>
+</html>

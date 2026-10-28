@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - Tails of Freedom</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}"> 
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/profile.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+            <!--Profile-->
+            <div class="container">
+                <div class="header">
+                    <h1>My Profile</h1>
+                    <p>Manage your account information</p>
+                </div>
+                <form action="{{ url_for('profile_bp.update_profile') }}" method="POST" enctype="multipart/form-data">
+                    <div class="profile-grid">
+                        <div class="profile-card">
+                            <div class="card-header-wrapper">
+                                <div class="identity-section">
+                                    <div class="avatar-container" onclick="triggerPhotoSelection(event)">
+                                        <div class="avatar-box">
+                                            {% if user_profile and user_profile.photoURL %}
+                                                <img id="profilePreview" src="{{ user_profile.photoURL }}" alt="Profile Picture">
+                                            {% else %}
+                                                <div id="avatarFallback" style="display: flex; align-items: center; justify-content: center;">
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                                        <circle cx="12" cy="7" r="4"></circle>
+                                                    </svg>
+                                                </div>
+                                                <img id="profilePreview" src="" alt="Profile Picture" style="display: none; width: 100%; height: 100%; object-fit: cover;">
+                                            {% endif %}
+                                        </div>
+                                        <div class="camera-badge">
+                                            <i class="fa-solid fa-camera"></i>
+                                        </div>
+                                        <input type="file" id="profilePhotoInput" name="profilePhoto" accept="image/*" style="display: none;">
+                                    </div>
+                                    <div class="identity-info">
+                                        <h2>{{ user_profile.fullName if user_profile and user_profile.fullName else 'Loading...' }}</h2>
+                                        <span class="username-tag">@{{ user_profile.username if user_profile and user_profile.username else 'loading' }}</span>
+                                        <div class="role-badge">
+                                            {{ user_profile.role if user_profile and user_profile.role else 'Adopter' }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!--Profile Form-->
+                            <div class="card-divider"></div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="firstName">First Name</label>
+                                    <input type="text" id="firstName" name="firstName" value="{{ user_profile.firstName if user_profile else '' }}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="lastName">Last Name</label>
+                                    <input type="text" id="lastName" name="lastName" value="{{ user_profile.lastName if user_profile else '' }}">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="email">Email</label>
+                                    <input type="email" id="email" name="email" value="{{ user_profile.email if user_profile else '' }}" readonly style="cursor: not-allowed; opacity: 0.8;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="contact">Contact Number</label>
+                                    <input type="text" 
+                                           id="contact" 
+                                           name="phone" 
+                                           value="{{ user_profile.phone if user_profile else '' }}" 
+                                           pattern="^09\d{9}$" 
+                                           maxlength="11" 
+                                           title="Phone number must start with '09' and be exactly 11 digits long.">
+                                </div>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="address">Address</label>
+                                <input type="text" id="address" name="address" value="{{ user_profile.address if user_profile else '' }}">
+                            </div>
+                        </div>
+
+                        <!--Bio Section-->
+                        <div class="profile-card">
+                            <div class="card-header-wrapper">
+                                <h3 class="card-title">About Me</h3>
+                                <p class="card-subtitle">Tell us a little bit about yourself</p>
+                            </div>
+                            <div class="card-divider"></div>
+                            <div class="form-group">
+                                <label for="bio">Bio description</label>
+                                <textarea id="bio" name="bio" class="bio-textarea" placeholder="Write something amazing...">{{ user_profile.bio if user_profile and user_profile.bio else '' }}</textarea>
+                            </div>
+                            <div class="action-container">
+                                {% with messages = get_flashed_messages(with_categories=true) %}
+                                    {% if messages %}
+                                        <div class="alert-messages">
+                                            {% for category, message in messages %}
+                                                <div class="alert alert-{{ category }}">
+                                                    {% if category == 'success' %}
+                                                        <i class="fa-solid fa-circle-check"></i>
+                                                    {% else %}
+                                                        <i class="fa-solid fa-circle-exclamation"></i>
+                                                    {% endif %}
+                                                    {{ message }}
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                {% endwith %}
+                                <button type="submit" class="btn-save">
+                                    <i class="fa-regular fa-floppy-disk"></i> Save Profile Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    function triggerPhotoSelection(event) {
+        document.getElementById('profilePhotoInput').click();
+    }
+
+    // Alert Message
+    function showAutoSaveAlert(message, type) {
+        let container = document.querySelector('.alert-messages');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'alert-messages';
+            document.querySelector('.action-container').prepend(container);
+        }
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type}`;
+        const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
+        alertDiv.innerHTML = `<i class="fa-solid ${icon}"></i> ${message}`;
+        container.appendChild(alertDiv);
+        setTimeout(function() {
+            alertDiv.style.transition = "opacity 0.3s ease";
+            alertDiv.style.opacity = "0";
+            setTimeout(() => alertDiv.remove(), 300);
+        }, 3000);
+    }
+
+    // Profile Upload
+    document.getElementById('profilePhotoInput').addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('profilePreview');
+                const fallback = document.getElementById('avatarFallback');
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                if (fallback) fallback.style.display = 'none';
+            }
+            reader.readAsDataURL(file);
+            const formData = new FormData();
+            formData.append('profilePhoto', file);
+            fetch("{{ url_for('profile_bp.upload_photo') }}", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAutoSaveAlert("Profile picture saved automatically!", "success");
+                } else {
+                    showAutoSaveAlert("Failed to auto-save photo: " + data.error, "error");
+                }
+            })
+            .catch(error => {
+                console.error("Error uploading photo:", error);
+                showAutoSaveAlert("An error occurred while uploading.", "error");
+            });
+        }
+    });
+    document.addEventListener("DOMContentLoaded", function() {
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(function(alert) {
+            setTimeout(function() {
+                alert.style.transition = "opacity 0.3s ease";
+                alert.style.opacity = "0";
+                setTimeout(() => alert.remove(), 300);
+            }, 3000); 
+        });
+    });
+</script>
+</body>
+</html>

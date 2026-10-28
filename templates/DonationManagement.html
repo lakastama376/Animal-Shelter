@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Donation Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/donation-management.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+</head>
+<body>
+<div id="app" data-is-admin="{% if user_profile and user_profile.role in ['Admin'] %}true{% else %}false{% endif %}"></div>
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+            
+            <!--Admin Interface-->
+            <div class="container">
+                {% if user_profile and user_profile.role in ['Admin'] %}
+                <div class="action-row">
+                    <div class="header">
+                        <h1>Donation Management</h1>
+                        <p>Track all cash and in-kind donations</p>
+                    </div>
+                    <button class="btn-primary" onclick="openDonorWallModal()">
+                        <i class="fa-solid fa-plus"></i>
+                        Add to Donor Wall
+                    </button>
+                </div>
+
+                <!--Statistics-->
+                <div class="stats-grid">
+                    <div class="card card-center">
+                        <div id="admin-total-cash" class="stat-value stat-value-green">₱0.00</div>
+                        <p class="stat-label">Total Cash Donations</p>
+                    </div>
+                    <div class="card card-center">
+                        <div id="admin-unique-donors" class="stat-value stat-value-orange">0</div>
+                        <p class="stat-label">Unique Donors</p>
+                    </div>
+                    <div class="card card-center">
+                        <div id="admin-inkind-count" class="stat-value stat-value-blue">0</div>
+                        <p class="stat-label">In-Kind Donations</p>
+                    </div>
+                </div>
+
+                <!--Cash Donations-->
+                <div class="column-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="fa-solid fa-dollar-sign" style="color: var(--color-emerald); font-size: 1.125rem;"></i>
+                            <h2>Cash Donations</h2>
+                        </div>
+                        <div id="admin-cash-list" class="data-list">
+                            <div class="list-empty-state">Loading cash donations...</div>
+                        </div>
+                        <div id="admin-cash-page" class="page-container"></div>
+                    </div>
+
+                    <!--In-Kind Donations-->
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="fa-solid fa-cube" style="color: var(--color-blue); font-size: 1.125rem;"></i>
+                            <h2>In-Kind Donations</h2>
+                        </div>
+                        <div id="admin-inkind-list" class="data-list">
+                            <div class="list-empty-state">Loading in-kind donations...</div>
+                        </div>
+                        <div id="admin-inkind-page" class="page-container"></div>
+                    </div>
+                </div>
+
+                <!--Donor Wall-->
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-header">
+                        <i class="fa-solid fa-heart" style="color: var(--primary); font-size: 1.125rem;"></i>
+                        <h2>Donor Wall Entries</h2>
+                    </div>
+                    <div id="admin-donor-list" class="data-list">
+                        <div class="list-empty-state">Loading donor wall entries...</div>
+                    </div>
+                    <div id="admin-donor-page" class="page-container"></div>
+                </div>
+                {% else %}
+                
+                <!--Adopter Interface-->
+                <div class="action-row">
+                    <div class="header">
+                        <h1>My Donations</h1>
+                        <p>Your contribution history</p>
+                    </div>
+                    <a href="/donation" class="btn-primary">
+                        <i class="fa-solid fa-dollar-sign"></i>
+                        Donate
+                    </a>
+                </div>
+
+                <!--User Statistics-->
+                <div class="stats-grid">
+                    <div class="card card-center">
+                        <div id="user-total-donated" class="stat-value stat-value-green">₱0</div>
+                        <p class="stat-label">Total Donated</p>
+                    </div>
+                    <div class="card card-center">
+                        <div id="user-total-contributions" class="stat-value stat-value-blue">0</div>
+                        <p class="stat-label">Contributions</p>
+                    </div>
+                    <div class="card card-center">
+                        <div id="user-badge" class="badge-display">
+                            <span id="user-badge-icon">🏅</span>
+                            <span id="user-badge-text">Donor</span>
+                        </div>
+                        <p class="stat-label">Donor Badge</p>
+                    </div>
+                </div>
+
+                <!--Transaction History-->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Transaction History</h2>
+                    </div>
+                    <div id="user-history-list" class="data-list">
+                        <div class="list-empty-state">Loading history...</div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!--Modal In-Kind-->
+    <div id="inkind-details-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>In-Kind Donation Details</h3>
+                <button class="modal-close-btn" onclick="closeInKindModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-detail">
+                    <span class="modal-label">Donor Name</span>
+                    <span id="modal-donor-name" class="modal-value">-</span>
+                </div>
+                <div class="modal-detail">
+                    <span class="modal-label">Contact Number</span>
+                    <span id="modal-donor-contact" class="modal-value">-</span>
+                </div>
+                <div class="modal-detail">
+                    <span class="modal-label">Item / Category</span>
+                    <span id="modal-item-title" class="modal-value">-</span>
+                </div>
+                <div class="modal-detail">
+                    <span class="modal-label">Scheduled Date</span>
+                    <span id="modal-scheduled-date" class="modal-value">-</span>
+                </div>
+                <div class="modal-detail">
+                    <span class="modal-label">Notes / Description</span>
+                    <div id="modal-notes" class="modal-notes">No notes provided.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--Modal Donor Wall-->
+    <div id="donor-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modal-title">Add to Donor Wall</h3>
+                <button class="modal-close-btn" onclick="closeDonorWallModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="donor-form" onsubmit="event.preventDefault(); saveDonorToWall();">
+                    <input type="hidden" id="adminDonorId" value="">
+                    <div class="form-group">
+                        <label for="adminDonorName">Donor Name</label>
+                        <input type="text" id="adminDonorName" list="donorsList" class="form-control" placeholder="Select existing donor or type name..." oninput="onDonorNameInput()" autocomplete="off">
+                        <datalist id="donorsList"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="adminDonorBadge">Badge / Tier</label>
+                        <select id="adminDonorBadge" class="form-control">
+                            <option value="Supporter">Supporter ⭐</option>
+                            <option value="Hero">Hero 🏅</option>
+                            <option value="Sponsor">Sponsor 🏆</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Upload Media (Photos / Videos)</label>
+                        <input type="file" id="adminDonorMediaInput" multiple accept="image/*,video/*" class="form-control" onchange="handleMediaUpload(event)">
+                        <div id="media-preview-container" class="media-preview-grid"></div>
+                    </div>
+                    <div class="form-group form-group-lg">
+                        <label for="adminDonorDescription">Description / Note</label>
+                        <textarea id="adminDonorDescription" class="form-control" rows="3" placeholder="Message or donation note..." required></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="submit" id="donor-submit-btn" class="btn-primary">Add Entry</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+<script>
+    let currentCashItems = [];
+    let currentInKindItems = [];
+    let currentDonorWallItems = [];
+    let knownDonorsMap = {};
+    let currentMediaItems = [];
+
+    let cashCurrentPage = 1;
+    const CASH_PAGE_SIZE = 5;
+    let inkindCurrentPage = 1;
+    const INKIND_PAGE_SIZE = 5;
+    let donorCurrentPage = 1;
+    const DONOR_PAGE_SIZE = 6;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const app = document.getElementById('app');
+        const isAdmin = app.dataset.isAdmin === 'true';
+
+        if (isAdmin) {
+            loadAdminData();
+            fetchDonorWallData();
+        } else {
+            loadUserData();
+        }
+    });
+
+    async function loadAdminData() {
+        try {
+            const response = await fetch('/api/donation/all');
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                const inKindList = result.inKindDonations || [];
+                currentInKindItems = inKindList;
+                currentCashItems = result.cashDonations || [];
+
+                const receivedInKindCount = inKindList.filter(item => item.status === 'Received').length;
+
+                document.getElementById('admin-total-cash').innerText = result.stats.totalCash;
+                document.getElementById('admin-unique-donors').innerText = result.stats.uniqueDonors;
+                document.getElementById('admin-inkind-count').innerText = receivedInKindCount;
+
+                knownDonorsMap = {};
+                if (result.cashDonations) {
+                    result.cashDonations.forEach(item => {
+                        const name = item.donorName || 'Anonymous';
+                        if (!knownDonorsMap[name]) {
+                            knownDonorsMap[name] = { totalCash: 0, photoURL: '', badge: 'Supporter' };
+                        }
+                        knownDonorsMap[name].totalCash += (item.raw_amount || 0);
+                        if (item.photoURL && !knownDonorsMap[name].photoURL) {
+                            knownDonorsMap[name].photoURL = item.photoURL;
+                        }
+                    });
+                }
+
+                Object.keys(knownDonorsMap).forEach(name => {
+                    const total = knownDonorsMap[name].totalCash;
+                    if (total >= 10000) {
+                        knownDonorsMap[name].badge = 'Sponsor';
+                    } else if (total >= 5000) {
+                        knownDonorsMap[name].badge = 'Hero';
+                    } else {
+                        knownDonorsMap[name].badge = 'Supporter';
+                    }
+                });
+
+                if (result.inKindDonations) {
+                    result.inKindDonations.forEach(item => {
+                        const name = item.donorName || 'Anonymous';
+                        if (!knownDonorsMap[name]) {
+                            knownDonorsMap[name] = { totalCash: 0, photoURL: item.photoURL || '', badge: 'Supporter' };
+                        }
+                    });
+                }
+
+                const datalist = document.getElementById('donorsList');
+                if (datalist) {
+                    datalist.innerHTML = Object.keys(knownDonorsMap)
+                        .map(name => `<option value="${name}">${name} (${knownDonorsMap[name].badge})</option>`)
+                        .join('');
+                }
+
+                renderCashDonations();
+                renderInKindDonations();
+            }
+        } catch (err) {
+            console.error("Failed to load admin donation data:", err);
+        }
+    }
+
+    // Cash Donation
+    function renderCashDonations() {
+        const cashContainer = document.getElementById('admin-cash-list');
+        const paginationContainer = document.getElementById('admin-cash-page');
+
+        if (!currentCashItems || currentCashItems.length === 0) {
+            cashContainer.innerHTML = `<div class="list-empty-state">No cash donations recorded yet.</div>`;
+            paginationContainer.innerHTML = '';
+            return;
+        }
+
+        const startIndex = (cashCurrentPage - 1) * CASH_PAGE_SIZE;
+        const pageItems = currentCashItems.slice(startIndex, startIndex + CASH_PAGE_SIZE);
+
+        cashContainer.innerHTML = pageItems.map(item => {
+            const name = item.donorName || 'Anonymous';
+            return `
+                <div class="list-item">
+                    <div class="list-item__left">
+                        ${item.photoURL
+                            ? `<img src="${item.photoURL}" class="avatar" alt="${name}">`
+                            : `<div class="icon-avatar icon-avatar-profile"><i class="fa-regular fa-user"></i></div>`
+                        }
+                        <div class="list-item__info">
+                            <div class="list-item__title">${name}</div>
+                            <div class="list-item__meta">${item.date || ''}</div>
+                        </div>
+                    </div>
+                    <div class="list-item__right">
+                        <span class="badge ${getBadgeStyle(item.badge)}">
+                            ${getBadgeIcon(item.badge)} ${item.badge || 'Donor'}
+                        </span>
+                        <span class="list-item__title">${item.amount}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        renderPaginationControls(
+            paginationContainer,
+            currentCashItems.length,
+            CASH_PAGE_SIZE,
+            cashCurrentPage,
+            (newPage) => {
+                cashCurrentPage = newPage;
+                renderCashDonations();
+            }
+        );
+    }
+
+    // In-kind Donation
+    function renderInKindDonations() {
+        const inkindContainer = document.getElementById('admin-inkind-list');
+        const paginationContainer = document.getElementById('admin-inkind-page');
+
+        if (!currentInKindItems || currentInKindItems.length === 0) {
+            inkindContainer.innerHTML = `<div class="list-empty-state">No in-kind donations recorded yet.</div>`;
+            paginationContainer.innerHTML = '';
+            return;
+        }
+
+        const startIndex = (inkindCurrentPage - 1) * INKIND_PAGE_SIZE;
+        const pageItems = currentInKindItems.slice(startIndex, startIndex + INKIND_PAGE_SIZE);
+
+        inkindContainer.innerHTML = pageItems.map(item => {
+            const isReceived = item.status === 'Received';
+            const isRejected = item.status === 'Rejected' || item.status === 'Cancelled';
+            let badgeClass = isReceived ? 'badge-received' : (isRejected ? 'badge-default' : 'badge-pending');
+            let displayStatus = isReceived ? 'Received' : (isRejected ? item.status : 'Pending');
+
+            return `
+                <div class="list-item">
+                    <div class="list-item__left">
+                        ${item.photoURL
+                            ? `<img src="${item.photoURL}" class="avatar" alt="${item.donorName || 'Donor'}">`
+                            : `<div class="icon-avatar icon-avatar-profile"><i class="fa-regular fa-user"></i></div>`
+                        }
+                        <div class="list-item__info">
+                            <div class="list-item__title">${item.title || 'Item'}</div>
+                            <div class="list-item__meta">From ${item.donorName || 'Anonymous'} • ${item.date || ''}</div>
+                            <div class="list-item__meta" style="color: #3a5ca7; font-weight: 500;">Scheduled: ${item.scheduledDate || 'N/A'}</div>
+                        </div>
+                    </div>
+                    <div class="list-item__right" style="gap: 12px;">
+                        <button class="btn-view-details" onclick="openInKindModal('${item.id}')" title="View Details">
+                            <i class="fa-regular fa-eye"></i>
+                        </button>
+                        <span class="badge ${badgeClass}">${displayStatus}</span>
+                        ${(!isReceived && !isRejected) ? `
+                            <div class="action-buttons">
+                                <button class="btn-action btn-action-approve" title="Confirm Received" onclick="updateInKindStatus('${item.id}', 'Received')">
+                                    <i class="fa-solid fa-check"></i>
+                                </button>
+                                <button class="btn-action btn-action-reject" title="Reject / Cancel" onclick="updateInKindStatus('${item.id}', 'Rejected')">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        renderPaginationControls(
+            paginationContainer,
+            currentInKindItems.length,
+            INKIND_PAGE_SIZE,
+            inkindCurrentPage,
+            (newPage) => {
+                inkindCurrentPage = newPage;
+                renderInKindDonations();
+            }
+        );
+    }
+
+    // Donor Wall
+    async function fetchDonorWallData() {
+        try {
+            const response = await fetch('/api/donor-wall/all');
+            const result = await response.json();
+
+            if (result.status === 'success' && result.data && result.data.length > 0) {
+                currentDonorWallItems = result.data;
+                renderDonorWall();
+            } else {
+                currentDonorWallItems = [];
+                renderDonorWall();
+            }
+        } catch (err) {
+            console.error('Error fetching donor wall entries:', err);
+        }
+    }
+
+    function renderDonorWall() {
+        const container = document.getElementById('admin-donor-list');
+        const paginationContainer = document.getElementById('admin-donor-page');
+
+        if (!currentDonorWallItems || currentDonorWallItems.length === 0) {
+            container.innerHTML = `<div class="list-empty-state">No entries on the donor wall yet.</div>`;
+            paginationContainer.innerHTML = '';
+            return;
+        }
+
+        const startIndex = (donorCurrentPage - 1) * DONOR_PAGE_SIZE;
+        const pageItems = currentDonorWallItems.slice(startIndex, startIndex + DONOR_PAGE_SIZE);
+
+        container.innerHTML = pageItems.map(item => `
+            <div class="list-item">
+                <div class="list-item__left">
+                    ${item.photoURL
+                        ? `<img src="${item.photoURL}" class="avatar" alt="${item.donorName}">`
+                        : `<div class="icon-avatar icon-avatar-profile"><i class="fa-regular fa-user"></i></div>`
+                    }
+                    <div class="list-item__info">
+                        <div class="list-item__title">${item.donorName || 'Anonymous'}</div>
+                        <div class="list-item__meta">${item.description || ''}</div>
+                        ${item.media && item.media.length > 0 ? `<div class="list-item__meta" style="color: #4f46e5;"><i class="fa-solid fa-paperclip"></i> ${item.media.length} Attachment(s)</div>` : ''}
+                    </div>
+                </div>
+                <div class="list-item__right" style="gap: 12px;">
+                    <span class="badge ${getBadgeStyle(item.badge)}">
+                        ${getBadgeIcon(item.badge)} ${item.badge || 'Supporter'}
+                    </span>
+                    <div class="action-buttons">
+                        <button class="btn-action btn-action-edit" title="Edit Entry" onclick="openDonorWallModal('${item.id}')">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button class="btn-action btn-action-reject" title="Delete Entry" onclick="deleteDonorWallEntry('${item.id}')">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        renderPaginationControls(
+            paginationContainer,
+            currentDonorWallItems.length,
+            DONOR_PAGE_SIZE,
+            donorCurrentPage,
+            (newPage) => {
+                donorCurrentPage = newPage;
+                renderDonorWall();
+            }
+        );
+    }
+
+    function renderPaginationControls(container, totalItems, pageSize, currentPage, onPageChange) {
+        const totalPages = Math.ceil(totalItems / pageSize);
+
+        if (totalPages <= 1) {
+            container.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+        html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} data-page="1"><i class="fa-solid fa-angles-left"></i></button>`;
+        html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} data-page="${currentPage - 1}"><i class="fa-solid fa-chevron-left"></i></button>`;
+
+        for (let page = 1; page <= totalPages; page++) {
+            const activeClass = page === currentPage ? 'active' : '';
+            html += `<button class="page-btn ${activeClass}" data-page="${page}">${page}</button>`;
+        }
+
+        html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} data-page="${currentPage + 1}"><i class="fa-solid fa-chevron-right"></i></button>`;
+        html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} data-page="${totalPages}"><i class="fa-solid fa-angles-right"></i></button>`;
+        container.innerHTML = html;
+
+        const buttons = container.querySelectorAll('.page-btn');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const targetPage = parseInt(e.currentTarget.getAttribute('data-page'));
+                if (targetPage && targetPage !== currentPage && targetPage >= 1 && targetPage <= totalPages) {
+                    onPageChange(targetPage);
+                }
+            });
+        });
+    }
+
+    function onDonorNameInput() {
+        const inputVal = document.getElementById('adminDonorName').value.trim();
+        const badgeSelect = document.getElementById('adminDonorBadge');
+
+        if (knownDonorsMap[inputVal]) {
+            badgeSelect.value = knownDonorsMap[inputVal].badge;
+        } else {
+            badgeSelect.value = 'Supporter';
+        }
+    }
+
+    function handleMediaUpload(event) {
+        const files = Array.from(event.target.files);
+        files.forEach(file => {
+            const reader = new FileReader();
+            const isVideo = file.type.startsWith('video/');
+            reader.onload = (e) => {
+                currentMediaItems.push({
+                    url: e.target.result,
+                    type: isVideo ? 'video' : 'image'
+                });
+                renderMediaPreviews();
+            };
+            reader.readAsDataURL(file);
+        });
+        event.target.value = '';
+    }
+
+    function renderMediaPreviews() {
+        const container = document.getElementById('media-preview-container');
+        container.innerHTML = currentMediaItems.map((item, index) => `
+            <div class="media-preview-item">
+                ${item.type === 'video'
+                    ? `<video src="${item.url}" style="width: 100%; height: 100%; object-fit: cover;"></video>`
+                    : `<img src="${item.url}" style="width: 100%; height: 100%; object-fit: cover;">`
+                }
+                <div class="media-remove-overlay" onclick="removeMediaItem(${index})">
+                    <i class="fa-solid fa-trash-can"></i>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function removeMediaItem(index) {
+        currentMediaItems.splice(index, 1);
+        renderMediaPreviews();
+    }
+
+    // In Kind Modal
+    function openInKindModal(donationId) {
+        const item = currentInKindItems.find(i => i.id === donationId);
+        if (!item) return;
+
+        document.getElementById('modal-donor-name').innerText = item.donorName || 'Anonymous';
+        document.getElementById('modal-donor-contact').innerText = item.contactNumber || 'N/A';
+        document.getElementById('modal-item-title').innerText = item.title || 'N/A';
+        document.getElementById('modal-scheduled-date').innerText = item.scheduledDate || 'N/A';
+        document.getElementById('modal-notes').innerText = item.notes && item.notes.trim() !== '' ? item.notes : 'No notes provided.';
+
+        document.getElementById('inkind-details-modal').classList.add('active');
+    }
+
+    function closeInKindModal() {
+        document.getElementById('inkind-details-modal').classList.remove('active');
+    }
+
+    // Donor Wall Modal
+    function openDonorWallModal(editId = null) {
+        const modal = document.getElementById('donor-modal');
+        const title = document.getElementById('modal-title');
+        const submitBtn = document.getElementById('donor-submit-btn');
+        const form = document.getElementById('donor-form');
+
+        form.reset();
+        currentMediaItems = [];
+
+        if (editId) {
+            const item = currentDonorWallItems.find(i => i.id === editId);
+            if (item) {
+                document.getElementById('adminDonorId').value = item.id;
+                document.getElementById('adminDonorName').value = item.donorName || '';
+                document.getElementById('adminDonorBadge').value = item.badge || 'Supporter';
+                document.getElementById('adminDonorDescription').value = item.description || '';
+                currentMediaItems = Array.isArray(item.media) ? [...item.media] : [];
+                title.innerText = 'Edit Donor Wall Entry';
+                submitBtn.innerText = 'Update Entry';
+            }
+        } else {
+            document.getElementById('adminDonorId').value = '';
+            title.innerText = 'Add to Donor Wall';
+            submitBtn.innerText = 'Add Entry';
+        }
+
+        renderMediaPreviews();
+        modal.classList.add('active');
+    }
+
+    function closeDonorWallModal() {
+        document.getElementById('donor-modal').classList.remove('active');
+        document.getElementById('donor-form').reset();
+        document.getElementById('adminDonorId').value = '';
+        currentMediaItems = [];
+        renderMediaPreviews();
+    }
+
+    async function saveDonorToWall() {
+        const id = document.getElementById('adminDonorId').value;
+        const donorName = document.getElementById('adminDonorName').value.trim() || 'Anonymous Donor';
+        const matchedDonor = knownDonorsMap[donorName];
+        const photoURL = matchedDonor ? (matchedDonor.photoURL || '') : '';
+
+        const payload = {
+            id: id,
+            donorName: donorName,
+            badge: document.getElementById('adminDonorBadge').value,
+            description: document.getElementById('adminDonorDescription').value,
+            photoURL: photoURL,
+            media: currentMediaItems
+        };
+
+        const endpoint = id ? '/api/donor-wall/update' : '/api/donor-wall/add';
+
+        try {
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (data.status === 'success') {
+                closeDonorWallModal();
+                fetchDonorWallData();
+            } else {
+                console.error(data.message || 'Failed to save donor');
+            }
+        } catch (err) {
+            console.error('Error saving donor to wall:', err);
+        }
+    }
+
+    // Remove in Donor Wall
+    async function deleteDonorWallEntry(id) {
+        if (!confirm('Are you sure you want to delete this donor wall entry?')) return;
+
+        try {
+            const res = await fetch('/api/donor-wall/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            });
+
+            const data = await res.json();
+            if (data.status === 'success') {
+                fetchDonorWallData();
+            } else {
+                console.error(data.message || 'Failed to delete entry.');
+            }
+        } catch (err) {
+            console.error('Error deleting donor wall entry:', err);
+        }
+    }
+
+    async function updateInKindStatus(donationId, newStatus) {
+        if (!confirm(`Are you sure you want to mark this donation as ${newStatus}?`)) return;
+
+        try {
+            const response = await fetch('/api/donation/update-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ donation_id: donationId, status: newStatus })
+            });
+            
+            const res = await response.json();
+            if (res.status === 'success') {
+                loadAdminData();
+            } else {
+                console.error(res.message || 'Failed to update status.');
+            }
+        } catch (err) {
+            console.error('Error updating status:', err);
+        }
+    }
+
+    function getBadgeStyle(badge) {
+        switch(badge) {
+            case 'Sponsor': return 'badge-sponsor';
+            case 'Hero': return 'badge-hero';
+            case 'Supporter': return 'badge-supporter';
+            default: return 'badge-default';
+        }
+    }
+
+    function getBadgeIcon(badge) {
+        switch(badge) {
+            case 'Sponsor': return '🏆';
+            case 'Hero': return '🏅';
+            case 'Supporter': return '⭐';
+            default: return '🎖️';
+        }
+    }
+
+    async function loadUserData() {
+        try {
+            const response = await fetch('/api/donation/history');
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                const history = result.history || [];
+                let totalDonated = 0;
+
+                history.forEach(item => {
+                    if (item.type === 'cash' && item.status === 'succeeded') {
+                        totalDonated += parseFloat(item.amount || 0);
+                    }
+                });
+
+                document.getElementById('user-total-donated').innerText = `₱${totalDonated.toLocaleString()}`;
+                document.getElementById('user-total-contributions').innerText = history.length;
+
+                let badgeText = "Supporter";
+                let badgeIcon = "⭐";
+                if (totalDonated >= 10000) {
+                    badgeText = "Sponsor";
+                    badgeIcon = "🏆";
+                } else if (totalDonated >= 5000) {
+                    badgeText = "Hero";
+                    badgeIcon = "🏅";
+                }
+
+                document.getElementById('user-badge-text').innerText = badgeText;
+                document.getElementById('user-badge-icon').innerText = badgeIcon;
+
+                const historyContainer = document.getElementById('user-history-list');
+                if (history.length === 0) {
+                    historyContainer.innerHTML = `<div class="list-empty-state">You have no recorded donations yet.</div>`;
+                } else {
+                    historyContainer.innerHTML = history.map(item => {
+                        const isCash = item.type === 'cash';
+                        const amountVal = parseFloat(item.amount || 0).toLocaleString();
+                        const title = isCash ? `₱${amountVal} Cash Donation` : `In-Kind: ${item.category || 'Donation'}`;
+                        const iconClass = isCash ? 'icon-avatar-emerald' : 'icon-avatar-amber';
+                        
+                        return `
+                            <div class="list-item">
+                                <div class="list-item__left">
+                                    <div class="icon-avatar ${iconClass}">
+                                        <i class="fa-solid ${isCash ? 'fa-dollar-sign' : 'fa-box'}"></i>
+                                    </div>
+                                    <div class="list-item__info">
+                                        <div class="list-item__title">${title}</div>
+                                        <div class="list-item__meta">${item.date || ''}</div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="badge badge-received">
+                                        ${item.status === 'succeeded' ? 'Confirmed' : (item.status === 'Pending' ? 'Received' : (item.status || 'Completed'))}
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+        } catch (err) {
+            console.error("Failed to load user donation history:", err);
+        }
+    }
+</script>
+</body>
+</html>
