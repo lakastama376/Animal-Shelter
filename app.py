@@ -6,6 +6,7 @@ from datetime import timedelta
 import secrets
 import os
 import uuid 
+import json
 from dotenv import load_dotenv
 
 from Data.Home import home_bp
@@ -42,7 +43,18 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' 
 
-cred = credentials.Certificate("firebase-auth.json")
+firebase_creds_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON')
+
+if firebase_creds_json:
+    cred_dict = json.loads(firebase_creds_json)
+    cred = credentials.Certificate(cred_dict)
+else:
+    cred_path = "firebase-auth.json"
+    if os.path.exists(cred_path):
+        cred = credentials.Certificate(cred_path)
+    else:
+        raise FileNotFoundError("Firebase credentials not found. Please set FIREBASE_SERVICE_ACCOUNT_JSON.")
+
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
