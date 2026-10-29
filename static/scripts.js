@@ -53,15 +53,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const isMobileView = window.innerWidth <= 960;
     const savedSidebarState = localStorage.getItem('sidebarCollapsed');
-    if (isMobileView || savedSidebarState === 'true' || savedSidebarState === null) {
+
+    if (isMobileView) {
         sidebarElement.classList.add('collapsed');
         if (mainContentArea) mainContentArea.classList.add('collapsed');
-        if (savedSidebarState === null && !isMobileView) {
-            localStorage.setItem('sidebarCollapsed', 'true');
+    } else {
+        if (savedSidebarState === 'false') {
+            sidebarElement.classList.remove('collapsed');
+            if (mainContentArea) mainContentArea.classList.remove('collapsed');
+        } else {
+            sidebarElement.classList.add('collapsed');
+            if (mainContentArea) mainContentArea.classList.add('collapsed');
+            if (savedSidebarState === null) {
+                localStorage.setItem('sidebarCollapsed', 'true');
+            }
         }
-    } else if (!isMobileView && savedSidebarState === 'false') {
-        sidebarElement.classList.remove('collapsed');
-        if (mainContentArea) mainContentArea.classList.remove('collapsed');
     }
 
     function updateIconState() {
