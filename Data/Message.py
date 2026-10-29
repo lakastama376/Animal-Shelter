@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, session, redirec
 from functools import wraps
 import firebase_admin
 from firebase_admin import firestore
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 message_bp = Blueprint('message_bp', __name__)
 
@@ -16,6 +16,27 @@ def auth_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
+
+def format_timestamp(ts):
+    if not ts:
+        return None
+    try:
+        parsed_dt = None
+        if hasattr(ts, 'datetime'):
+            parsed_dt = ts.datetime()
+        elif hasattr(ts, 'strftime'):
+            parsed_dt = ts
+        elif isinstance(ts, str):
+            parsed_dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+        
+        if parsed_dt:
+            if parsed_dt.tzinfo is not None:
+                ph_tz = timezone(timedelta(hours=8))
+                parsed_dt = parsed_dt.astimezone(ph_tz)
+            return parsed_dt
+    except Exception:
+        pass
+    return None
 
 @message_bp.route('/messages')
 @auth_required
@@ -38,8 +59,7 @@ def message_page():
 @auth_required
 def get_conversations():
     uid = session['user']['uid']
-    admin_uid = "dA0yV8QvfXQKTHwIPAEq96LH0rC2" 
-    
+
     try:
         db = get_db()
         convs_ref = db.collection('Conversations').where('participants', 'array_contains', uid)
@@ -49,8 +69,16 @@ def get_conversations():
         for doc in docs:
             data = doc.to_dict()
             data['id'] = doc.id
-            if data.get('updatedAt'):
-                data['formattedDate'] = data['updatedAt'].strftime('%b %d, %Y')
+            
+            updated_at = data.get('updatedAt')
+            parsed_dt = format_timestamp(updated_at)
+            if parsed_dt:
+                data['formattedDate'] = parsed_dt.strftime('%b %d, %Y')
+                data['sort_date'] = parsed_dt
+            else:
+                data['formattedDate'] = ''
+                data['sort_date'] = datetime.min
+
             last_sender = data.get('lastSenderId')
             if last_sender == uid:
                 data['unread'] = False
@@ -59,14 +87,14 @@ def get_conversations():
             other_uid = next((p for p in participants if p != uid), None)
             display_name = data.get('senderName') or data.get('userName') or data.get('title') or 'Guest'
             photo_url = None
-
+            
             if other_uid:
                 user_doc = db.collection('Users').document(other_uid).get()
                 if user_doc.exists:
                     user_data = user_doc.to_dict()
                     user_role = str(user_data.get('role', '')).strip().lower()
 
-                    if user_role == 'admin' or other_uid == admin_uid:
+                    if user_role == 'admin':
                         display_name = 'Tails of Freedom Admin'
                         photo_url = None   
                     else:
@@ -80,8 +108,11 @@ def get_conversations():
             data['displayName'] = display_name
             data['photoURL'] = photo_url
             conversations.append(data)
-            
-        conversations.sort(key=lambda x: x.get('updatedAt', 0), reverse=True)
+
+        conversations.sort(key=lambda x: x.get('sort_date', datetime.min), reverse=True)
+        for c in conversations:
+            c.pop('sort_date', None)
+
         return jsonify({"status": "success", "conversations": conversations}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -91,10 +122,22 @@ def get_conversations():
 @auth_required
 def admin_conversation():
     uid = session['user']['uid']
-    admin_uid = "dA0yV8QvfXQKTHwIPAEq96LH0rC2" 
     
     try:
         db = get_db()
+        users_ref = db.collection('Users').stream()
+        admin_uid = None
+
+        for user_doc in users_ref:
+            u_data = user_doc.to_dict()
+            role = str(u_data.get('role', '')).strip().lower()
+            if role == 'admin':
+                admin_uid = user_doc.id
+                break 
+            
+        if not admin_uid:
+            return jsonify({"status": "error", "message": "No system administrator found."}), 404
+
         query = db.collection('Conversations')\
                   .where('participants', 'array_contains', uid)\
                   .stream()
@@ -123,7 +166,6 @@ def admin_conversation():
         doc_ref = db.collection('Conversations').add(new_conv)
         new_conv['id'] = doc_ref[1].id
         new_conv['displayName'] = 'Tails of Freedom Admin'
-        
         return jsonify({"status": "success", "conversation": new_conv}), 201
 
     except Exception as e:
@@ -142,8 +184,14 @@ def get_messages(conversation_id):
         for doc in msgs_ref.stream():
             data = doc.to_dict()
             data['id'] = doc.id
-            if data.get('timestamp'):
-                data['formattedTime'] = data['timestamp'].strftime('%b %d, %Y %I:%M %p')
+            
+            timestamp = data.get('timestamp')
+            parsed_dt = format_timestamp(timestamp)
+            if parsed_dt:
+                data['formattedTime'] = parsed_dt.strftime('%b %d, %Y %I:%M %p')
+            else:
+                data['formattedTime'] = ''
+                
             messages.append(data)
             
         return jsonify({"status": "success", "messages": messages}), 200

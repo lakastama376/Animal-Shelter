@@ -88,7 +88,7 @@
         <a href="{{ url_for('message_bp.message_page') }}" class="nav-link {% if request.endpoint == 'message_bp.message_page' %}active{% endif %}">
           <i data-lucide="message-square"></i>
           <span>Messages</span>
-          {% if has_unread_messages %}WZ
+          {% if has_unread_messages %}
             <span class="sidebar-notification-dot"></span>
           {% endif %}
         </a>

@@ -271,8 +271,8 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 
 .carousel-nav-btn:hover { background: var(--primary-hover); border-color: var(--primary); color: white; transform: translateY(-50%) scale(1.08); }
-.carousel-nav-btn.prev-btn { left: -15px; }
-.carousel-nav-btn.next-btn { right: -15px; }
+.carousel-nav-btn.prev-btn { left: -15px; opacity: 60%; }
+.carousel-nav-btn.next-btn { right: -15px; opacity: 60%;}
 
 @media (max-width: 768px) {
     .layout { flex-direction: column; }

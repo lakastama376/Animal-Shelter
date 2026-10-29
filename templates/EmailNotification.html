@@ -108,6 +108,7 @@
             </div>
             <p>Please bring the pet to the shelter on time. If you have any urgent concerns or need to modify this schedule, please reach out through your account.</p>
         
+        <!--Admin Notifications-->
         {% elif status == 'Admin New Application' %}
             <h2 class="header">New Adoption Application Received</h2>
             <p>Hello Admin,</p>
@@ -133,6 +134,22 @@
             <div class="info-box">
                 <p style="margin: 0 0 8px 0;"><strong>Location:</strong> {{ location_text }}</p>
                 <p style="margin: 0;">Please log into your Rescue Management dashboard to review the photos, videos, and GPS coordinates.</p>
+            </div>
+
+        {% elif status == 'Admin New Cash Donation' %}
+            <h2 class="header">New Cash Donation Received</h2>
+            <p>Hello Admin,</p>
+            <p><strong>{{ reporter_name }}</strong> has successfully completed a cash donation amounting to <strong>₱{{ amount }}</strong> via QR Ph.</p>
+            <div class="info-box">
+                <p style="margin: 0;">Please log in to your Donation Management dashboard to view full details.</p>
+            </div>
+
+        {% elif status == 'Admin New In-Kind Donation' %}
+            <h2 class="header">New In-Kind Donation Submission</h2>
+            <p>Hello Admin,</p>
+            <p><strong>{{ reporter_name }}</strong> has submitted a new in-kind donation request for <strong>{{ donation_type }}</strong>.</p>
+            <div class="info-box">
+                <p style="margin: 0;">Please log in to your Donation Management dashboard to review the schedule and update its status.</p>
             </div>
             
         {% endif %}

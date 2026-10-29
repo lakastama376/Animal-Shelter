@@ -276,13 +276,19 @@
 
         if (!text || !activeConversationId) return;
         input.value = '';
+        
         const container = document.getElementById('messagesContainer');
         if (container) {
+            const nowFormatted = new Date().toLocaleDateString('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric',
+                hour: 'numeric', minute: '2-digit', hour12: true
+            });
+
             const row = document.createElement('div');
             row.className = `message-bubble-row outgoing`;
             row.innerHTML = `
                 <div class="bubble">${text}</div>
-                <div class="timestamp">Just now</div>
+                <div class="timestamp">${nowFormatted}</div>
             `;
             container.appendChild(row);
             container.scrollTop = container.scrollHeight;
@@ -302,6 +308,7 @@
             console.error("Error sending message:", e);
         }
     }
+
     window.addEventListener('resize', () => {
         if (!isMobileView()) {
             document.getElementById('messagingContainer').classList.remove('mobile-chat-active');
@@ -313,7 +320,6 @@
             loadMessages(activeConversationId, true);
         }
     }, 3000);
-
     loadConversations();
 </script>
 </body>

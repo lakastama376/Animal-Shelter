@@ -424,11 +424,21 @@ def inject_adoption_notifications():
         
     try:
         db = firestore.client()
-        pending_apps = db.collection('Applications')\
-                         .where('status', 'in', ['Under Review', 'Visit Scheduled', 'Return Requested', 'Return Scheduled'])\
-                         .limit(1).get()
+        user_data = session.get('user', {})
+        uid = user_data.get('uid') or user_data.get('user_id')
+        user_doc = db.collection('Users').document(uid).get()
+        role = user_doc.to_dict().get('role', 'Adopter') if user_doc.exists else 'Adopter'
+        
+        query = db.collection('Applications')
+        if role == 'Admin':
+            query = query.where('status', 'in', ['Submitted', 'Under Review', 'Return Requested'])
+        else:
+            query = query.where('userId', '==', uid)\
+                         .where('status', 'in', ['Approved', 'Visit Scheduled', 'Return Scheduled'])
                          
+        pending_apps = query.limit(1).get()
         return dict(has_new_adoptions=len(pending_apps) > 0)
+        
     except Exception as e:
         print(f"Error checking notifications: {e}")
         return dict(has_new_adoptions=False)

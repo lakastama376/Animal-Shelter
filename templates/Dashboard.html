@@ -281,8 +281,6 @@
             </div>
           </div>
           {% endfor %}
-        </div>
-        <div aria-hidden="true" class="showcase-slider">
           {% for pet in featured_pets %}
           <div class="showcase-card" onclick="window.location.href='/pet-management/profile/{{ pet.id }}'">
             <img class="showcase-img" src="{{ pet.images[0] if pet.images else 'https://via.placeholder.com/300x400' }}" alt="{{ pet.petName }}">

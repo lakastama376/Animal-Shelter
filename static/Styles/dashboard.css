@@ -66,16 +66,16 @@ body {
     box-shadow: 0 4px 15px -2px rgba(0,0,0, 0.04);
     border: 1px solid var(--border-color);
     padding: 20px 0;
-    mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
-    -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+    mask-image: linear-gradient(to right, transparent, rgb(213, 125, 2) 5%, rgb(206, 123, 27) 95%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, rgb(213, 125, 2) 5%, rgb(206, 123, 27) 95%, transparent);
 }
 
-.showcase-slider { display: flex; gap: 20px; padding-right: 20px; flex-shrink: 0; animation: infiniteScroll 30s linear infinite; }
+.showcase-slider { display: flex; gap: 20px; width: max-content; flex-shrink: 0; animation: infiniteScroll 35s linear infinite; }
 .featured:hover .showcase-slider { animation-play-state: paused; }
 
 @keyframes infiniteScroll {
-    from { transform: translateX(0); }
-    to { transform: translateX(-100%); }
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); } 
 }
 
 .showcase-card {

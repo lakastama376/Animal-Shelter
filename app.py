@@ -7,7 +7,9 @@ import secrets
 import os
 import uuid 
 import json
+from Data.audit import log_audit_event
 from dotenv import load_dotenv
+
 
 from Data.Home import home_bp
 from Data.Dashboard import dashboard_bp
@@ -183,10 +185,10 @@ def authorize():
 
         session['user'] = decoded_token 
         session['session_token'] = new_session_token
-
+        first_name = data.get('first_name', '')
+        last_name = data.get('last_name', '')
+        
         if not user_doc.exists:
-            first_name = data.get('first_name', '')
-            last_name = data.get('last_name', '')
             user_profile = {
                 'uid': uid,
                 'email': decoded_token.get('email', data.get('email', '')),
@@ -209,6 +211,7 @@ def authorize():
                 'applications': []
             }
             user_ref.set(user_profile)
+            full_name = user_profile['fullName'] or decoded_token.get('email', 'User')
         else:
             update_payload = {
                 'lastLogin': firestore.SERVER_TIMESTAMP,
@@ -216,10 +219,7 @@ def authorize():
                 'currentSessionToken': new_session_token 
             }
             
-            first_name = data.get('first_name')
-            last_name = data.get('last_name')
             photo_url = data.get('photo_url')
-
             if first_name:
                 update_payload['firstName'] = first_name
                 update_payload['lastName'] = last_name or ''
@@ -228,10 +228,35 @@ def authorize():
                 update_payload['photoURL'] = photo_url 
 
             user_ref.update(update_payload)
-            
+            updated_doc = user_ref.get().to_dict()
+            full_name = updated_doc.get('fullName') or decoded_token.get('email', 'User')
+
+        log_audit_event(
+            action="User Login",
+            details=f"{full_name} ({decoded_token.get('email', 'No email')}) logged into the system successfully.",
+            user_id=uid,
+            user_name=full_name
+        )
+
         return jsonify({"status": "success", "redirect": url_for('dashboard_bp.dashboard_view')}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 401
+
+@app.route('/api/audit/delete/<log_id>', methods=['DELETE'])
+@auth_required
+def delete_audit_log(log_id):
+    try:
+        uid = session['user']['uid']
+        user_doc = db.collection('Users').document(uid).get()
+
+        if not user_doc.exists or str(user_doc.to_dict().get('role', '')).strip().lower() != 'admin':
+            return jsonify({"status": "error", "message": "Unauthorized: Admin privileges required."}), 403
+
+        db.collection('AuditLogs').document(log_id).delete()
+        return jsonify({"status": "success", "message": "Audit log deleted successfully."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 ####################
 """ Auth Routes """

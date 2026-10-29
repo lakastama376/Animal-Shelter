@@ -15,8 +15,16 @@ html, body {
 .content { 
     flex: 1; 
     min-width: 0; 
-    padding: 40px 20px; 
+    padding: 40px 30px; 
     box-sizing: border-box; 
+    overflow-y: auto;
+    margin-left: var(--sidebar-desktop-width);
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.content.collapsed,
+.sidebar-container.collapsed ~ .content { 
+    margin-left: var(--sidebar-collapsed-width); 
 }
 
 .container {
@@ -30,18 +38,7 @@ html, body {
 .back-link i { margin-right: 6px; font-size: 0.85rem; }
 
 .badge-wrapper { display: block; margin-top: 10px; width: 100%; }
-
-.badge {
-    display: inline-block;
-    font-size: 0.85rem;
-    font-weight: 600;
-    padding: 4px 12px;
-    border-radius: 10px;
-    background:#ffe9d5; 
-    color:#f97316; 
-    border: 1px solid #f97316;
-    align-self: flex-start;
-}
+.badge { display: inline-block; font-size: 0.85rem; font-weight: 600; padding: 4px 12px; border-radius: 10px; background:#ffe9d5; color:#f97316; border: 1px solid #f97316; align-self: flex-start; }
 
 .title { font-size: 2.5rem; font-weight: 800; line-height: 1.2; color: #0f172a; margin-bottom: 15px; letter-spacing: -0.02em; }
 .meta { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; color: #6b7280; font-size: 0.95rem; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb; }
@@ -100,47 +97,16 @@ html, body {
     box-sizing: border-box;
 }
 
-.modal-close-btn {
-    position: absolute; 
-    top: 15px; 
-    right: 15px; 
-    background: none; 
-    border: none; 
-    font-size: 1.35rem; 
-    color: #94a3b8; 
-    cursor: pointer;
-    padding: 8px; 
-}
+.modal-close-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.35rem; color: #94a3b8; cursor: pointer; padding: 8px; }
 
 .lockout-container { text-align: center; padding: 20px 0; }
 .lockout-container, #quizResultWrapper { padding: 30px; }
 .lockout-icon { font-size: 50px; color: #ef4444; margin-bottom: 15px; }
 .lockout-title { color: #1e293b; margin-bottom: 10px; }
 .lockout-text { color: #64748b; font-size: 15px; line-height: 1.6; max-width: 400px; margin: 0 auto 25px; }
+.lockout-timestamp-badge { background: #fef2f2; border: 1px solid #fee2e2; padding: 12px 18px; border-radius: 8px; display: inline-block; font-weight: 600; color: #991b1b; margin-bottom: 20px; }
 
-.lockout-timestamp-badge {
-    background: #fef2f2; 
-    border: 1px solid #fee2e2; 
-    padding: 12px 18px; 
-    border-radius: 8px; 
-    display: inline-block; 
-    font-weight: 600; 
-    color: #991b1b; 
-    margin-bottom: 20px;
-}
-
-.quiz-header {
-    text-align: center; 
-    display: block; 
-    margin-bottom: 0; 
-    padding: 30px 30px 20px 30px;
-    background: #ffffff;
-    position: sticky;
-    top: 0;
-    z-index: 10; 
-    border-bottom: 1px solid #e2e8f0; 
-}
-
+.quiz-header { text-align: center; display: block; margin-bottom: 0; padding: 30px 30px 20px 30px; background: #ffffff; position: sticky; top: 0; z-index: 10;  border-bottom: 1px solid #e2e8f0;  }
 .quiz-header h2 { color: #ea580c; margin-bottom: 5px; font-size: 1.5rem; }
 .quiz-header p { font-size: 13px; color: #64748b; margin: 0; }
 .quiz-form-body { padding: 20px 30px 30px 30px; flex-grow: 1; }
@@ -150,18 +116,7 @@ html, body {
 .choice-list { display: flex; flex-direction: column; gap: 10px;}
 .retake-container { margin-top: 40px; padding: 30px 16px 0; border-top: 1px solid #e2e8f0; text-align: center; }
 .retake-text { color: #64748b; font-size: 15px; margin-bottom: 15px; }
-
-.retake-choice-label {
-    border: 1.5px solid #cbd5e1; 
-    border-radius: 10px; 
-    padding: 14px; 
-    cursor: pointer; 
-    transition: 0.2s ease-in-out; 
-    display: flex; 
-    align-items: center; 
-    gap: 12px;
-}
-
+.retake-choice-label { border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 14px; cursor: pointer; transition: 0.2s ease-in-out; display: flex; align-items: center; gap: 12px; }
 .retake-choice-label input[type="radio"] { accent-color: #f97316; transform: scale(1.15); flex-shrink: 0; }
 .retake-choice-label span { font-size: 14px; font-weight: 500; color: #334155; line-height: 1.4; }
 .retake-choice-label:hover { border-color: #f97316; background-color: #fff7ed; }
@@ -190,7 +145,6 @@ html, body {
 
 @media (max-width: 768px) {
     .layout { flex-direction: column; }
-    .sidebar-wrapper { width: 100%; }
     .content { padding: 24px 12px; }
     .container { padding: 0 8px; }
     .title { font-size: 1.85rem; margin-bottom: 12px; }

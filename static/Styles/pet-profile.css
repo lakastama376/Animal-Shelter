@@ -79,19 +79,8 @@ html, body {
 .thumb-wrapper { position: relative; cursor: pointer; border-radius: 8px; overflow: hidden; display: inline-block; width: 70px; height: 70px; border: 2px solid transparent; }
 .thumb-wrapper.active { border-color: var(--primary-color, #4f46e5); }
 .thumb-wrapper img, .thumb-wrapper video { width: 100%; height: 100%; object-fit: cover; }
-
-.thumb-wrapper .video-icon {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #fff;
-    font-size: 1.2rem;
-    text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
-    pointer-events: none;
-}
-
-#view-video { width: 100%; max-height: 450px; border-radius: 12px; background-color: #000; object-fit: contain; }
+.thumb-wrapper .video-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 1.2rem; text-shadow: 0 0 6px rgba(0, 0, 0, 0.6); pointer-events: none; }
+#view-video { position: absolute; top: 0; left: 0;width: 100%; height: 100%; border-radius: 16px; background-color: #000000;}
 
 .info-container h1 { font-size: 2.4rem; font-weight: 700; line-height: 1.2; }
 .pet-breed-subtitle { font-size: 1rem; color: var(--text-muted); margin-bottom: 24px; }
@@ -204,7 +193,8 @@ button.btn-apply:disabled {
     .content { padding: 10px; }
     .container { padding: 16px 12px; }
     .profile-grid, .secondary-details-grid {  grid-template-columns: 1fr;  gap: 24px;  margin-bottom: 24px; }
-    .image-wrapper { height: 320px; }
+    .image-wrapper { height: 280px; width: 100%; position: relative; }
+    #view-video { height: 100%; max-height: none; }
     .info-container h1 { font-size: 1.8rem; }
     .story-box, .health-box { padding: 20px; }
     .health-box .tag-row { gap: 6px; }

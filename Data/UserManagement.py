@@ -187,7 +187,7 @@ def block_user(uid):
         action_label = "Blocked User" if should_block else "Unblocked User"
         log_audit_event(
             action=action_label,
-            details=f"Admin {admin_name} {'blocked' if should_block else 'unblocked'} user {target_name} (ID: {uid})",
+            details=f"Admin {admin_name} {'blocked' if should_block else 'unblocked'} user {target_name}",
             user_id=admin_uid,
             user_name=admin_name
         )

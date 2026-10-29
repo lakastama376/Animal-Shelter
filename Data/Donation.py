@@ -4,6 +4,7 @@ import requests
 import base64
 import os
 import smtplib
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from Data.audit import log_audit_event
 
@@ -80,6 +81,31 @@ def cash_donation_email(donor_email, donor_name, amount, payment_id):
         email_notification(donor_email, subject, html_body)
     except Exception as e:
         print(f"Error sending cash donation email: {e}")
+
+def notify_admins_new_donation(db, donor_name, donation_type_or_amount, donation_kind):
+    try:
+        admin_docs = db.collection('Users').where('role', '==', 'Admin').stream()
+        for admin_doc in admin_docs:
+            admin_data = admin_doc.to_dict()
+            admin_email = admin_data.get('email')
+            if admin_email:
+                if donation_kind == 'cash':
+                    subject = f"New Cash Donation Received (₱{donation_type_or_amount:,.2f}) from {donor_name}"
+                    status_type = 'Admin New Cash Donation'
+                else:
+                    subject = f"New In-Kind Donation Submitted ({donation_type_or_amount}) by {donor_name}"
+                    status_type = 'Admin New In-Kind Donation'
+
+                html_body = render_template(
+                    'EmailNotification.html',
+                    reporter_name=donor_name,
+                    amount=f"{donation_type_or_amount:,.2f}" if donation_kind == 'cash' else None,
+                    donation_type=donation_type_or_amount if donation_kind == 'in-kind' else None,
+                    status=status_type
+                )
+                email_notification(admin_email, subject, html_body)
+    except Exception as e:
+        print(f"Failed to send new donation notification to admins: {e}")
 
 def inkind_donation_email(donor_email, donor_name, donation_type, schedule, contact):
     if not donor_email or '@' not in donor_email:
@@ -298,6 +324,7 @@ def check_qrph_status(payment_intent_id):
                 )
 
                 cash_donation_email(donor_email, donor_name, amount, payment_intent_id)
+                notify_admins_new_donation(db, donor_name, amount, 'cash')
 
         return jsonify({"status": "success", "paymentStatus": intent_status}), 200
 
@@ -340,6 +367,7 @@ def submit_inkind_donation():
             "createdAt": firestore.SERVER_TIMESTAMP
         })
 
+        notify_admins_new_donation(db, name, donation_type, 'in-kind')
         log_audit_event(
             action="Submitted In-Kind Donation",
             details=f"{name} submitted {donation_type} donation request scheduled for {schedule}",
@@ -377,7 +405,26 @@ def get_donation_history():
                 continue
 
             created_at = data.get('createdAt')
-            formatted_date = created_at.strftime("%b %d, %Y %I:%M %p") if created_at and hasattr(created_at, 'strftime') else "N/A"
+            parsed_dt = None
+            if created_at:
+                try:
+                    if hasattr(created_at, 'datetime'):
+                        parsed_dt = created_at.datetime()
+                    elif hasattr(created_at, 'strftime'):
+                        parsed_dt = created_at
+                    elif isinstance(created_at, str):
+                        parsed_dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                except Exception:
+                    parsed_dt = None
+
+            if parsed_dt:
+                if parsed_dt.tzinfo is not None:
+                    ph_tz = timezone(timedelta(hours=8))
+                    parsed_dt = parsed_dt.astimezone(ph_tz)
+                formatted_date = parsed_dt.strftime("%b %d, %Y %I:%M %p")
+            else:
+                formatted_date = "Recent"
+
             if doc_type == "cash" and status == "succeeded":
                 total_cash += float(data.get("amount", 0))
             elif doc_type == "in-kind" and status in ["Completed", "Received"]:
@@ -390,7 +437,7 @@ def get_donation_history():
                 "category": data.get("donationCategory"),
                 "status": status,
                 "date": formatted_date,
-                "raw_date": created_at   
+                "raw_date": parsed_dt or datetime.min   
             })
 
         if total_cash >= 10000: 
@@ -403,7 +450,7 @@ def get_donation_history():
             badge = "Donor"
 
         history.sort(
-            key=lambda x: x['raw_date'] if x['raw_date'] is not None else '',
+            key=lambda x: x['raw_date'],
             reverse=True
         )
 
@@ -420,7 +467,7 @@ def get_donation_history():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
+    
 # Donation Wall
 @donation_bp.route('/api/donor-wall/all', methods=['GET'])
 def get_all_donor_wall_entries():

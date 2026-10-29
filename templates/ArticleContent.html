@@ -13,8 +13,8 @@
     {% include 'Navbar.html' %}
     <div class="layout">
         {% include 'Sidebar.html' %}
-        <div class="content">
-
+        <main class="content has-sidebar" id="content-wrapper">
+            
             <article class="container">
             {% if not is_retake %}
                 <a href="{{ url_for('article_list_bp.list_articles') }}" class="back-link">
@@ -56,7 +56,7 @@
                 </div>
                 {% endif %}
             </article>
-        </div> 
+        </main>
     </div> 
 
     <!--Failed on Quiz-->
@@ -112,7 +112,7 @@
                 {% endif %}
             </div>
         </div>
-    </div>
+    {% endif %}
 
 <script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
 <script>
@@ -245,6 +245,5 @@
         }
     }
 </script>
-{% endif %}
 </body>
 </html>

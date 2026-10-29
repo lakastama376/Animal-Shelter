@@ -58,7 +58,7 @@ body {
 }
 
 .header h1 { font-size: 2rem; font-weight: 800; margin: 0 0 0.5rem 0; color: var(--text-dark); }
-.header-subtitle { color: var(--text-muted); margin: 0; margin-bottom: 1.5rem; }
+.header-subtitle { color: var(--text-muted); margin: 0; }
 
 .filter-container { display: grid; gap: 10px; margin-top: 1.5rem; margin-bottom: 1.5rem; grid-template-columns: repeat(4, 1fr); }
 
@@ -298,6 +298,7 @@ td { padding: 1rem; border-bottom: 1px solid var(--border-color); vertical-align
     padding: 12px 24px;
     border: none;
     border-radius: 50px;
+    margin-top: 10px;
     text-decoration: none;
     transition: background-color 0.2s;
 }
@@ -405,7 +406,9 @@ td { padding: 1rem; border-bottom: 1px solid var(--border-color); vertical-align
 @media (max-width: 768px) {
     .layout { flex-direction: column; }
     .content { padding: 1rem; }
-    .header-wrap { flex-direction: column; gap: 1rem; }
+    .header-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem;}
+    .header { width: 100%; margin-bottom: 0; }
+    .btn-adopt { width: auto; padding: 10px 20px; font-size: 0.9rem; margin-top: 4px; box-sizing: border-box; }
     .filter-container { display: flex; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
     .filter-pill { flex: 0 0 auto; scroll-snap-align: start; white-space: nowrap; font-size: 0.85rem; padding: 0.5rem 0.8rem; }
     .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
