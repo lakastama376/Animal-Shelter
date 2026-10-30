@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const toggleButtons = document.querySelectorAll('#sidebarToggleBtn');
         const isCollapsed = sidebarElement.classList.contains('collapsed');
 
-        if (!isMobileView) {
+        if (window.innerWidth > 960) {
             localStorage.setItem('sidebarCollapsed', isCollapsed);
         }
         
