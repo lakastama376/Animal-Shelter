@@ -233,7 +233,7 @@ def authorize():
 
         log_audit_event(
             action="User Login",
-            details=f"{full_name} ({decoded_token.get('email', 'No email')}) logged into the system successfully.",
+            details=f"{full_name} logged into the system successfully.",
             user_id=uid,
             user_name=full_name
         )
