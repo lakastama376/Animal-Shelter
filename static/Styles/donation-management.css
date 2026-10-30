@@ -258,6 +258,15 @@ body {
     .layout { flex-direction: column; }
     .content { padding: 16px; }
     .container { gap: 20px; }
+    .column-grid { grid-template-columns: 1fr; gap: 16px; }
+    .card { padding: 14px; overflow-x: hidden; }
+    .list-item { flex-direction: column !important; align-items: stretch !important; justify-content: flex-start !important; gap: 12px; padding: 16px 0; }
+    .list-item__left { width: 100%; align-items: flex-start; gap: 10px; }
+    .list-item__info { flex: 1; min-width: 0; }
+    .list-item__title, .list-item__meta { white-space: normal; word-break: break-word; }
+    .list-item__right { width: 100% !important; display: flex !important; flex-wrap: wrap !important; justify-content: space-between !important; align-items: center !important; gap: 8px; border-top: 1px dashed var(--border); padding-top: 10px; margin-top: 2px; }
+    .list-item__right > * { max-width: 100%; word-break: break-word; }
+    .action-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
     .stats-grid, .column-grid { grid-template-columns: 1fr; gap: 16px; }
     .action-row { flex-direction: column; align-items: stretch; gap: 16px; }
     .btn-primary { width: 100%; }
