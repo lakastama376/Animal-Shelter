@@ -397,6 +397,7 @@ main {
 .sidebar-mobile-btn:hover { background-color: #f1f5f9; color: var(--brand-orange); }
 .sidebar-mobile-btn svg { width: 24px; height: 24px; }
 .mobile-indicator { display: none; }
+.preload * { transition: none !important; animation: none !important; }
 
 @media (max-width: 960px) {
 .sidebar-mobile-btn {

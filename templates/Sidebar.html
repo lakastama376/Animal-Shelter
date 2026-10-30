@@ -115,10 +115,26 @@
 
 <script src="https://unpkg.com/lucide@latest"></script>
 <script>
-  if (window.innerWidth <= 960) {
-    const sb = document.getElementById('appSidebar');
-    if (sb) sb.classList.add('collapsed');
+  document.body.classList.add('preload');
+  const sb = document.getElementById('appSidebar');
+  const mainContent = document.querySelector('.content') || document.querySelector('main');
+  const isMobile = window.innerWidth <= 960;
+  const savedState = localStorage.getItem('sidebarCollapsed');
+
+  if (sb) {
+    if (isMobile || savedState === 'true' || savedState === null) {
+      sb.classList.add('collapsed');
+      if (mainContent) mainContent.classList.add('collapsed');
+    } else if (savedState === 'false') {
+      sb.classList.remove('collapsed');
+      if (mainContent) mainContent.classList.remove('collapsed');
+    }
   }
+  window.addEventListener('load', () => {
+    requestAnimationFrame(() => {
+      document.body.classList.remove('preload');
+    });
+  });
 </script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
