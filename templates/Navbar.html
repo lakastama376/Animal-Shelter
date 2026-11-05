@@ -1,7 +1,7 @@
 <div class="navbar">
     <div class="navbar-left">
         {% if user_profile %}
-            <button type="button" class="sidebar-mobile-btn" id="sidebarMobileBtn" aria-label="Toggle Sidebar">
+            <button type="button" class="sidebar-btn" id="sidebarBtn" aria-label="Toggle Sidebar" title="Sidebar">
                 <i data-lucide="menu"></i>
             </button>
         {% endif %}
@@ -13,11 +13,57 @@
             </div>
         </a>
     </div>
-    <span class="hamburger" id="hamburgerBtn">&#9776;</span>
+
+    <!--Dropdown Menu Toggle-->
+    <div class="mobile-nav-dropdown" id="mobileNavDropdown" title="Menu">
+        <div class="mobile-dropbtn" id="mobileDropBtn">
+            <i data-lucide="chevron-down" class="mobile-caret"></i>
+        </div>
+        <div class="mobile-dropdown-content" id="mobileDropdownContent">
+            <a href="{{ url_for('home_bp.home') }}" class="mobile-dropdown-item {% if request.endpoint == 'home_bp.home' %}active{% endif %}">Home</a>
+            <a href="{{ url_for('about_bp.about_page') }}" class="mobile-dropdown-item {% if request.endpoint == 'about_bp.about_page' %}active{% endif %}">About</a>
+            <a href="{{ url_for('pet_public_bp.pet_list') }}" class="mobile-dropdown-item {% if request.endpoint == 'pet_public_bp.pet_list' %}active{% endif %}">Adopt</a> 
+            <a href="{{ url_for('donation_bp.index') }}" class="mobile-dropdown-item {% if request.endpoint == 'donation_bp.index' %}active{% endif %}">Donate</a>
+            <a href="{{ url_for('article_list_bp.list_articles') }}" class="mobile-dropdown-item {% if request.endpoint == 'article_list_bp.list_articles' %}active{% endif %}">Education</a>
+            <a href="{{ url_for('contact_bp.contact_page') }}" class="mobile-dropdown-item {% if request.endpoint == 'contact_bp.contact_page' %}active{% endif %}">Contact</a>
+            <div class="mobile-dropdown-divider"></div>
+            {% if 'user' in session %}
+                <div class="dropdown profile-dropdown">
+                    <div class="dropbtn profile-trigger">
+                        <div class="profile-avatar">
+                            {% if user_profile and user_profile.photoURL %}
+                                <img src="{{ user_profile.photoURL }}" alt="Profile Picture" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" />
+                            {% else %}
+                                <i data-lucide="user"></i>
+                            {% endif %}
+                        </div>
+                        <span class="profile-name">{{ user_profile.fullName if user_profile and user_profile.fullName else 'User' }}</span>
+                    </div>
+                    <div class="dropdown-content profile-dropdown-box">
+                        <a href="{{ url_for('dashboard_bp.dashboard_view') }}" class="dropdown-item">
+                            <i data-lucide="layout-grid" class="item-icon"></i>
+                            <span>Dashboard</span>
+                        </a>
+                        <a href="{{ url_for('profile_bp.profile') }}" class="dropdown-item item-active">
+                            <i data-lucide="user" class="item-icon"></i>
+                            <span>My Profile</span>
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="{{ url_for('logout') }}" class="dropdown-item sign-out-item">
+                            <i data-lucide="log-out" class="item-icon"></i>
+                            <span>Sign Out</span>
+                        </a>
+                    </div>
+                </div>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="mobile-dropdown-item">Login</a>
+                <a href="{{ url_for('signup') }}" class="mobile-dropdown-item">Register</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Navigation Links -->
     <div class="navbar-right" id="navbarRight">
-        <span class="closebtn" id="closeBtn">&times;</span>
-        
-        <!-- Navigation Links -->
         <div class="nav-links-center">
             <a href="{{ url_for('home_bp.home') }}" class="nav-item {% if request.endpoint == 'home_bp.home' %}active{% endif %}">Home</a>
             <a href="{{ url_for('about_bp.about_page') }}" class="nav-item {% if request.endpoint == 'about_bp.about_page' %}active{% endif %}">About</a>
@@ -85,14 +131,27 @@
             lucide.createIcons();
         }
 
+        const mobileDropBtn = document.getElementById('mobileDropBtn');
+        const mobileDropdownContent = document.getElementById('mobileDropdownContent');
+        
+        if (mobileDropBtn && mobileDropdownContent) {
+            mobileDropBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                mobileDropdownContent.classList.toggle('show');
+            });
+
+            document.addEventListener('click', () => {
+                mobileDropdownContent.classList.remove('show');
+            });
+        }
+
         const navbar = document.querySelector('.navbar');
-        const navbarRight = document.getElementById('navbarRight');
         let lastScrollY = window.scrollY;
 
         window.addEventListener('scroll', () => {
             if (window.innerWidth <= 760) {
                 const currentScrollY = window.scrollY;
-                if (currentScrollY <= 0 || (navbarRight && navbarRight.classList.contains('active'))) {
+                if (currentScrollY <= 0 || (mobileDropdownContent && mobileDropdownContent.classList.contains('show'))) {
                     navbar.classList.remove('navbar-hidden');
                     return;
                 }

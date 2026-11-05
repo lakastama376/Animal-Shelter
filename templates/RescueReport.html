@@ -134,7 +134,12 @@
         <div class="camera-modal">
             <div class="modal-header">
                 <h3><i class="fa-solid fa-circle-dot recording-indicator"></i> Live Media Recorder</h3>
-                <button type="button" class="btn-close-modal" id="btn-close-rescue-modal"><i class="fa-solid fa-xmark"></i></button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button type="button" class="btn-close-modal" id="btn-switch-camera" title="Switch Camera">
+                        <i class="fa-solid fa-camera-rotate"></i>
+                    </button>
+                    <button type="button" class="btn-close-modal" id="btn-close-rescue-modal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
             </div>
             <div class="modal-body">
                 <div class="camera-mode-toggle">
@@ -353,10 +358,12 @@
         let timerInterval = null;
         let totalSeconds = 0;
         let currentMode = 'photo';
+        let currentFacingMode = 'user';
 
         const modalBackdrop = document.getElementById('rescue-camera-modal-backdrop');
         const btnOpenModal = document.getElementById('btn-open-rescue-camera-modal');
         const btnCloseModal = document.getElementById('btn-close-rescue-modal');
+        const btnSwitchCamera = document.getElementById('btn-switch-camera');
         const togglePhoto = document.getElementById('toggle-rescue-photo-mode');
         const toggleVideo = document.getElementById('toggle-rescue-video-mode');
         const photoGroup = document.getElementById('rescue-photo-controls-group');
@@ -385,7 +392,8 @@
                 modalBackdrop.style.display = 'flex';
                 tempFile = null;
                 resetModalStates();
-                await startCamera();
+                currentFacingMode = 'user'; 
+                await startCamera(currentFacingMode);
             });
         }
 
@@ -396,26 +404,42 @@
             });
         }
 
-        async function startCamera() {
+        if (btnSwitchCamera) {
+            btnSwitchCamera.addEventListener('click', async function () {
+                currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+                await startCamera(currentFacingMode);
+            });
+        }
+
+        async function startCamera(facingMode) {
+            stopCamera(); 
             try {
                 activeStream = await navigator.mediaDevices.getUserMedia({
                     audio: true,
-                    video: { width: 640, height: 480 }
+                    video: { 
+                        width: { ideal: 1280 }, 
+                        height: { ideal: 720 },
+                        facingMode: facingMode 
+                    }
                 });
                 liveFeed.srcObject = activeStream;
                 liveFeed.style.display = 'block';
             } catch (err) {
-                console.warn("RetDynamic audio stream failed, retrying video only...", err);
+                console.warn("Audio + Video stream failed, retrying video only...", err);
                 try {
                     activeStream = await navigator.mediaDevices.getUserMedia({
                         audio: false,
-                        video: { width: 640, height: 480 }
+                        video: { 
+                            width: { ideal: 1280 }, 
+                            height: { ideal: 720 },
+                            facingMode: facingMode 
+                        }
                     });
                     liveFeed.srcObject = activeStream;
                     liveFeed.style.display = 'block';
                 } catch (fallbackErr) {
                     console.error("Camera access failed completely:", fallbackErr);
-                    alert("Unable to access local camera devices.");
+                    alert("Unable to access local camera devices or switch cameras.");
                 }
             }
         }

@@ -175,6 +175,7 @@ body {
 .badge-visit { background: var(--badge-visit); color: var(--badge-visit-text); }
 .badge-complete, .badge-resolved { background: var(--badge-resolved); color: var(--badge-resolved-text); }
 .badge-rejected { background: var(--badge-rejected); color: var(--badge-rejected-text); }
+.badge-overdue::before { display: none; }
 
 .table-wrap { background: var(--card-bg); border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid var(--border-color); }
 table { width: 100%; border-collapse: collapse; text-align: left; }
@@ -288,19 +289,19 @@ td { padding: 1rem; border-bottom: 1px solid var(--border-color); vertical-align
 .btn-primary:hover { background-color: var(--primary-hover); }
 
 .btn-adopt {
-    background: var(--primary); 
+    background-color: var(--primary);
     color: #ffffff;
+    padding: 0.75rem 1.5rem;
+    border-radius: 50px;
+    text-decoration: none;
+    font-weight: 600;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
     gap: 8px;
-    font-weight: 600;
-    padding: 12px 24px;
-    border: none;
-    border-radius: 50px;
-    margin-top: 10px;
-    text-decoration: none;
     transition: background-color 0.2s;
+    transform: translateY(25px);
+    border: none;
+    cursor: pointer;
 }
 
 .btn-adopt:hover { background-color: var(--primary-hover); }
@@ -408,7 +409,7 @@ td { padding: 1rem; border-bottom: 1px solid var(--border-color); vertical-align
     .content { padding: 1rem; }
     .header-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem;}
     .header { width: 100%; margin-bottom: 0; }
-    .btn-adopt { width: auto; padding: 10px 20px; font-size: 0.9rem; margin-top: 4px; box-sizing: border-box; }
+    .btn-adopt { transform: translateY(0); justify-content: center; width: 100%; box-sizing: border-box; }
     .filter-container { display: flex; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
     .filter-pill { flex: 0 0 auto; scroll-snap-align: start; white-space: nowrap; font-size: 0.85rem; padding: 0.5rem 0.8rem; }
     .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }

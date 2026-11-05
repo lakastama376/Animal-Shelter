@@ -122,7 +122,8 @@ def management_view():
         late_count = 0
         submitted_at_raw = app_data.get('submittedAt')
         monitoring_status = app_data.get('monitoringStatus') or app_data.get('monitoring_status') or ''
-        if submitted_at_raw:
+        
+        if submitted_at_raw and (app_data.get('status') == 'Adopted' or monitoring_status == 'Ongoing' or 'Week' in monitoring_status):
             try:
                 if isinstance(submitted_at_raw, str):
                     base_date = datetime.fromisoformat(submitted_at_raw.replace(" ", "T")).replace(tzinfo=None)
@@ -131,30 +132,24 @@ def management_view():
                 else:
                     base_date = submitted_at_raw.replace(tzinfo=None)
 
-                submitted_weeks = {}
+                submitted_weeks = set()
                 for up in weekly_updates:
                     wn = up.get('weekNumber')
-                    sub_time = up.get('submittedAt')
-                    if wn and sub_time:
-                        if isinstance(sub_time, str):
-                            sub_date = datetime.fromisoformat(sub_time.replace(" ", "T")).replace(tzinfo=None)
-                        elif hasattr(sub_time, 'to_datetime'):
-                            sub_date = sub_time.to_datetime().replace(tzinfo=None)
-                        else:
-                            sub_date = sub_time.replace(tzinfo=None)
-                        submitted_weeks[wn] = sub_date
+                    if wn:
+                        submitted_weeks.add(int(wn))
 
+                total_days_late = 0
                 for w in range(1, 5):
                     due_date = base_date + timedelta(days=7 * w)
-                    if w in submitted_weeks:
-                        if submitted_weeks[w] > due_date:
-                            late_count += 1
-                    else:
-                        if (monitoring_status == 'Ongoing' or 'Week' in monitoring_status) and now > due_date:
-                            late_count += 1
+                    if w not in submitted_weeks and now > due_date:
+                        days_overdue = (now - due_date).days
+                        total_days_late += days_overdue
 
-            except Exception:
-                pass
+                if total_days_late > 0:
+                    late_count = min(total_days_late, 150)
+
+            except Exception as e:
+                print(f"Error calculating overdue count: {e}")
 
         app_data['late_count'] = late_count
         pet_doc = db.collection('Pets').document(app_data.get('petId')).get()

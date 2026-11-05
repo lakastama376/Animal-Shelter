@@ -59,11 +59,11 @@
         </main>
     </div> 
 
-    <!--Failed on Quiz-->
+    <!--Article Quiz Modal-->
     {% if is_retake %}
         <div class="modal-overlay" id="retakeModal" style="display: none;">
-            <div class="modal-box" id="modalBoxContainer">
-                <button onclick="closeRetakeModal()" class="modal-close-btn">
+            <div class="modal-box {% if is_locked_out %}modal-box-error{% endif %}" id="modalBoxContainer">
+                <button onclick="closeRetakeModal()" class="modal-close-btn" id="modalCloseBtn" {% if not is_locked_out %}style="display: none;"{% endif %}>
                     <i class="fa-solid fa-xmark"></i>
                 </button>
                 {% if is_locked_out %}
@@ -73,19 +73,22 @@
                     </div>
                     <h2 class="lockout-title">Quiz Locked</h2>
                     <p class="lockout-text">
-                        You did not pass the eligibility quiz today. To make sure you're fully prepared, you can try again starting tomorrow:
+                        You did not pass or you violated article quiz rules. You can try again starting tomorrow:
                     </p>
                     <div class="lockout-timestamp-badge">
                         {{ lockout_time }}
                     </div>
                 </div>
-
-                <!--Article Quiz Modal-->
                 {% elif questions %}
                 <div id="quizFormWrapper">
                     <div class="quiz-header">
-                        <h2><i class="fa-solid fa-graduation-cap"></i> Dynamic Eligibility Quiz</h2>
-                        <p>Complete all questions from this article to proceed!</p>
+                        <div class="quiz-header-text">
+                            <h2><i class="fa-solid fa-graduation-cap"></i> Article Eligibility Quiz</h2>
+                            <p>Please remain on this page and answer all questions honestly within 30 minutes.</p>
+                        </div>
+                        <div id="quizTimerDisplay" class="quiz-timer-badge">
+                            <i class="fa-solid fa-clock"></i> <span id="timerCountdown">30:00</span>
+                        </div>
                     </div>
                     <div class="quiz-form-body">
                         <form id="retakeQuizForm" onsubmit="submitAllRetakeAnswers(event)">
@@ -108,7 +111,7 @@
                         </form>
                     </div>
                 </div>
-                <div id="quizResultWrapper" style="display: none; padding: 20px 0;"></div>
+                <div id="quizResultWrapper" class="quiz-result-wrapper-hidden"></div>
                 {% endif %}
             </div>
         </div>
@@ -116,16 +119,25 @@
 
 <script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
 <script>
-    // Modal
+    let quizTimerInterval = null;
+    let quizActive = false;
+
     function openRetakeModal() {
         const modal = document.getElementById("retakeModal");
+        const closeBtn = document.getElementById("modalCloseBtn");
+
+        if (closeBtn) closeBtn.style.display = "none";
+
         if (modal) {
             modal.style.display = "flex";
             document.body.style.overflow = "hidden";
+            startQuizTimer();
+            initAntiCheat();
         }
     }
 
     function closeRetakeModal() {
+        stopQuizSession();
         const modal = document.getElementById("retakeModal");
         if (modal) {
             modal.style.display = "none";
@@ -133,19 +145,90 @@
         }
     }
 
+    function startQuizTimer() {
+        quizActive = true;
+        let totalSeconds = 30 * 60; 
+        const timerDisplay = document.getElementById("timerCountdown");
+        
+        if (quizTimerInterval) clearInterval(quizTimerInterval);
+        quizTimerInterval = setInterval(() => {
+            let minutes = Math.floor(totalSeconds / 60);
+            let seconds = totalSeconds % 60;
+            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (totalSeconds <= 0) {
+                clearInterval(quizTimerInterval);
+                alert("Time is up! Your article quiz will be automatically submitted as failed.");
+                triggerArticleCheatLockout("Time expired for the 30-minute article quiz limit.");
+            }
+            totalSeconds--;
+        }, 1000);
+    }
+
+    function initAntiCheat() {
+        window.addEventListener('blur', handleArticleVisibilityLoss);
+        document.addEventListener('visibilitychange', handleArticleVisibilityChange);
+    }
+
+    function handleArticleVisibilityLoss() {
+        if (!quizActive) return;
+        triggerArticleCheatLockout("Cheating detected: You switched tabs or left the article quiz boundary!");
+    }
+
+    function handleArticleVisibilityChange() {
+        if (!quizActive) return;
+        if (document.hidden) {
+            triggerArticleCheatLockout("Cheating detected: You left the article quiz tab!");
+        }
+    }
+
+    function stopQuizSession() {
+        quizActive = false;
+        if (quizTimerInterval) clearInterval(quizTimerInterval);
+        window.removeEventListener('blur', handleArticleVisibilityLoss);
+        document.removeEventListener('visibilitychange', handleArticleVisibilityChange);
+    }
+
+    async function triggerArticleCheatLockout(reason) {
+        if (!quizActive) return;
+        stopQuizSession();
+        alert(reason + " You have failed the article quiz and will be locked out until tomorrow.");
+
+        try {
+            const response = await fetch('/eligibility/cheat-violation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            await response.json();
+            window.location.reload();
+        } catch (err) {
+            console.error("Error reporting article quiz violation:", err);
+            window.location.reload();
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         const isLockedOut = "{{ 'true' if is_locked_out else 'false' }}" === 'true';
         if (isLockedOut) {
-            openRetakeModal();
+            const modal = document.getElementById("retakeModal");
+            const closeBtn = document.getElementById("modalCloseBtn");
+            if (modal) {
+                modal.style.display = "flex";
+                document.body.style.overflow = "hidden";
+            }
+            if (closeBtn) {
+                closeBtn.style.display = "block"; 
+            }
         }
     });
 
     async function submitAllRetakeAnswers(event) {
         event.preventDefault();
+        stopQuizSession();
         const petId = "{{ pet_id or '' }}";
         const answersPayload = {};
         const radioGroups = new Set();
-        
         document.querySelectorAll('#retakeQuizForm input[type="radio"]').forEach(radio => {
             radioGroups.add(radio.name);
         });
@@ -157,9 +240,12 @@
                 answersPayload[questionId] = selectedInput.value;
             } else {
                 alert("Please answer all questions before submitting.");
+                startQuizTimer();
+                initAntiCheat();
                 return;
             }
         }
+        
         try {
             const response = await fetch('/eligibility/submit', {
                 method: 'POST',
@@ -180,56 +266,60 @@
                 const formWrapper = document.getElementById("quizFormWrapper");
                 const resultWrapper = document.getElementById("quizResultWrapper");
                 const modalBox = document.getElementById("modalBoxContainer");
+                const closeBtn = document.getElementById("modalCloseBtn");
 
                 if (formWrapper && resultWrapper) {
                     formWrapper.style.display = "none";
                     resultWrapper.style.display = "block";
+                    resultWrapper.classList.add("quiz-result-active");
 
                     if (result.passed) {
-                        modalBox.style.borderTop = "5px solid #10b981"; 
+                        if(closeBtn) closeBtn.style.display = "none";
+                        modalBox.classList.add("modal-box-success"); 
                         resultWrapper.innerHTML = `
-                            <div style="text-align: center;">
-                                <div style="font-size: 60px; color: #10b981; margin-bottom: 15px;">
+                            <div class="quiz-result-content">
+                                <div class="quiz-result-icon success">
                                     <i class="fa-solid fa-circle-check"></i>
                                 </div>
-                                <h2 style="color: #1e293b; margin-bottom: 5px;">Congratulations!</h2>
-                                <p style="color: #64748b; font-size: 15px; margin-bottom: 25px;">You cleared the criteria with a stellar score!</p>   
-                                <div style="margin-bottom: 30px; text-align: left; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
-                                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; color: #475569; margin-bottom: 8px;">
+                                <h2 class="quiz-result-title">Congratulations!</h2>
+                                <p class="quiz-result-desc">You cleared the article quiz!</p>   
+                                <div class="quiz-score-card">
+                                    <div class="quiz-score-header">
                                         <span>Readiness Score</span>
                                         <span>${result.score_percentage}%</span>
                                     </div>
-                                    <div style="width: 100%; background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 15px;">
-                                        <div style="background: #10b981; width: ${result.score_percentage}%; height: 100%;"></div>
+                                    <div class="quiz-progress-track">
+                                        <div class="quiz-progress-bar success" style="width: ${result.score_percentage}%;"></div>
                                     </div>
-                                    <p style="color: #15803d; background: #f0fdf4; border: 1px solid #dcfce7; font-size: 14px; padding: 12px; border-radius: 8px; font-weight: 500; margin: 0;">
-                                        <i class="fa-solid fa-circle-info"></i> Your score of ${result.score_percentage}% shows you are ready. You may proceed to the next procedures.
+                                    <p class="quiz-score-info success">
+                                        <i class="fa-solid fa-circle-info"></i> Your score of ${result.score_percentage}% shows you are ready. You may proceed.
                                     </p>
                                 </div>
-                                <a href="${result.redirect_url}" class="btn-orange" style="padding: 12px 30px; font-size: 16px; border-radius: 10px; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; background: #10b981; color: white;">
+                                <a href="${result.redirect_url}" class="quiz-continue-btn success">
                                     Continue Application Process <i class="fa-solid fa-arrow-right"></i>
                                 </a>
                             </div>
                         `;
                     } else {
-                        modalBox.style.borderTop = "5px solid #ef4444"; 
+                        if(closeBtn) closeBtn.style.display = "block";
+                        modalBox.classList.add("modal-box-error"); 
                         resultWrapper.innerHTML = `
-                            <div style="text-align: center;">
-                                <div style="font-size: 60px; color: #ef4444; margin-bottom: 15px;">
+                            <div class="quiz-result-content">
+                                <div class="quiz-result-icon error">
                                     <i class="fa-solid fa-circle-xmark"></i>
                                 </div>
-                                <h2 style="color: #1e293b; margin-bottom: 5px;">Quiz Not Cleared</h2>
-                                <p style="color: #64748b; font-size: 15px; margin-bottom: 25px;">You scored ${result.score_percentage}%. A minimum of 80% is required to pass.</p>
-                                <div style="background: #fff5f5; border: 1px solid #fee2e2; border-radius: 10px; padding: 20px; text-align: left; margin-bottom: 25px;">
-                                    <p style="color: #991b1b; font-size: 14px; font-weight: 500; line-height: 1.5; margin: 0;">
+                                <h2 class="quiz-result-title">Quiz Not Cleared</h2>
+                                <p class="quiz-result-desc">You scored ${result.score_percentage}%. A minimum of 80% is required to pass.</p>
+                                <div class="quiz-lockout-box">
+                                    <p class="quiz-lockout-msg">
                                         <i class="fa-solid fa-clock"></i> <strong>Try Again Tomorrow</strong><br>
-                                        You did not pass the eligibility check. To ensure proper comprehension of the material, you will be locked out from retrying this quiz until:
+                                        You will be locked out from retrying this article quiz until:
                                     </p>
-                                    <div style="background: #fee2e2; color: #991b1b; padding: 10px; margin-top: 10px; font-weight: bold; border-radius: 6px; text-align: center; font-size: 14px;">
+                                    <div class="quiz-lockout-timestamp">
                                         ${result.lockoutUntil}
                                     </div>
                                 </div>
-                                <button onclick="window.location.reload()" class="btn-orange" style="padding: 12px 30px; font-size: 15px; border-radius: 10px; background: #475569; color: white; border: none; cursor: pointer;">
+                                <button onclick="window.location.reload()" class="quiz-close-refresh-btn">
                                     Close and Refresh
                                 </button>
                             </div>

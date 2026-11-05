@@ -4,8 +4,10 @@ from functools import wraps
 from datetime import datetime
 import os
 import uuid
+import requests
 import smtplib
 from email.message import EmailMessage
+
 from Data.audit import log_audit_event
 from appwrite.client import Client # type: ignore
 from appwrite.services.storage import Storage # type: ignore
@@ -233,7 +235,7 @@ def submit_report():
                     file=InputFile.from_bytes(file_bytes, filename)
                 )
                 file_id = result.id
-                file_url = f"https://sgp.cloud.appwrite.io/v1/storage/buckets/{bucket_id}/files/{file_id}/view?project=6a9e899400185f330d63"
+                file_url = url_for('rescue_report_bp.media_proxy', file_id=file_id, _external=True)
                 media_list.append(file_url)
 
         user_name = get_session_user_name()
@@ -405,6 +407,30 @@ def update_status(report_id):
         return jsonify({"status": "success", "message": "Rescue report status updated successfully."})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@rescue_report_bp.route('/rescue/media-proxy/<file_id>')
+@auth_required
+def media_proxy(file_id):
+    try:
+        bucket_id = os.getenv('APPWRITE_BUCKET_ID', '6adf65220035a8df9645')
+        project_id = os.getenv('APPWRITE_PROJECT_ID', '6a9e899400185f330d63')
+        api_key = os.getenv('APPWRITE_API_KEY', 'standard_36d0a70b8164a32ef4e013f4137f1b37511b2d99c1064cf9fa4e8feeea1bb8f49a8ddb42ec5fcf8a33eeca64ca1cf77dc1e5537a5ca396882cd97214978482fe74adae5c0614b6d9a4c866106549d484fff2b3767b1ea9d5383ae518a91c3321cfc79a78f540bda830c6a0e457075f78446e3884ce157976fe18e4335536672f')
+        appwrite_url = f"https://sgp.cloud.appwrite.io/v1/storage/buckets/{bucket_id}/files/{file_id}/view?project={project_id}"
+        
+        headers = {
+            'X-Appwrite-Key': api_key,
+            'X-Appwrite-Project': project_id
+        }
+        
+        resp = requests.get(appwrite_url, headers=headers, stream=True)
+        
+        if resp.status_code == 200:
+            from flask import Response
+            return Response(resp.iter_content(chunk_size=1024), content_type=resp.headers.get('content-type', 'image/jpeg'))
+        else:
+            return jsonify({"error": "File not found or access denied"}), resp.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     
 # Notification 
 @rescue_report_bp.app_context_processor

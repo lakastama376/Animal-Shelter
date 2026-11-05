@@ -99,12 +99,12 @@
                                     <td class="format-date" data-date="{{ app.updatedAt }}">N/A</td>
                                     <td>
                                         {% if app.late_count and app.late_count > 0 %}
-                                            <span class="badge">
-                                                </i> {{ app.late_count }} Late
+                                            <span class="badge badge-overdue" style="background-color: #fee2e2; color: #dc2626;">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> 
+                                                {{ app.late_count }}{% if app.late_count >= 150 %}+{% endif %} Days Overdue
                                             </span>
                                         {% else %}
-                                            <span class="badge"></span>
-                                            <span>N/A</span>
+                                            <span class="badge">N/A</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -425,17 +425,8 @@
                 return monitoringStatus === 'Completed';
             }
             if (currentFilter === 'Overdue Monitoring') {
-                if ((monitoringStatus === 'Ongoing' || monitoringStatus.includes('Week')) && submittedAtRaw) {
-                    const submittedDate = new Date(submittedAtRaw.replace(" ", "T"));
-                    if (!isNaN(submittedDate.getTime())) {
-                        let currentWeek = 1;
-                        if (monitoringStatus.includes('Week 1')) currentWeek = 2;
-                        if (monitoringStatus.includes('Week 2')) currentWeek = 3;
-                        if (monitoringStatus.includes('Week 3')) currentWeek = 4;
-                        const dueDate = new Date(submittedDate.getTime() + (currentWeek * 7 * 24 * 60 * 60 * 1000));
-                        return now > dueDate;
-                    }
-                }
+            const overdueBadge = row.querySelector('.badge');
+            return overdueBadge && overdueBadge.textContent.includes('Overdue');
             }
             return false;
         });

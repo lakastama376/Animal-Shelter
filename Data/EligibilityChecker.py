@@ -230,3 +230,38 @@ def submit_evaluation():
         
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 400
+
+@eligibility_checker_bp.route('/eligibility/cheat-violation', methods=['POST'])
+@auth_required
+def cheat_violation():
+    try:
+        db = firestore.client()
+        user_data = session.get('user', {})
+        uid = user_data.get('uid') or user_data.get('user_id')
+
+        user_name = "User"
+        if uid:
+            user_doc = db.collection('Users').document(uid).get()
+            if user_doc.exists:
+                user_dict = user_doc.to_dict()
+                user_name = user_dict.get('name') or user_dict.get('fullName') or user_dict.get('email') or "User"
+
+                tomorrow = datetime.now() + timedelta(days=1)
+                lockout_until_str = tomorrow.strftime('%B %d, %Y at %I:%M %p')
+
+                db.collection('Users').document(uid).update({
+                    'is_eligible': False,
+                    'retake_lockout_until': tomorrow
+                })
+
+                log_audit_event(
+                    action="Article Quiz Cheating Detected & Locked Out",
+                    details=f"{user_name} violated article quiz anti-cheat rules (switched tabs or time expired) and was locked out until {lockout_until_str}.",
+                    user_id=uid,
+                    user_name=user_name
+                )
+
+        return jsonify({"success": True, "message": "Violation logged. User locked out."}), 200
+    except Exception as e:
+        print(f"Error handling article cheat violation: {str(e)}")
+        return jsonify({"success": False, "message": str(e)}), 500

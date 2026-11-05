@@ -203,6 +203,8 @@ input[type="text"]:focus, textarea:focus { outline: none; border-color: var(--pr
 .cam-btn-circle.action-stop { background: #ef4444; color: #ffffff; border: 4px solid rgba(239, 68, 68, 0.3); }
 .cam-btn-circle.action-save { background: #10b981; color: #ffffff; border: 4px solid rgba(16, 185, 129, 0.3); }
 .cam-btn-circle.action-pause { background: rgba(255, 255, 255, 0.2); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.4); }
+#btn-switch-camera { background-color: none; color: #64748b; cursor: pointer; border: none; font-size: 1.5rem; font-weight: 600px; transition: color 0.2s; }
+#btn-switch-camera:hover { color: #ff7a1a; }
 
 .video-timer {
     position: absolute;
