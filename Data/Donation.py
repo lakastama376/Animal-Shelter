@@ -4,6 +4,7 @@ import requests
 import base64
 import os
 import smtplib
+import threading
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from Data.audit import log_audit_event
@@ -15,6 +16,21 @@ PAYMONGO_PUBLIC_KEY = os.getenv('PAYMONGO_PUBLIC_KEY')
 
 def get_db():
     return firestore.client()
+
+def is_admin_user():
+    user_info = session.get('user', {})
+    uid = user_info.get('uid') or user_info.get('user_id')
+    if not uid:
+        return False
+    try:
+        db = get_db()
+        user_doc = db.collection('Users').document(uid).get()
+        if user_doc.exists:
+            role = str(user_doc.to_dict().get('role', '')).strip().lower()
+            return role == 'admin'
+    except Exception:
+        pass
+    return False
 
 def get_auth_header(key):
     encoded_key = base64.b64encode(f"{key}:".encode('utf-8')).decode('utf-8')
@@ -287,6 +303,24 @@ def generate_qrph():
 @donation_bp.route('/api/donation/qrph/status/<payment_intent_id>', methods=['GET'])
 def check_qrph_status(payment_intent_id):
     try:
+        user_info = session.get('user')
+        if not user_info:
+            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+        db = get_db()
+        doc_ref = db.collection('Donations').document(payment_intent_id)
+        doc_snap = doc_ref.get()
+
+        if not doc_snap.exists:
+            return jsonify({"status": "error", "message": "Donation not found."}), 404
+
+        donation_data = doc_snap.to_dict()
+        donation_uid = donation_data.get('uid')
+
+        current_uid = user_info.get('uid')
+        if donation_uid and donation_uid != current_uid and not is_admin_user():
+            return jsonify({"status": "error", "message": "Forbidden: You do not have permission to view this payment status."}), 403
+
         res = requests.get(
             f"https://api.paymongo.com/v1/payment_intents/{payment_intent_id}",
             headers=get_auth_header(PAYMONGO_SECRET_KEY)
@@ -298,19 +332,14 @@ def check_qrph_status(payment_intent_id):
 
         intent_status = data['data']['attributes']['status']
         if intent_status == 'succeeded':
-            db = get_db()
-            doc_ref = db.collection('Donations').document(payment_intent_id)
-            doc_snap = doc_ref.get()
-            
-            already_succeeded = doc_snap.exists and doc_snap.to_dict().get('status') == 'succeeded'
+            already_succeeded = donation_data.get('status') == 'succeeded'
 
-            if not already_succeeded and doc_snap.exists:
+            if not already_succeeded:
                 doc_ref.update({
                     "status": "succeeded",
                     "updatedAt": firestore.SERVER_TIMESTAMP
                 })
 
-                donation_data = doc_snap.to_dict()
                 amount = donation_data.get('amount', 0)
                 donor_name = donation_data.get('donorName', 'Donor')
                 donor_email = donation_data.get('donorEmail')
@@ -367,7 +396,11 @@ def submit_inkind_donation():
             "createdAt": firestore.SERVER_TIMESTAMP
         })
 
-        notify_admins_new_donation(db, name, donation_type, 'in-kind')
+        threading.Thread(
+            target=notify_admins_new_donation,
+            args=(db, name, donation_type, 'in-kind')
+        ).start()
+
         log_audit_event(
             action="Submitted In-Kind Donation",
             details=f"{name} submitted {donation_type} donation request scheduled for {schedule}",
@@ -511,9 +544,8 @@ def get_all_donor_wall_entries():
 @donation_bp.route('/api/donor-wall/add', methods=['POST'])
 def add_donor_to_wall():
     try:
-        user_info = session.get('user')
-        if not user_info:
-            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        if not is_admin_user():
+            return jsonify({"status": "error", "message": "Forbidden: Admin access required."}), 403
 
         data = request.json or {}
         donor_name = data.get('donorName', 'Anonymous Donor')
@@ -552,9 +584,8 @@ def add_donor_to_wall():
 @donation_bp.route('/api/donor-wall/update', methods=['POST'])
 def update_donor_wall_entry():
     try:
-        user_info = session.get('user')
-        if not user_info:
-            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        if not is_admin_user():
+            return jsonify({"status": "error", "message": "Forbidden: Admin access required."}), 403
 
         data = request.json or {}
         doc_id = data.get('id')
@@ -604,9 +635,8 @@ def update_donor_wall_entry():
 @donation_bp.route('/api/donor-wall/delete', methods=['POST'])
 def delete_donor_wall_entry():
     try:
-        user_info = session.get('user')
-        if not user_info:
-            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        if not is_admin_user():
+            return jsonify({"status": "error", "message": "Forbidden: Admin access required."}), 403
 
         data = request.json or {}
         doc_id = data.get('id')
@@ -648,9 +678,8 @@ def management():
 @donation_bp.route('/api/donation/all', methods=['GET'])
 def get_all_donations():
     try:
-        user_info = session.get('user')
-        if not user_info:
-            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        if not is_admin_user():
+            return jsonify({"status": "error", "message": "Forbidden: Admin access required."}), 403
 
         db = get_db()
         donations_ref = db.collection('Donations').order_by('createdAt', direction=firestore.Query.DESCENDING)
@@ -742,7 +771,6 @@ def get_all_donations():
                 "uniqueDonors": len(unique_donors),
                 "inKindCount": len(inkind_donations)
             },
-
             "cashDonations": cash_donations,
             "inKindDonations": inkind_donations
         }), 200
@@ -754,9 +782,8 @@ def get_all_donations():
 @donation_bp.route('/api/donation/update-status', methods=['POST'])
 def update_donation_status():
     try:
-        user_info = session.get('user')
-        if not user_info:
-            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        if not is_admin_user():
+            return jsonify({"status": "error", "message": "Forbidden: Admin access required."}), 403
 
         data = request.json or {}
         donation_id = data.get('donation_id')
@@ -798,6 +825,7 @@ def update_donation_status():
                     donation_data.get('contactNumber')
                 )
 
+        user_info = session.get('user', {})
         admin_name = user_info.get('name', 'Admin')
         admin_uid = user_info.get('uid')
         log_audit_event(

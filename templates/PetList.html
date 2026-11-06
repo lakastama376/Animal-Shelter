@@ -62,7 +62,7 @@
                         <span class="gender-tag gender-{{ pet.gender|lower }}">{{ pet.gender }}</span>
                     </div>
                     <p class="pet-breed">{{ pet.breed if pet.breed else 'Mixed Breed' }}</p>  
-                    <a href="{{ url_for('pet_profile_bp.pet_profile', id=pet.id) if pet_profile_bp is defined else '/pet-management/profile/' ~ pet.id }}" 
+                    <a href="{{ url_for('pet_profile_bp.pet_profile', id=pet.id) if pet_profile_bp is defined else '/profile/' ~ pet.id }}" 
                        class="btn-profile" 
                        data-id="{{ pet.id }}">
                         <span>View Profile</span>

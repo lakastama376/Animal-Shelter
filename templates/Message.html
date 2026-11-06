@@ -182,18 +182,44 @@
                 </div>
             </div>
             <div class="messages-wrapper" id="messagesContainer"></div>
-            <form class="chat-footer" id="chatForm">
-                <input type="text" class="input-box" id="messageInput" placeholder="Type a message..." required autocomplete="off">
-                <button type="submit" class="send-btn" aria-label="Send message">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                    </svg>
-                </button>
-            </form>
+            <div>
+                <form class="chat-footer" id="chatForm">
+                    <input type="text" class="input-box" id="messageInput" placeholder="Type a message..." autocomplete="off">
+                    <button type="submit" class="send-btn" aria-label="Send message">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                        </svg>
+                    </button>
+                </form>
+                <div id="charWarning" style="display: none; color: #ef4444; font-size: 12px; padding: 4px 16px; font-weight: 500;">
+                    Message cannot exceed 500 characters.
+                </div>
+            </div>
         `;
         document.getElementById('chatForm').addEventListener('submit', handleSend);
-    }
 
+        const messageInput = document.getElementById('messageInput');
+        const warningEl = document.getElementById('charWarning');
+        const sendBtn = chatArea.querySelector('.send-btn');
+        messageInput.addEventListener('input', function() {
+            if (this.value.length > 500) {
+                if (warningEl) warningEl.style.display = 'block';
+                if (sendBtn) {
+                    sendBtn.disabled = true;
+                    sendBtn.style.opacity = '0.5';
+                    sendBtn.style.cursor = 'not-allowed';
+                }
+            } else {
+                if (warningEl) warningEl.style.display = 'none';
+                if (sendBtn) {
+                    sendBtn.disabled = false;
+                    sendBtn.style.opacity = '1';
+                    sendBtn.style.cursor = 'pointer';
+                }
+            }
+        });
+    }
+    
     async function selectConversation(conv, element) {
         activeConversationId = conv.id;
         renderChatLayout(conv);
@@ -273,9 +299,27 @@
         e.preventDefault();
         const input = document.getElementById('messageInput');
         const text = input.value.trim();
+        const warningEl = document.getElementById('charWarning');
+        const sendBtn = document.querySelector('.send-btn');
 
         if (!text || !activeConversationId) return;
+        
+        if (text.length > 500) {
+            if (warningEl) warningEl.style.display = 'block';
+            if (sendBtn) {
+                sendBtn.disabled = true;
+                sendBtn.style.opacity = '0.5';
+                sendBtn.style.cursor = 'not-allowed';
+            }
+            return;
+        }
+
         input.value = '';
+        if (sendBtn) {
+            sendBtn.disabled = false;
+            sendBtn.style.opacity = '1';
+            sendBtn.style.cursor = 'pointer';
+        }
         
         const container = document.getElementById('messagesContainer');
         if (container) {

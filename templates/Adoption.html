@@ -47,7 +47,7 @@
                         <div class="filter-pill" onclick="filterTable('Adopted')">Adopted ({{ counts.get('Adopted', 0) if counts else 0 }})</div>
                         <div class="filter-pill" onclick="filterTable('Rejected')">Rejected ({{ counts.get('Rejected', 0) if counts else 0 }})</div>
                         <div class="filter-pill" onclick="filterTable('Monitoring Ongoing')">Ongoing Monitoring ({{ counts.get('Monitoring Ongoing', 0) if counts else 0 }})</div>
-                        <div class="filter-pill" onclick="filterTable('Monitoring Completed')">Completed Monitoring ({{ counts.get('Monitoring Completed', 0) if counts else 0 }})</div>
+                        <div class="filter-pill" onclick="filterTable('Monitoring Completed')">Finalized ({{ counts.get('Monitoring Completed', 0) if counts else 0 }})</div>
                         <div class="filter-pill" onclick="filterTable('Overdue Monitoring')">Overdue Monitoring ({{ counts.get('Overdue Monitoring', 0) if counts else 0 }})</div>
                         <div class="filter-pill" onclick="filterTable('Return Requested')">Return Requested ({{ counts.get('Return Requested', 0) if counts else 0 }})</div>
                         <div class="filter-pill" onclick="filterTable('Return Scheduled')">Return Scheduled ({{ counts.get('Return Scheduled', 0) if counts else 0 }})</div>
@@ -70,7 +70,8 @@
                                 {% for app in applications %}
                                 <tr data-status="{{ app.status }}"
                                     data-submitted-at="{{ app.submittedAt or '' }}"
-                                    data-monitoring-status="{{ app.monitoringStatus or app.monitoring_status or '' }}">
+                                    data-monitoring-status="{{ app.monitoringStatus or app.monitoring_status or '' }}"
+                                    data-overdue="{{ 'true' if app.late_count and app.late_count > 0 else 'false' }}">
                                     <td>
                                         <div class="pet-cell">
                                             {% if app.pet_details.images or app.pet_details.photoUrl %}
@@ -101,7 +102,7 @@
                                         {% if app.late_count and app.late_count > 0 %}
                                             <span class="badge badge-overdue" style="background-color: #fee2e2; color: #dc2626;">
                                                 <i class="fa-solid fa-triangle-exclamation"></i> 
-                                                {{ app.late_count }}{% if app.late_count >= 150 %}+{% endif %} Days Overdue
+                                                {{ app.late_count }}{% if app.late_count >= 150 %}+{% endif %} Days
                                             </span>
                                         {% else %}
                                             <span class="badge">N/A</span>
@@ -408,25 +409,24 @@
         }
 
         const rows = Array.from(document.querySelectorAll('#adminTableBody tr'));
-        const now = new Date();
         const visibleRows = rows.filter(row => {
             const appStatus = row.getAttribute('data-status') || '';
             const monitoringStatus = row.getAttribute('data-monitoring-status') || '';
-            const submittedAtRaw = row.getAttribute('data-submitted-at') || '';
+            const isOverdue = row.getAttribute('data-overdue') === 'true';
 
             if (currentFilter === 'All') return true;
-            if (['Submitted', 'Under Review', 'Approved', 'Visit Scheduled', 'Adopted', 'Rejected'].includes(currentFilter)) {
+            if (['Submitted', 'Under Review', 'Approved', 'Visit Scheduled', 'Adopted', 'Rejected', 'Return Requested', 'Return Scheduled', 'Returned'].includes(currentFilter)) {
                 return appStatus === currentFilter;
             }
             if (currentFilter === 'Monitoring Ongoing') {
-                return monitoringStatus === 'Ongoing' || monitoringStatus.includes('Week');
+                return (monitoringStatus === 'Ongoing' || monitoringStatus.includes('Week')) && 
+                       appStatus !== 'Returned' && appStatus !== 'Return Requested' && appStatus !== 'Return Scheduled';
             }
             if (currentFilter === 'Monitoring Completed') {
                 return monitoringStatus === 'Completed';
             }
             if (currentFilter === 'Overdue Monitoring') {
-            const overdueBadge = row.querySelector('.badge');
-            return overdueBadge && overdueBadge.textContent.includes('Overdue');
+                return isOverdue && appStatus !== 'Returned' && appStatus !== 'Return Scheduled';
             }
             return false;
         });

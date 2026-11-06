@@ -156,6 +156,7 @@ body {
 .stat-value { font-size: 26px; font-weight: 700; line-height: 1.1; align-items: center; text-align: center; color: var(--text-dark); }
 .stat-label { font-size: 13px; font-weight: 500; margin-top: 4px; align-items: center; text-align: center; color: var(--text-muted); }
 .stat-subtext { font-size: 12px; font-weight: 500; color: #64748b; padding: 15px; align-items: center; text-align: center; border-left: 1px solid #d0d0d0; }
+.stat-label p { margin: 0; font-size: 10px; font-weight: 400; color: #64748b; }
 
 .panels-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; margin-bottom: 25px; }
 .panel { background: var(--card-bg); border-radius: 20px; padding: 24px; box-shadow: 0 4px 15px -2px rgba(0, 0, 0, 0.04); border: 1px solid var(--border-color); }
@@ -217,7 +218,7 @@ body {
 .status-under-review::before { background-color: var(--status-review-text); }
 
 .msg-item { background: #fffdfa; border: 1px solid #fed7aa; border-radius: 14px; padding: 16px; display: flex; gap: 14px; position: relative; }
-.msg-avatar { width: 42px; height: 42px; background: #f97316; color: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; flex-shrink: 0; }
+.msg-avatar { width: 42px; height: 42px; background: #f97316; color: #ffffff; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; flex-shrink: 0; }
 .msg-content { flex-grow: 1; }
 .msg-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 .msg-sender { font-weight: 600; font-size: 0.9rem; }

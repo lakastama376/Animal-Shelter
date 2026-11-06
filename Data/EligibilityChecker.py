@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash
 from firebase_admin import firestore
 import random
 from datetime import datetime, timedelta
@@ -38,6 +38,11 @@ def index(pet_id=None):
         if pet_doc.exists:
             pet_data = pet_doc.to_dict()
             pet_data['id'] = pet_doc.id
+            
+            pet_status = str(pet_data.get('status', '')).strip().lower()
+            if pet_status != 'available':
+                flash(f"This pet is currently {pet_data.get('status', 'not available')} and cannot receive adoption applications.", "error")
+                return redirect(url_for('pet_profile_bp.pet_profile', id=pet_id))
 
     user_data = session.get('user', {})
     uid = user_data.get('uid') or user_data.get('user_id')
@@ -85,6 +90,14 @@ def submit_evaluation():
         data = request.json or {}
         answers = data.get('answers', {})
         pet_id = data.get('petId') or session.get('pending_pet_id')
+
+        if pet_id:
+            pet_doc = db.collection('Pets').document(pet_id).get()
+            if pet_doc.exists:
+                pet_status = str(pet_doc.to_dict().get('status', '')).strip().lower()
+                if pet_status != 'available':
+                    return jsonify({"success": False, "message": "This pet is no longer available for adoption."}), 400
+
         user_data = session.get('user', {})
         uid = user_data.get('uid') or user_data.get('user_id')
 

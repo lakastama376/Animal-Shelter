@@ -45,6 +45,13 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' 
 
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    return response
+
 firebase_creds_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON')
 
 if firebase_creds_json:
@@ -314,8 +321,8 @@ app.register_blueprint(contact_bp, name='contact_bp')
 app.register_blueprint(profile_bp, name='profile_bp')
 app.register_blueprint(wishlist_bp, name='wishlist_bp')
 app.register_blueprint(pet_management_bp, name='pet_management_bp', url_prefix='/pet-management')
-app.register_blueprint(pet_profile_bp, name='pet_profile_bp', url_prefix='/pet-management')
-app.register_blueprint(pet_public_bp, name='pet_public_bp', url_prefix='/pet-management')
+app.register_blueprint(pet_profile_bp, name='pet_profile_bp')
+app.register_blueprint(pet_public_bp, name='pet_public_bp')
 app.register_blueprint(content_management_bp, name='content_management_bp')
 app.register_blueprint(article_content_bp, name='article_content_bp')
 app.register_blueprint(eligibility_checker_bp, name='eligibility_checker_bp')

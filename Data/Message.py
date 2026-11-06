@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from functools import wraps
+import html
 import firebase_admin
 from firebase_admin import firestore
 from datetime import datetime, timedelta, timezone
@@ -125,23 +126,26 @@ def admin_conversation():
     
     try:
         db = get_db()
-        users_ref = db.collection('Users').stream()
+        admin_docs = db.collection('Users').where('role', '==', 'Admin').limit(1).get()
         admin_uid = None
 
-        for user_doc in users_ref:
-            u_data = user_doc.to_dict()
-            role = str(u_data.get('role', '')).strip().lower()
-            if role == 'admin':
-                admin_uid = user_doc.id
-                break 
+        for doc in admin_docs:
+            admin_uid = doc.id
+            break
             
+        if not admin_uid:
+            admin_docs_lower = db.collection('Users').where('role', '==', 'admin').limit(1).get()
+            for doc in admin_docs_lower:
+                admin_uid = doc.id
+                break
+
         if not admin_uid:
             return jsonify({"status": "error", "message": "No system administrator found."}), 404
 
         query = db.collection('Conversations')\
                   .where('participants', 'array_contains', uid)\
                   .stream()
-                  
+                
         existing_conv = None
         for doc in query:
             data = doc.to_dict()
@@ -149,6 +153,8 @@ def admin_conversation():
                 existing_conv = data
                 existing_conv['id'] = doc.id
                 existing_conv['displayName'] = 'Tails of Freedom Admin'
+                existing_conv['subject'] = existing_conv.get('subject', 'General Inquiry')
+                existing_conv['photoURL'] = None
                 break
 
         if existing_conv:
@@ -166,6 +172,9 @@ def admin_conversation():
         doc_ref = db.collection('Conversations').add(new_conv)
         new_conv['id'] = doc_ref[1].id
         new_conv['displayName'] = 'Tails of Freedom Admin'
+        new_conv['subject'] = 'General Inquiry'
+        new_conv['photoURL'] = None
+        
         return jsonify({"status": "success", "conversation": new_conv}), 201
 
     except Exception as e:
@@ -175,25 +184,42 @@ def admin_conversation():
 @message_bp.route('/api/conversations/<conversation_id>/messages', methods=['GET'])
 @auth_required
 def get_messages(conversation_id):
+    uid = session['user']['uid']
     try:
         db = get_db()
+        conv_doc = db.collection('Conversations').document(conversation_id).get()
+
+        if not conv_doc.exists:
+            return jsonify({"status": "error", "message": "Conversation not found"}), 404
+
+        conv_data = conv_doc.to_dict()
+        participants = conv_data.get('participants', [])
+
+        user_doc = db.collection('Users').document(uid).get()
+        is_admin = False
+        if user_doc.exists:
+            is_admin = str(user_doc.to_dict().get('role', '')).strip().lower() == 'admin'
+
+        if uid not in participants and not is_admin:
+            return jsonify({"status": "error", "message": "Unauthorized access to conversation"}), 403
+
         msgs_ref = db.collection('Conversations').document(conversation_id)\
                      .collection('Messages').order_by('timestamp', direction=firestore.Query.ASCENDING)
-        
+
         messages = []
         for doc in msgs_ref.stream():
             data = doc.to_dict()
             data['id'] = doc.id
-            
+
             timestamp = data.get('timestamp')
             parsed_dt = format_timestamp(timestamp)
             if parsed_dt:
                 data['formattedTime'] = parsed_dt.strftime('%b %d, %Y %I:%M %p')
             else:
                 data['formattedTime'] = ''
-                
+
             messages.append(data)
-            
+
         return jsonify({"status": "success", "messages": messages}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -204,20 +230,36 @@ def get_messages(conversation_id):
 def send_message(conversation_id):
     uid = session['user']['uid']
     payload = request.get_json() or {}
-    text = payload.get('text', '').strip()
-    
-    if not text:
+    raw_text = payload.get('text', '').strip()
+
+    if not raw_text:
         return jsonify({"status": "error", "message": "Message body cannot be empty"}), 400
-        
+
+    if len(raw_text) > 500:
+        return jsonify({"status": "error", "message": "Message cannot exceed 500 characters."}), 400
+
+    text = html.escape(raw_text)
     try:
         db = get_db()
+        conv_doc = db.collection('Conversations').document(conversation_id).get()
+        if not conv_doc.exists:
+            return jsonify({"status": "error", "message": "Conversation not found"}), 404
+
+        conv_data = conv_doc.to_dict()
+        participants = conv_data.get('participants', [])
+        user_doc = db.collection('Users').document(uid).get()
+        is_admin = user_doc.exists and str(user_doc.to_dict().get('role', '')).strip().lower() == 'admin'
+
+        if uid not in participants and not is_admin:
+            return jsonify({"status": "error", "message": "Unauthorized"}), 403
+
         now = firestore.SERVER_TIMESTAMP
         msg_data = {
             'senderId': uid,
             'text': text,
             'timestamp': now
         }
-    
+
         db.collection('Conversations').document(conversation_id)\
           .collection('Messages').add(msg_data)
         db.collection('Conversations').document(conversation_id).update({
@@ -226,7 +268,7 @@ def send_message(conversation_id):
             'updatedAt': now,
             'unread': True
         })
-        
+
         return jsonify({"status": "success"}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -235,20 +277,37 @@ def send_message(conversation_id):
 @message_bp.route('/api/conversations/<conversation_id>/read', methods=['POST'])
 @auth_required
 def mark_as_read(conversation_id):
+    uid = session['user']['uid']
     try:
         db = get_db()
+        conv_doc = db.collection('Conversations').document(conversation_id).get()
+
+        if not conv_doc.exists:
+            return jsonify({"status": "error", "message": "Conversation not found"}), 404
+
+        conv_data = conv_doc.to_dict()
+        participants = conv_data.get('participants', [])
+
+        user_doc = db.collection('Users').document(uid).get()
+        is_admin = False
+        if user_doc.exists:
+            is_admin = str(user_doc.to_dict().get('role', '')).strip().lower() == 'admin'
+
+        if uid not in participants and not is_admin:
+            return jsonify({"status": "error", "message": "Unauthorized access to conversation"}), 403
+
         db.collection('Conversations').document(conversation_id).update({
             'unread': False
         })
         return jsonify({"status": "success"}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-    
+
 @message_bp.app_context_processor
 def inject_unread_status():
     if 'user' not in session:
         return dict(has_unread_messages=False)
-        
+
     uid = session['user']['uid']
     try:
         db = get_db()

@@ -13,8 +13,13 @@
     <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
 </head>
 <body>
-    <!--Tabs-->
-    <main class="auth-page_container">
+    {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
+
+        <!--Tabs-->
+        <main class="auth-page_container">
         <div class="auth-card">
             <div class="auth-tabs">
                 <a href="{{ url_for('login') }}" class="tab-item">Sign In</a>
@@ -53,7 +58,7 @@
                         <div class="input-with-icon">
                             <input type="password" id="password-input" name="password" 
                                 placeholder="Min. 8 chars - Qwertyu1!" 
-                                pattern="(?=.*\d)(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=\[\]{};':&quot;\\|,.<>\/?]).{8,}"
+                                pattern="^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':&quot;\\|,.<>\/?]).{8,}$"
                                 title="Must contain at least 8 characters, including 1 uppercase letter, 1 number, and 1 special character."
                                 required>
                             <i class="fa-regular fa-eye toggle-password"></i>

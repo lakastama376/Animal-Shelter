@@ -110,6 +110,7 @@
                             <div class="sub">Blankets, towels, cleaning items</div>
                         </div>
                     </div>
+                    <div id="inkindFormMessage"></div>
                     <form id="inkindForm" onsubmit="submitInKindDonation(event)">
                         <input type="hidden" id="selectedCategory" value="Pet Food">
                         <div class="form-group">
@@ -371,6 +372,10 @@
     async function submitInKindDonation(event) {
         event.preventDefault();
 
+        const msgBox = document.getElementById('inkindFormMessage');
+        msgBox.style.display = 'none';
+        msgBox.className = '';
+
         const payload = {
             name: document.getElementById('donorName').value,
             contact: document.getElementById('donorContact').value,
@@ -387,20 +392,40 @@
             });
 
             const result = await res.json();
+            msgBox.style.display = 'block';
             if (result.status === 'success') {
-                alert('Thank you! Your donation request has been submitted.');
+                msgBox.style.backgroundColor = '#d1fae5';
+                msgBox.style.color = '#065f46';
+                msgBox.style.border = '1px solid #a7f3d0';
+                msgBox.innerHTML = '✓ Thank you! Your in-kind donation request has been submitted successfully.';
                 document.getElementById('inkindForm').reset();
+                setMinDate();
             } else {
-                alert(result.message || 'Error submitting request.');
+                msgBox.style.backgroundColor = '#fee2e2';
+                msgBox.style.color = '#991b1b';
+                msgBox.style.border = '1px solid #fecaca';
+                msgBox.innerHTML = `⚠️ ${result.message || 'Error submitting request.'}`;
             }
         } catch (err) {
-            alert('Server error. Please try again later.');
+            msgBox.style.display = 'block';
+            msgBox.style.backgroundColor = '#fee2e2';
+            msgBox.style.color = '#991b1b';
+            msgBox.style.border = '1px solid #fecaca';
+            msgBox.innerHTML = '⚠️ Server error. Please try again later.';
+        }
+    }
+
+    function setMinDate() {
+        const today = new Date().toISOString().split('T')[0];
+        const dateInput = document.getElementById('preferredDate');
+        if (dateInput) {
+            dateInput.min = today;
         }
     }
 
     let donorDataList = [];
-
     document.addEventListener('DOMContentLoaded', async () => {
+        setMinDate();
         try {
             const response = await fetch('/api/donor-wall/all');
             const result = await response.json();

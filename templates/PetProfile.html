@@ -187,7 +187,7 @@
                                             <span class="badge-sex sex-{{ sim_pet.gender | lower }}">{{ sim_pet.gender }}</span>
                                         </div>
                                         <p class="card-breed">{{ sim_pet.breed if sim_pet.breed else 'Unknown Breed' }}</p>
-                                        <a href="/pet-management/profile/{{ sim_pet.id }}" class="btn-view-profile-card">View Profile</a>
+                                        <a href="/profile/{{ sim_pet.id }}" class="btn-view-profile-card">View Profile</a>
                                     </div>
                                 </div>
                             {% endfor %}

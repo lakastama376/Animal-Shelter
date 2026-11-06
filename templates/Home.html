@@ -351,26 +351,32 @@
                 data-photo="{{ (donor.photoURL or '')|e }}"
                 data-media="{{ (donor.media or [])|tojson|forceescape }}"
                 onclick="openDonorMediaModal(this)">
-                <div class="donor-header">
-                    {% if donor.photoURL %}
-                    <img class="donor-avatar" src="{{ donor.photoURL }}" alt="{{ donor.donorName }}">
-                    {% else %}
-                    <div class="donor-avatar"><i class="fa-regular fa-user"></i></div>
-                    {% endif %}
+                <div class="donor-card-top">
                     <div class="donor-info">
-                        <h4>{{ donor.donorName or 'Anonymous Donor' }}</h4>
-                        <span class="donor-badge badge-{{ (donor.badge or 'Supporter')|lower }}">
-                            {% if donor.badge == 'Sponsor' %}
-                                🏆 Sponsor
-                            {% elif donor.badge == 'Hero' %}
-                                🏅 Hero
-                            {% else %}
-                                ⭐ Supporter
-                            {% endif %}
-                        </span>
+                        {% if donor.photoURL %}
+                        <img class="donor-avatar" src="{{ donor.photoURL }}" alt="{{ donor.donorName }}">
+                        {% else %}
+                        <div class="donor-avatar"><i class="fa-regular fa-user"></i></div>
+                        {% endif %}
+                        <div class="donor-details">
+                            <div class="donor-name">{{ donor.donorName or 'Anonymous Donor' }}</div>
+                        </div>
+                    </div>
+                    <div class="donor-badge badge-{{ (donor.badge or 'Supporter')|lower }}">
+                        {% if donor.badge == 'Sponsor' %}
+                            🏆 Sponsor
+                        {% elif donor.badge == 'Hero' %}
+                            🏅 Hero
+                        {% else %}
+                            ⭐ Supporter
+                        {% endif %}
                     </div>
                 </div>
-                <p class="donor-quote">"{{ donor.description or donor.notes or 'Happy to support!' }}"</p>
+                {% if donor.description or donor.notes %}
+                <div class="donor-quote">
+                    "{{ donor.description or donor.notes }}"
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -471,6 +477,8 @@
                     <li><a href="{{ url_for('pet_public_bp.pet_list') }}">Adopt a Pet</a></li>
                     <li><a href="{{ url_for('donation_bp.index') }}">Donate</a></li>
                     <li><a href="{{ url_for('contact_bp.contact_page') }}">Contact Us</a></li>
+                    <li><a href="{{ url_for('terms') }}">Terms of Service</a></li>
+                    <li><a href="{{ url_for('privacy') }}">Privacy Policy</a></li>
                 </ul>
             </div>
             <div class="footer-links">
@@ -491,7 +499,11 @@
             </div>
         </div>
         <div class="footer-bottom">
-            <p>&copy; 2026 Tails of Freedom Animal Haven. All rights reserved.</p>
+            <p>
+                &copy; 2026 Tails of Freedom Animal Haven. All rights reserved. | 
+                <a href="{{ url_for('terms') }}">Terms of Service</a> &bull; 
+                <a href="{{ url_for('privacy') }}">Privacy Policy</a>
+            </p>
             <p>Made with <i class="fa-solid fa-heart" style="color:#ef4444"></i> for animals in Silang, Cavite - PH</p>
         </div>
     </footer>

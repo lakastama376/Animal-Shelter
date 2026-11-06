@@ -140,7 +140,7 @@ main {
     top: calc(100% + 23px);
     right: 0;
     background-color: #ffffff;
-    min-width: 200px;
+    min-width: 190px;
     box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.1);
     border-radius: 12px;
     z-index: 1100;
@@ -149,22 +149,15 @@ main {
 }
 
 .mobile-dropdown-content.show { display: block; }
-
-.mobile-dropdown-item {
-    color: var(--text-dark);
-    padding: 12px 20px;
-    text-decoration: none;
-    display: block;
-    font-size: 15px;
-    font-weight: 500;
-    transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-.mobile-dropdown-item:hover, .mobile-dropdown-item.active {
-    background-color: #fff7ed;
-    color: var(--brand-orange);
-}
-
+.mobile-dropdown-item { color: var(--text-dark); padding: 12px; text-decoration: none; display: block; font-size: 1rem;; font-weight: 600; transition: background-color 0.2s ease, color 0.2s ease; }
+.mobile-dropdown-item:hover, .mobile-dropdown-item.active {background-color: #fff7ed; color: var(--brand-orange); }
+.mobile-dropdown-content .mobile-dropdown-item { padding: 8px 16px; font-size: 1rem; font-weight: 600; }
+.mobile-dropdown-content .profile-name { font-size: 1rem; font-weight: 700; }
+.mobile-dropdown-content .profile-avatar { width: 37px; height: 37px; }
+.mobile-dropdown-content .mobile-dropdown-divider { height: 1px; background-color: #f1f5f9; margin: 4px 0; }
+.mobile-dropdown-content .profile-trigger { padding: 6px 12px; }
+.mobile-dropdown-content .profile-dropdown-box .dropdown-item { padding: 8px 16px; font-size: 1rem; font-weight: 600; }
+.mobile-dropdown-content .profile-dropdown-box { margin-top: 2px; padding: 4px 0; }
 .mobile-dropdown-divider { height: 1px; background-color: #f1f5f9; margin: 6px 0; }
 .hamburger { display: none; color: var(--text-dark); font-size: 24px; font-weight: 500; padding: 6px; border-radius: 8px;cursor: pointer; }
 .hamburger:hover { background-color: #f1f5f9; color: var(--brand-orange); }
@@ -223,7 +216,6 @@ main {
     border: 1px solid #f1f5f9;
 }
 
-.profile-dropdown:hover .profile-dropdown-box { display: block; }
 .profile-dropdown-box.show { display: block; }
 
 .dropdown-item {

@@ -60,7 +60,7 @@ body {
     width: 42px;
     height: 42px;
     border-radius: 50%;
-    background-color: #cbd5e1; 
+    background-color: #f97316; 
     color: #ffffff;
     display: flex;
     align-items: center;
@@ -96,7 +96,6 @@ body {
     border: none;
     border-radius: 6px;
     cursor: pointer;
-    transition: background-color 0.2s ease;
 }
 
 .btn-new-chat:hover { background-color: #ea580c; }
@@ -110,7 +109,6 @@ body {
     border: none;
     border-radius: 10px;
     cursor: pointer;
-    transition: all 0.2s ease;
     box-shadow: 0 4px 14px rgba(249, 115, 22, 0.3);
 }
 
@@ -160,7 +158,6 @@ body {
     padding: 10px 18px;
     font-size: 14px;
     outline: none;
-    transition: border 0.2s ease;
 }
 
 .input-box:focus { border-color: #f26522; background-color: #ffffff; }
@@ -181,7 +178,7 @@ body {
 }
 
 .send-btn:hover { background-color: #d95318; }
-.send-btn svg { width: 18px; height: 18px; fill: currentColor; }
+.send-btn svg { width: 18px; height: 18px; fill: currentColor; rotate: 320deg; }
 
 @media (max-width: 768px) {
     body { overflow-y: auto; }

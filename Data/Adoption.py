@@ -5,7 +5,10 @@ from functools import wraps
 import os
 import smtplib
 from email.message import EmailMessage
+
 from Data.audit import log_audit_event
+from appwrite.client import  Client # type: ignore
+from appwrite.services.storage import Storage # type: ignore
 
 adoption_management_bp = Blueprint('adoption_management_bp', __name__)
 
@@ -80,6 +83,16 @@ def notify_admins_new_application(db, applicant_name, pet_name):
     except Exception as e:
         print(f"Failed to send new application notification to admins: {e}")
 
+def get_file_url(bucket_id, file_id):
+        if not file_id:
+            return ""
+        if file_id.startswith('http://') or file_id.startswith('https://'):
+            return file_id
+        
+        endpoint = os.getenv('APPWRITE_ENDPOINT')
+        project_id = os.getenv('APPWRITE_PROJECT_ID')
+        return f"{endpoint}/storage/buckets/{bucket_id}/files/{file_id}/view?project={project_id}"
+
 # Management
 @adoption_management_bp.route('/adoption/management', methods=['GET'])
 @auth_required
@@ -90,16 +103,65 @@ def management_view():
     user_doc = db.collection('Users').document(uid).get()
     role = user_doc.to_dict().get('role', 'Adopter') if user_doc.exists else 'Adopter'
    
-    applications_list = []
     if role == 'Admin':
-        docs = db.collection('Applications').order_by('submittedAt', direction=firestore.Query.DESCENDING).stream()
+        app_docs = list(db.collection('Applications').order_by('submittedAt', direction=firestore.Query.DESCENDING).stream())
     else:
-        docs = db.collection('Applications').where('userId', '==', uid).stream()
+        app_docs = list(db.collection('Applications').where('userId', '==', uid).stream())
         
+    if not app_docs:
+        return render_template('Adoption.html', role=role, applications=[], counts={})
+
+    pet_ids = set()
+    user_ids = set()
+    for doc in app_docs:
+        data = doc.to_dict()
+        if data.get('petId'):
+            pet_ids.add(data.get('petId'))
+        if data.get('userId'):
+            user_ids.add(data.get('userId'))
+
+    pets_map = {}
+    if pet_ids:
+        for p_id in pet_ids:
+            p_doc = db.collection('Pets').document(p_id).get()
+            if p_doc.exists:
+                p_dict = p_doc.to_dict()
+                if 'name' not in p_dict and 'petName' in p_dict:
+                    p_dict['name'] = p_dict['petName']
+                pets_map[p_doc.id] = p_dict
+
+    users_map = {}
+    if role == 'Admin' and user_ids:
+        for u_id in user_ids:
+            u_doc = db.collection('Users').document(u_id).get()
+            if u_doc.exists:
+                users_map[u_doc.id] = u_doc.to_dict()
+
+    applications_list = []
     now = datetime.now()
-    for doc in docs:
+    
+    bucket_id = os.getenv('APPWRITE_BUCKET_ID') 
+    
+    for doc in app_docs:
         app_data = doc.to_dict()
         app_data['id'] = doc.id
+        
+        gov_id = app_data.get('documentGovIdUrl') or app_data.get('document_gov_id_url')
+        proof_addr = app_data.get('documentProofAddressUrl') or app_data.get('document_proof_address_url')
+        
+        if gov_id:
+            app_data['documentGovIdUrl'] = get_file_url(bucket_id, gov_id)
+            app_data['document_gov_id_url'] = app_data['documentGovIdUrl']
+        if proof_addr:
+            app_data['documentProofAddressUrl'] = get_file_url(bucket_id, proof_addr)
+            app_data['document_proof_address_url'] = app_data['documentProofAddressUrl']
+
+        raw_uploaded = app_data.get('uploaded_images') or app_data.get('uploadedImages') or []
+        if raw_uploaded:
+            resolved_uploads = [get_file_url(bucket_id, img) for img in raw_uploaded]
+            app_data['uploaded_images'] = resolved_uploads
+            app_data['uploadedImages'] = resolved_uploads
+
         weekly_updates = []
         latest_update_time = None
         updates_ref = db.collection('Applications').document(doc.id).collection('WeeklyUpdates').order_by('weekNumber').stream()
@@ -111,11 +173,19 @@ def management_view():
                 latest_update_time = sub_at  
                 if hasattr(sub_at, 'strftime'):
                     up_dict['submittedAtFormatted'] = sub_at.strftime("%B %d, %Y %I:%M %p")
+                    up_dict['submittedAt'] = sub_at.isoformat()
                 else:
                     up_dict['submittedAtFormatted'] = str(sub_at)
 
+            raw_photos = up_dict.get('photoUrls') or up_dict.get('photos') or []
+            up_dict['photoUrls'] = [get_file_url(bucket_id, p) for p in raw_photos]
+            raw_videos = up_dict.get('videoUrls') or up_dict.get('videos') or []
+            up_dict['videoUrls'] = [get_file_url(bucket_id, v) for v in raw_videos]
             weekly_updates.append(up_dict)
+
         app_data['weeklyUpdates'] = weekly_updates
+        app_data['weekly_updates'] = weekly_updates
+
         if not app_data.get('updatedAt') and latest_update_time:
             app_data['updatedAt'] = latest_update_time
 
@@ -132,11 +202,7 @@ def management_view():
                 else:
                     base_date = submitted_at_raw.replace(tzinfo=None)
 
-                submitted_weeks = set()
-                for up in weekly_updates:
-                    wn = up.get('weekNumber')
-                    if wn:
-                        submitted_weeks.add(int(wn))
+                submitted_weeks = {int(up['weekNumber']) for up in weekly_updates if up.get('weekNumber')}
 
                 total_days_late = 0
                 for w in range(1, 5):
@@ -152,20 +218,18 @@ def management_view():
                 print(f"Error calculating overdue count: {e}")
 
         app_data['late_count'] = late_count
-        pet_doc = db.collection('Pets').document(app_data.get('petId')).get()
-        if pet_doc.exists:
-            pet_dict = pet_doc.to_dict()
-            if 'name' not in pet_dict and 'petName' in pet_dict:
-                pet_dict['name'] = pet_dict['petName']
-            app_data['pet_details'] = pet_dict
+
+        pet_id = app_data.get('petId')
+        if pet_id and pet_id in pets_map:
+            app_data['pet_details'] = pets_map[pet_id]
         else:
             cached_name = app_data.get('petName') or "Unknown Pet"
             app_data['pet_details'] = {"name": cached_name, "photoUrl": ""}
 
         if role == 'Admin':
-            applicant_doc = db.collection('Users').document(app_data.get('userId')).get()
-            if applicant_doc.exists:
-                applicant_dict = applicant_doc.to_dict()
+            user_id = app_data.get('userId')
+            if user_id and user_id in users_map:
+                applicant_dict = users_map[user_id]
                 app_data['applicant_name'] = applicant_dict.get('fullName', 'Anonymous')
                 app_data['applicant_pic'] = applicant_dict.get('photoURL', '')
             else:
@@ -195,12 +259,15 @@ def management_view():
             counts[status] += 1
 
         monitoring_status = app.get('monitoringStatus') or app.get('monitoring_status') or ''
-        if monitoring_status == 'Ongoing' or 'Week' in monitoring_status:
-            counts['Monitoring Ongoing'] += 1
-            if app.get('late_count', 0) > 0:
-                counts['Overdue Monitoring'] += 1
-        elif monitoring_status == 'Completed':
-            counts['Monitoring Completed'] += 1
+        is_returned_state = status in ['Returned', 'Return Requested', 'Return Scheduled']
+
+        if not is_returned_state:
+            if monitoring_status == 'Ongoing' or 'Week' in monitoring_status:
+                counts['Monitoring Ongoing'] += 1
+                if app.get('late_count', 0) > 0:
+                    counts['Overdue Monitoring'] += 1
+            elif monitoring_status == 'Completed':
+                counts['Monitoring Completed'] += 1
 
     return render_template(
         'Adoption.html',

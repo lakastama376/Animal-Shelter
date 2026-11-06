@@ -145,9 +145,27 @@
             });
         }
 
+        const profileDropdowns = document.querySelectorAll('.profile-dropdown');
+        profileDropdowns.forEach(dropdown => {
+            const trigger = dropdown.querySelector('.profile-trigger');
+            const box = dropdown.querySelector('.profile-dropdown-box');
+
+            if (trigger && box) {
+                trigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    box.classList.toggle('show');
+                });
+            }
+        });
+
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.profile-dropdown-box').forEach(box => {
+                box.classList.remove('show');
+            });
+        });
+
         const navbar = document.querySelector('.navbar');
         let lastScrollY = window.scrollY;
-
         window.addEventListener('scroll', () => {
             if (window.innerWidth <= 760) {
                 const currentScrollY = window.scrollY;

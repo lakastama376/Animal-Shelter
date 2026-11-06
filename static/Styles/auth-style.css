@@ -7,6 +7,19 @@ body {
     color: #1a2b49;
 }
 
+.layout { 
+    display: flex; 
+    width: 100%; 
+    min-height: 100vh; 
+}
+
+.content { 
+    flex: 1; 
+    padding: 20px; 
+    box-sizing: border-box; 
+}
+
+
 button {
     font-weight: 600;
     width: 100%;
@@ -164,6 +177,9 @@ button:hover {
 .signup-link-container a { color: #ff7a1a; text-decoration: none; font-weight: 600; }
 
 .error-msg { color: #e53e3e; font-size: 11px; margin-top: 2px; }
+
+.footer-links { margin-top: 1.25rem; font-size: 0.75rem; text-align: center; color: var(--text-muted, #64748b); }
+.footer-links a { color: #f97316; text-decoration: underline; }
 
 @media screen and (max-width: 720px) {
     .auth-page_container { padding: 16px 12px;  min-height: calc(100vh - 80px); }

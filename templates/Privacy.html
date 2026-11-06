@@ -1,23 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
-  <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Tails of Freedom Animal Haven</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
 </head>
-  <body>
+<body>
     {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
 
-    <main>
-      <h1>Privacy Policy</h1>
-      <p>Insert your app's privacy policy here.</p>
-    </main>
-
-<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+        <main>
+          <div class="container">
+              <div class="header">
+                  <h1>Privacy Policy</h1>
+              </div>
+              <div class="section">
+                  <p>At <strong>Tails of Freedom Animal Haven</strong>, we are committed to protecting your personal information and respecting your privacy. This Privacy Policy explains how we collect, use, store, and safeguard your data when you access or use our web application.</p>
+              </div>
+              <div class="section">
+                  <h2><i class="fa-solid fa-database"></i> 1. Information We Collect</h2>
+                  <p>To facilitate pet adoptions, user eligibility verification, and ongoing monitoring, we collect the following categories of information:</p>
+                  <ul>
+                      <li><strong>Account Information:</strong> Full name, email address, username, contact number, and residential address provided during registration.</li>
+                      <li><strong>Authentication Data:</strong> Login details processed via secure Authentication (including social sign-in data via Google or Facebook).</li>
+                      <li><strong>Adoption Application Data:</strong> Personal details, housing conditions, proof of residence, government-issued IDs, and responses to screening questionnaires.</li>
+                      <li><strong>Post-Adoption Monitoring Media:</strong> Photos, videos, and status updates submitted during mandatory post-adoption weekly check-ins.</li>
+                      <li><strong>Technical & Usage Information:</strong> Session tokens, IP addresses, audit logs, and interaction records necessary for system security.</li>
+                  </ul>
+              </div>
+              <div class="section">
+                  <h2><i class="fa-solid fa-gears"></i> 2. How We Use Your Information</h2>
+                  <p>We use your personal data strictly for operational and animal welfare purposes, including:</p>
+                  <ul>
+                      <li>Evaluating and processing pet adoption applications.</li>
+                      <li>Verifying applicant identities and contact information.</li>
+                      <li>Tracking weekly pet monitoring reports following adoption.</li>
+                      <li>Sending account updates, adoption status notifications, and scheduling visitations.</li>
+                      <li>Maintaining system security, audit trails, and preventing fraudulent applications.</li>
+                  </ul>
+              </div>
+              <div class="section">
+                  <h2><i class="fa-solid fa-shield-halved"></i> 3. Data Storage & Security</h2>
+                  <p>We implement strict administrative, technical, and physical security measures to protect your personal data:</p>
+                  <ul>
+                      <li><strong>Database Storage:</strong> User records and adoption document metadata are stored securely in Google Cloud Firestore.</li>
+                      <li><strong>File & Media Storage:</strong> Uploaded identification documents, proof of address, and weekly monitoring photos/videos are encrypted and stored via secure cloud storage infrastructure (Appwrite Storage).</li>
+                      <li><strong>Access Controls:</strong> Sensitive applicant data (such as government IDs) is strictly restricted to authorized administrative personnel.</li>
+                  </ul>
+                  <div class="highlight">
+                      <strong>Note:</strong> While we employ industry-standard security practices, no transmission over the internet is 100% secure. We encourage users to maintain strong account passwords and keep session tokens confidential.
+                  </div>
+              </div>
+              <div class="section">
+                  <h2><i class="fa-solid fa-user-shield"></i> 5. User Rights & Data Retention</h2>
+                  <p>You have the right to review, update, or request the correction of your personal details through your Profile settings. Adoption records and audit logs are retained for as long as necessary to fulfill legal obligations and maintain animal protection history.</p>
+              </div>
+              <div class="section">
+                  <h2><i class="fa-solid fa-envelope"></i> 6. Contact Information</h2>
+                  <p style="margin-bottom: 50px;">If you have any questions, concerns, or requests regarding this Privacy Policy, please reach out to us via our <a href="{{ url_for('contact_bp.contact_page') }}" style="color: #4f46e5; font-weight: 500;">Contact Page</a>.</p>
+              </div>
+          </div>
+      </main>
+    <script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
 </body>
 </html>

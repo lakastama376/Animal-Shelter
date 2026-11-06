@@ -1,25 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Terms</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
-  <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Service - Tails of Freedom Animal Haven</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
 </head>
 <body>
     {% include 'Navbar.html' %}
+    <div class="layout">
+        {% include 'Sidebar.html' %}
+        <div class="content">
 
-    <main>
-      <h1>Terms of Service</h1>
-      <p>Insert your app's Terms of Service here.</p>
-    </main>
-
-    {% include 'Footer.html' %}
-
-<script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
+        <main>
+          <div class="container">
+              <div class="header">
+                  <h1>Terms of Service</h1>
+              </div>
+              <div class="section">
+                  <p>Welcome to <strong>Tails of Freedom Animal Haven</strong>. By accessing or using our platform, creating an account, submitting an adoption application, or making a donation, you agree to be bound by these Terms of Service. Please read them carefully.</p>
+              </div>
+              <div class="section">
+                  <h2><i class="fa-solid fa-user-check"></i> 1. Account Eligibility & Responsibilities</h2>
+                  <ul>
+                      <li><strong>Account Creation:</strong> You must provide accurate, current, and complete information during registration, including your real name, valid phone number, and physical residential address.</li>
+                      <li><strong>Email Verification:</strong> Access to full system functionality requires verifying your email address via the link provided upon signup.</li>
+                      <li><strong>Account Security:</strong> You are responsible for safeguarding your credentials. Notify us immediately if you suspect unauthorized access to your account. Administrator accounts reserve the right to suspend or block users violating platform policies.</li>
+                  </ul>
+              </div>
+              <div class="section">
+                  <h2><i class="fa-solid fa-paw"></i> 2. Adoption Process & Application Policy</h2>
+                  <p>All adoption submissions are subject to administrative review and screening:</p>
+                  <ul>
+                      <li><strong>Eligibility Screening:</strong> Completing the preliminary quiz or application form does not guarantee adoption approval.</li>
+                      <li><strong>Identity & Document Verification:</strong> Applicants must submit genuine government-issued IDs and valid proof of residence. Providing fraudulent documentation will lead to immediate account suspension and application rejection.</li>
+                      <li><strong>Visitation & Final Approval:</strong> Approved applicants must attend scheduled shelter visitations prior to finalizing adoptions. The shelter retains full discretion to decline adoptions if an placement environment is deemed unsafe for the animal.</li>
+                  </ul>
+              </div>
+              <div class="section">
+                  <h2><i class="fa-solid fa-calendar-check"></i> 3. Mandatory Post-Adoption Weekly Monitoring</h2>
+                  <p>To ensure animal welfare, adopters commit to post-adoption check-ins:</p>
+                  <ul>
+                      <li>Adopters must submit mandatory weekly updates (including photos, videos, and status notes) for a designated monitoring period (typically 4 consecutive weeks).</li>
+                      <li>Failure to submit updates on time will flag the application as overdue. Persistent neglect of post-adoption reporting or evidence of animal mistreatment may result in shelter intervention or legal action under animal welfare laws.</li>
+                  </ul>
+              </div>
+              <div class="section">
+                  <h2><i class="fa-solid fa-qrcode"></i> 4. Donations & Payment Processing via PayMongo (QR Ph)</h2>
+                  <p>Tails of Freedom Animal Haven accepts voluntary financial contributions to support animal rescue and shelter care:</p>
+                  <ul>
+                      <li><strong>PayMongo Integration:</strong> All online transactions and donations are processed securely through <strong>PayMongo</strong>, supporting payment methods including <strong>QR Ph (GCash, Maya, and major Philippine banks)</strong>, e-wallets, and credit/debit cards.</li>
+                      <li><strong>Finality of Donations:</strong> All financial donations made to the shelter are voluntary and non-refundable once processed.</li>
+                      <li><strong>Payment Security:</strong> Financial details and payment credentials are processed directly by PayMongo's PCI-DSS compliant infrastructure and are never stored on our local servers.</li>
+                  </ul>
+                  <div class="highlight">
+                      <strong>Note:</strong> When completing a payment via QR Ph, ensure you scan the generated QR code using an authorized banking or e-wallet application (e.g., GCash, Maya) to prevent payment routing errors.
+                  </div>
+              </div>
+              <div class="section">
+                  <h2><i class="fa-solid fa-hand-holding-hand"></i> 5. Pet Returns</h2>
+                  <p>If an adopter is no longer capable of caring for an adopted pet, they must initiate an official <strong>Return Request</strong> via the platform. Abandoning or rehoming the pet to an unauthorized third party without shelter consent is strictly prohibited.</p>
+              </div>
+              <div class="section">
+                  <h2><i class="fa-solid fa-triangle-exclamation"></i> 6. Incident Reporting & Community Standards</h2>
+                  <p>Users submitting rescue reports or incident alerts must provide accurate location details and factual information. Submitting false reports, harassing shelter personnel, or attempting to compromise platform security is strictly forbidden.</p>
+              </div>
+              <div class="section">
+                  <h2><i class="fa-solid fa-envelope"></i> 7. Contact Information</h2>
+                  <p style="margin-bottom: 50px;">For questions regarding these Terms of Service or shelter operations, please visit our <a href="{{ url_for('contact_bp.contact_page') }}" style="color: #4f46e5; font-weight: 500;">Contact Page</a>.</p>
+              </div>
+          </div>
+      </main>
+    <script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
 </body>
 </html>
