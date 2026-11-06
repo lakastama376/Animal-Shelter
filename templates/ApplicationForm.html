@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='Styles/default.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='Styles/application-form.css') }}">
     <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
-    </style>
 </head>
 <body>
     {% include 'Navbar.html' %}
@@ -39,7 +38,6 @@
                                 <li><i class="fa-solid fa-check"></i> Must have a safe and suitable living environment</li>
                                 <li><i class="fa-solid fa-check"></i> Must not have a history of animal abuse</li>
                                 <li><i class="fa-solid fa-check"></i> Must agree to post-adoption monitoring for 4 weeks</li>
-                                <li><i class="fa-solid fa-check"></i> Must be willing to provide proper veterinary care</li>
                             </ul>
                         </div>
                     </div>
@@ -126,11 +124,11 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Age</label>
-                                <input type="number" name="age" required>
+                                <input type="number" name="age" min="18" required>
                             </div>
                             <div class="form-group">
                                 <label>Contact Number</label>
-                                <input type="text" name="contact" value="{{ user_profile.phone if user_profile else '' }}" required>
+                                <input type="tel" name="contact" value="{{ user_profile.phone if user_profile else '' }}" pattern="^09\d{9}$" maxlength="11" placeholder="09170000000" required>
                             </div>
                         </div>
                         <div class="form-group" style="margin-bottom: 20px;">

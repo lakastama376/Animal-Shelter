@@ -14,9 +14,9 @@ pet_management_bp = Blueprint('pet_management_bp', __name__)
 
 def get_storage():
     client = Client()
-    client.set_endpoint(os.getenv('APPWRITE_ENDPOINT', 'https://sgp.cloud.appwrite.io/v1'))
-    client.set_project(os.getenv('APPWRITE_PROJECT_ID', '6a9e899400185f330d63'))
-    client.set_key(os.getenv('APPWRITE_API_KEY', 'standard_36d0a70b8164a32ef4e013f4137f1b37511b2d99c1064cf9fa4e8feeea1bb8f49a8ddb42ec5fcf8a33eeca64ca1cf77dc1e5537a5ca396882cd97214978482fe74adae5c0614b6d9a4c866106549d484fff2b3767b1ea9d5383ae518a91c3321cfc79a78f540bda830c6a0e457075f78446e3884ce157976fe18e4335536672f'))
+    client.set_endpoint(os.getenv('APPWRITE_ENDPOINT'))
+    client.set_project(os.getenv('APPWRITE_PROJECT_ID'))
+    client.set_key(os.getenv('APPWRITE_API_KEY'))
     return Storage(client)
 
 def admin_required(f):
@@ -106,8 +106,8 @@ def add_pet():
     try:
         db = firestore.client()
         storage = get_storage()
-        bucket_id = os.getenv('APPWRITE_BUCKET_ID', '6adf65220035a8df9645')
-        project_id = os.getenv('APPWRITE_PROJECT_ID', '6a9e899400185f330d63')
+        bucket_id = os.getenv('APPWRITE_BUCKET_ID')
+        project_id = os.getenv('APPWRITE_PROJECT_ID')
         p_traits = [t.strip() for t in request.form.get('personality', '').split(',') if t.strip()]
         c_traits = [c.strip() for c in request.form.get('compatibility', '').split(',') if c.strip()]
         h_records = [h.strip() for h in request.form.get('healthRecords', '').split(',') if h.strip()]
@@ -190,8 +190,8 @@ def update_pet():
     try:
         db = firestore.client()
         storage = get_storage()
-        bucket_id = os.getenv('APPWRITE_BUCKET_ID', '6adf65220035a8df9645')
-        project_id = os.getenv('APPWRITE_PROJECT_ID', '6a9e899400185f330d63')
+        bucket_id = os.getenv('APPWRITE_BUCKET_ID')
+        project_id = os.getenv('APPWRITE_PROJECT_ID')
 
         pet_id = request.form.get('petId')
         if not pet_id:

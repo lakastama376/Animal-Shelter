@@ -14,8 +14,8 @@
         </a>
     </div>
 
-    <!--Dropdown Menu Toggle-->
-    <div class="mobile-nav-dropdown" id="mobileNavDropdown" title="Menu">
+    <!--Dropdown Menu-->
+    <div class="mobile-nav-dropdown" id="mobileNavDropdown" aria-label="Menu" title="Menu">
         <div class="mobile-dropbtn" id="mobileDropBtn">
             <i data-lucide="chevron-down" class="mobile-caret"></i>
         </div>
@@ -56,8 +56,9 @@
                     </div>
                 </div>
             {% else %}
-                <a href="{{ url_for('login') }}" class="mobile-dropdown-item">Login</a>
-                <a href="{{ url_for('signup') }}" class="mobile-dropdown-item">Register</a>
+                <a href="{{ url_for('login') }}" class="mobile-dropdown-item login">Login</a>
+                <div class="dropdown-divider"></div>
+                <a href="{{ url_for('signup') }}" class="mobile-dropdown-item register">Register</a>
             {% endif %}
         </div>
     </div>

@@ -106,7 +106,7 @@
                         <p>{{ pet.description or (pet.petName ~ ' was rescued and is looking for a loving forever home.') }}</p>
                     </div>
                     <div class="showcase-actions">
-                        <a href="{{ url_for('pet_profile_bp.pet_profile', id=pet.id) if pet_profile_bp is defined else '/pet-management/profile/' ~ pet.id }}" class="btn-profile">
+                        <a href="{{ url_for('pet_profile_bp.pet_profile', id=pet.id) if pet_profile_bp is defined else '/profile/' ~ pet.id }}" class="btn-profile">
                             View Full Profile
                         </a>
                     </div>

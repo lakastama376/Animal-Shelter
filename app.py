@@ -7,9 +7,9 @@ import secrets
 import os
 import uuid 
 import json
+import re
 from Data.audit import log_audit_event
 from dotenv import load_dotenv
-
 
 from Data.Home import home_bp
 from Data.Dashboard import dashboard_bp
@@ -91,7 +91,7 @@ def validate_user_session():
         'login', 'signup', 'authorize', 'reset_password', 
         'terms', 'privacy', 'static',
         'home_bp.home', 'about_bp.about_page', 'contact_bp.contact_page',
-        'pet_public_bp.pet_list', 'donation_bp.index'      
+        'pet_public_bp.pet_list', 'donation_bp.index'       
     ]
     
     if request.endpoint in public_endpoints or (request.endpoint and 'static' in request.endpoint):
@@ -162,6 +162,12 @@ def authorize():
                 }), 403
 
         new_session_token = str(uuid.uuid4())
+        if not user_doc.exists:
+            contact_number = data.get('contact', '')
+            phone_regex = r'^09\d{9}$'
+            if not re.match(phone_regex, contact_number):
+                return jsonify({"status": "error", "message": "Invalid contact number format. Must be 11 digits starting with 09."}), 400
+
         if not decoded_token.get('email_verified', False):
             if not user_doc.exists:
                 first_name = data.get('first_name', '')

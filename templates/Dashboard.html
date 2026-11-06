@@ -266,7 +266,7 @@
       <section class="featured">
         <div class="showcase-slider">
           {% for pet in featured_pets %}
-          <div class="showcase-card" onclick="window.location.href='/pet-management/profile/{{ pet.id }}'">
+          <div class="showcase-card" onclick="window.location.href='/profile/{{ pet.id }}'">
             <img class="showcase-img" src="{{ pet.images[0] if pet.images else 'https://via.placeholder.com/300x400' }}" alt="{{ pet.petName }}">
             <div class="showcase-overlay">
               <div class="showcase-card-details">
@@ -282,7 +282,7 @@
           </div>
           {% endfor %}
           {% for pet in featured_pets %}
-          <div class="showcase-card" onclick="window.location.href='/pet-management/profile/{{ pet.id }}'">
+          <div class="showcase-card" onclick="window.location.href='/profile/{{ pet.id }}'">
             <img class="showcase-img" src="{{ pet.images[0] if pet.images else 'https://via.placeholder.com/300x400' }}" alt="{{ pet.petName }}">
             <div class="showcase-overlay">
               <div class="showcase-card-details">

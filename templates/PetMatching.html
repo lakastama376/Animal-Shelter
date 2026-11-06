@@ -370,7 +370,7 @@
         document.getElementById("modalPetName").innerText = pet.petName;
         document.getElementById("modalPetSubText").innerText = `${pet.breed || 'Mix'} · ${pet.age || 'Unknown Age'} · ${pet.gender}`;
         document.getElementById("modalCompatScore").innerText = `${pet.matchPercentage}%`;
-        document.getElementById("modalViewProfileBtn").href = `/pet-management/profile/${pet.id}`;
+        document.getElementById("modalViewProfileBtn").href = `/profile/${pet.id}`;
         const wishlistBtn = document.getElementById("modalWishlistBtn");
         const wishlistIcon = document.getElementById("modalWishlistIcon");
         

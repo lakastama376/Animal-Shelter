@@ -1,13 +1,14 @@
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash, Response
 from firebase_admin import firestore
 from datetime import datetime, timedelta
 from functools import wraps
 import os
+import requests
 import smtplib
 from email.message import EmailMessage
 
 from Data.audit import log_audit_event
-from appwrite.client import  Client # type: ignore
+from appwrite.client import Client # type: ignore
 from appwrite.services.storage import Storage # type: ignore
 
 adoption_management_bp = Blueprint('adoption_management_bp', __name__)
@@ -83,15 +84,21 @@ def notify_admins_new_application(db, applicant_name, pet_name):
     except Exception as e:
         print(f"Failed to send new application notification to admins: {e}")
 
-def get_file_url(bucket_id, file_id):
-        if not file_id:
-            return ""
-        if file_id.startswith('http://') or file_id.startswith('https://'):
-            return file_id
+def get_file_url(file_id):
+    if not file_id:
+        return ""
+    if file_id.startswith('http://') or file_id.startswith('https://'):
+        if '/files/' in file_id and '/view' in file_id:
+            try:
+                parts = file_id.split('/files/')
+                if len(parts) > 1:
+                    f_id = parts[1].split('/')[0]
+                    return url_for('adoption_management_bp.media_proxy', file_id=f_id, _external=True)
+            except Exception:
+                pass
+        return file_id
         
-        endpoint = os.getenv('APPWRITE_ENDPOINT')
-        project_id = os.getenv('APPWRITE_PROJECT_ID')
-        return f"{endpoint}/storage/buckets/{bucket_id}/files/{file_id}/view?project={project_id}"
+    return url_for('adoption_management_bp.media_proxy', file_id=file_id, _external=True)
 
 # Management
 @adoption_management_bp.route('/adoption/management', methods=['GET'])
@@ -140,8 +147,6 @@ def management_view():
     applications_list = []
     now = datetime.now()
     
-    bucket_id = os.getenv('APPWRITE_BUCKET_ID') 
-    
     for doc in app_docs:
         app_data = doc.to_dict()
         app_data['id'] = doc.id
@@ -150,15 +155,17 @@ def management_view():
         proof_addr = app_data.get('documentProofAddressUrl') or app_data.get('document_proof_address_url')
         
         if gov_id:
-            app_data['documentGovIdUrl'] = get_file_url(bucket_id, gov_id)
-            app_data['document_gov_id_url'] = app_data['documentGovIdUrl']
+            resolved_gov = get_file_url(gov_id)
+            app_data['documentGovIdUrl'] = resolved_gov
+            app_data['document_gov_id_url'] = resolved_gov
         if proof_addr:
-            app_data['documentProofAddressUrl'] = get_file_url(bucket_id, proof_addr)
-            app_data['document_proof_address_url'] = app_data['documentProofAddressUrl']
+            resolved_proof = get_file_url(proof_addr)
+            app_data['documentProofAddressUrl'] = resolved_proof
+            app_data['document_proof_address_url'] = resolved_proof
 
         raw_uploaded = app_data.get('uploaded_images') or app_data.get('uploadedImages') or []
         if raw_uploaded:
-            resolved_uploads = [get_file_url(bucket_id, img) for img in raw_uploaded]
+            resolved_uploads = [get_file_url(img) for img in raw_uploaded]
             app_data['uploaded_images'] = resolved_uploads
             app_data['uploadedImages'] = resolved_uploads
 
@@ -178,9 +185,9 @@ def management_view():
                     up_dict['submittedAtFormatted'] = str(sub_at)
 
             raw_photos = up_dict.get('photoUrls') or up_dict.get('photos') or []
-            up_dict['photoUrls'] = [get_file_url(bucket_id, p) for p in raw_photos]
+            up_dict['photoUrls'] = [get_file_url(p) for p in raw_photos]
             raw_videos = up_dict.get('videoUrls') or up_dict.get('videos') or []
-            up_dict['videoUrls'] = [get_file_url(bucket_id, v) for v in raw_videos]
+            up_dict['videoUrls'] = [get_file_url(v) for v in raw_videos]
             weekly_updates.append(up_dict)
 
         app_data['weeklyUpdates'] = weekly_updates
@@ -275,6 +282,29 @@ def management_view():
         applications=applications_list,
         counts=counts
     )
+
+@adoption_management_bp.route('/adoption/media-proxy/<file_id>')
+@auth_required
+def media_proxy(file_id):
+    try:
+        bucket_id = os.getenv('APPWRITE_BUCKET_ID')
+        project_id = os.getenv('APPWRITE_PROJECT_ID')
+        api_key = os.getenv('APPWRITE_API_KEY')
+        endpoint = os.getenv('APPWRITE_ENDPOINT')
+        appwrite_url = f"{endpoint}/storage/buckets/{bucket_id}/files/{file_id}/view?project={project_id}"
+        
+        headers = {
+            'X-Appwrite-Key': api_key,
+            'X-Appwrite-Project': project_id
+        }
+        
+        resp = requests.get(appwrite_url, headers=headers, stream=True)
+        if resp.status_code == 200:
+            return Response(resp.iter_content(chunk_size=1024), content_type=resp.headers.get('content-type', 'image/jpeg'))
+        else:
+            return jsonify({"error": "File not found or access denied"}), resp.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Request Return
 @adoption_management_bp.route('/adoption/request-return/<app_id>', methods=['POST'])
@@ -496,8 +526,8 @@ def inject_adoption_notifications():
             query = query.where('status', 'in', ['Submitted', 'Under Review', 'Return Requested'])
         else:
             query = query.where('userId', '==', uid)\
-                         .where('status', 'in', ['Approved', 'Visit Scheduled', 'Return Scheduled'])
-                         
+                     .where('status', 'in', ['Approved', 'Visit Scheduled', 'Return Scheduled'])
+                     
         pending_apps = query.limit(1).get()
         return dict(has_new_adoptions=len(pending_apps) > 0)
         
