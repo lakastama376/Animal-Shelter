@@ -55,13 +55,17 @@
             if (data.status === 'success') {
                 const container = document.getElementById('conversationsContainer');
                 const scrollPos = container.scrollTop;
-                container.innerHTML = '';
 
                 if (data.conversations.length === 0) {
-                    container.innerHTML = `<div style="padding: 20px; color: #94a3b8; font-size: 13px;">No conversations yet.</div>`;
-                    renderEmptyState();
+                    if (container.children.length === 0) {
+                        container.innerHTML = `<div style="padding: 20px; color: #94a3b8; font-size: 13px;">No conversations yet.</div>`;
+                        renderEmptyState();
+                    }
                     return;
                 }
+
+                const placeholder = container.querySelector('div[style*="padding: 20px"]');
+                if (placeholder) placeholder.remove();
 
                 let targetConv = null;
                 data.conversations.forEach((c) => {
@@ -69,10 +73,23 @@
                         c.unread = false;
                     }
 
-                    const card = document.createElement('div');
-                    card.className = `conv-card ${activeConversationId === c.id ? 'active' : ''}`;
-                    card.setAttribute('data-id', c.id);
-                    card.onclick = () => selectConversation(c, card);
+                    let card = container.querySelector(`.conv-card[data-id="${c.id}"]`);
+                    let isNew = false;
+
+                    if (!card) {
+                        card = document.createElement('div');
+                        card.className = `conv-card ${activeConversationId === c.id ? 'active' : ''}`;
+                        card.setAttribute('data-id', c.id);
+                        card.onclick = () => selectConversation(c, card);
+                        isNew = true;
+                    } else {
+                        if (activeConversationId === c.id) {
+                            card.classList.add('active');
+                        } else {
+                            card.classList.remove('active');
+                        }
+                    }
+
                     let avatarHtml = '';
                     if (c.photoURL) {
                         avatarHtml = `<img class="avatar" src="${c.photoURL}" alt="Profile" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">`;
@@ -82,7 +99,7 @@
                         avatarHtml = `<div class="avatar"><i class="fa-regular fa-user"></i></div>`;
                     }
                     
-                    card.innerHTML = `
+                    const innerTemplate = `
                         ${avatarHtml}
                         <div class="conv-info">
                             <div class="conv-top">
@@ -95,12 +112,21 @@
                         </div>
                         ${c.unread ? '<div class="unread-dot"></div>' : ''}
                     `;
-                    container.appendChild(card);
+
+                    if (isNew || card.getAttribute('data-last-msg') !== (c.lastMessage || '')) {
+                        card.innerHTML = innerTemplate;
+                        card.setAttribute('data-last-msg', c.lastMessage || '');
+                    }
+
+                    if (isNew) {
+                        container.appendChild(card);
+                    }
 
                     if (autoSelectId && c.id === autoSelectId) {
                         targetConv = c;
                     }
                 });
+
                 container.scrollTop = scrollPos;
             }
         } catch (e) {
@@ -136,7 +162,6 @@
         `;
     }
 
-    // Admin Directly Chat
     async function AdminChat() {
         try {
             const res = await fetch('/api/conversations/admin', {
@@ -269,20 +294,40 @@
                 if (!container) return;
                 
                 const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100;
+                const existingIds = Array.from(container.querySelectorAll('.message-bubble-row')).map(el => el.getAttribute('data-msg-id'));
+                const incomingIds = data.messages.map(msg => msg.id);
+                const hasNewMessages = data.messages.some(msg => !existingIds.includes(msg.id));
+                const lengthChanged = container.children.length !== data.messages.length;
 
-                const currentChildCount = container.children.length;
-                if (!silent || currentChildCount !== data.messages.length) {
-                    container.innerHTML = '';
-                    data.messages.forEach(msg => {
-                        const isOutgoing = msg.senderId === currentUserId;
-                        const row = document.createElement('div');
-                        row.className = `message-bubble-row ${isOutgoing ? 'outgoing' : 'incoming'}`;
-                        row.innerHTML = `
-                            <div class="bubble">${msg.text}</div>
-                            <div class="timestamp">${msg.formattedTime || ''}</div>
-                        `;
-                        container.appendChild(row);
-                    });
+                if (!silent || lengthChanged || hasNewMessages) {
+                    if (container.children.length === 0 || Math.abs(container.children.length - data.messages.length) > 5) {
+                        container.innerHTML = '';
+                        data.messages.forEach(msg => {
+                            const isOutgoing = msg.senderId === currentUserId;
+                            const row = document.createElement('div');
+                            row.className = `message-bubble-row ${isOutgoing ? 'outgoing' : 'incoming'}`;
+                            row.setAttribute('data-msg-id', msg.id);
+                            row.innerHTML = `
+                                <div class="bubble">${msg.text}</div>
+                                <div class="timestamp">${msg.formattedTime || ''}</div>
+                            `;
+                            container.appendChild(row);
+                        });
+                    } else {
+                        data.messages.forEach(msg => {
+                            if (!existingIds.includes(msg.id)) {
+                                const isOutgoing = msg.senderId === currentUserId;
+                                const row = document.createElement('div');
+                                row.className = `message-bubble-row ${isOutgoing ? 'outgoing' : 'incoming'}`;
+                                row.setAttribute('data-msg-id', msg.id);
+                                row.innerHTML = `
+                                    <div class="bubble">${msg.text}</div>
+                                    <div class="timestamp">${msg.formattedTime || ''}</div>
+                                `;
+                                container.appendChild(row);
+                            }
+                        });
+                    }
 
                     if (!silent || isAtBottom) {
                         container.scrollTop = container.scrollHeight;
@@ -293,8 +338,6 @@
             console.error("Error loading messages:", e);
         }
     }
-
-    // Send Message
     async function handleSend(e) {
         e.preventDefault();
         const input = document.getElementById('messageInput');
@@ -320,23 +363,6 @@
             sendBtn.style.opacity = '1';
             sendBtn.style.cursor = 'pointer';
         }
-        
-        const container = document.getElementById('messagesContainer');
-        if (container) {
-            const nowFormatted = new Date().toLocaleDateString('en-US', {
-                month: 'short', day: 'numeric', year: 'numeric',
-                hour: 'numeric', minute: '2-digit', hour12: true
-            });
-
-            const row = document.createElement('div');
-            row.className = `message-bubble-row outgoing`;
-            row.innerHTML = `
-                <div class="bubble">${text}</div>
-                <div class="timestamp">${nowFormatted}</div>
-            `;
-            container.appendChild(row);
-            container.scrollTop = container.scrollHeight;
-        }
 
         try {
             const res = await fetch(`/api/conversations/${activeConversationId}/send`, {
@@ -346,7 +372,7 @@
             });
 
             if (res.ok) {
-                loadMessages(activeConversationId, true);
+                await loadMessages(activeConversationId, false);
             }
         } catch (e) {
             console.error("Error sending message:", e);

@@ -177,7 +177,7 @@ body {
 .species-legend-item strong { margin-left: 12px; color: #0f172a; }
 .legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
 .legend-dot.dot-dogs { background-color: #f97316; }
-.legend-dot.dot-cats { background-color: #fb923c; }
+.legend-dot.dot-cats { background-color: #1877f2; }
 
 .audit-preview-list { margin-top: 20px; display: flex; flex-direction: column; gap: 18px; }
 .audit-preview-item { display: flex; align-items: center; justify-content: space-between; font-size: 0.875rem; }

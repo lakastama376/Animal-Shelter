@@ -14,7 +14,7 @@ def get_db():
     return firestore.client()
 
 def get_serializer():
-    return URLSafeTimedSerializer(os.getenv('SECRET_KEY', 'your-fallback-secret-key'))
+    return URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
 
 def obfuscate_file_id(file_id):
     if not file_id:
@@ -126,7 +126,16 @@ def get_conversations():
         db = get_db()
         convs_ref = db.collection('Conversations').where('participants', 'array_contains', uid)
         docs = convs_ref.stream()
-        
+
+        admin_uids = set()
+        for doc in db.collection('Users').where('role', 'in', ['Admin', 'admin']).stream():
+            admin_uids.add(doc.id)
+
+        user_doc_current = db.collection('Users').document(uid).get()
+        is_current_user_admin = False
+        if user_doc_current.exists:
+            is_current_user_admin = str(user_doc_current.to_dict().get('role', '')).strip().lower() == 'admin'
+
         conversations = []
         for doc in docs:
             data = doc.to_dict()
@@ -146,7 +155,12 @@ def get_conversations():
                 data['unread'] = False
 
             participants = data.get('participants', [])
-            other_uid = next((p for p in participants if p != uid), None)
+            
+            if is_current_user_admin:
+                other_uid = next((p for p in participants if p not in admin_uids), None)
+            else:
+                other_uid = next((p for p in participants if p != uid), None)
+
             display_name = data.get('senderName') or data.get('userName') or data.get('title') or 'Guest'
             photo_url = None
             
@@ -315,6 +329,14 @@ def send_message(conversation_id):
         if uid not in participants and not is_admin:
             return jsonify({"status": "error", "message": "Unauthorized"}), 403
 
+        admin_uids = set()
+        for doc in db.collection('Users').where('role', '==', 'Admin').stream():
+            admin_uids.add(doc.id)
+        for doc in db.collection('Users').where('role', '==', 'admin').stream():
+            admin_uids.add(doc.id)
+
+        updated_participants = list(set(participants).union(admin_uids))
+
         now = firestore.SERVER_TIMESTAMP
         msg_data = {
             'senderId': uid,
@@ -324,7 +346,9 @@ def send_message(conversation_id):
 
         db.collection('Conversations').document(conversation_id)\
           .collection('Messages').add(msg_data)
+        
         db.collection('Conversations').document(conversation_id).update({
+            'participants': updated_participants,
             'lastMessage': text,
             'lastSenderId': uid,
             'updatedAt': now,

@@ -122,12 +122,13 @@ def home():
                 donor_data = doc.to_dict()
                 created_at = donor_data.get('createdAt')
                 formatted_date = donor_data.get('date') or (created_at.strftime("%B %d, %Y") if created_at and hasattr(created_at, 'strftime') else "N/A")
-
+                raw_photo = donor_data.get('photoURL', '')
+                resolved_photo = get_file_url(raw_photo) if raw_photo else ''
                 temp_donors.append({
                     'id': doc.id,
                     'donorName': donor_data.get('donorName', 'Anonymous Donor'),
                     'badge': donor_data.get('badge', 'Supporter'),
-                    'photoURL': donor_data.get('photoURL', ''),
+                    'photoURL': resolved_photo,
                     'description': donor_data.get('description', '') or donor_data.get('notes', ''),
                     'media': donor_data.get('media', []),
                     'date': formatted_date,

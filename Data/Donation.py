@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, Response
 from firebase_admin import firestore
 import requests
 import base64
@@ -7,6 +7,7 @@ import smtplib
 import threading
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 from Data.audit import log_audit_event
 
 donation_bp = Blueprint('donation_bp', __name__)
@@ -16,6 +17,63 @@ PAYMONGO_PUBLIC_KEY = os.getenv('PAYMONGO_PUBLIC_KEY')
 
 def get_db():
     return firestore.client()
+
+def get_serializer():
+    return URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
+
+def obfuscate_file_id(file_id):
+    if not file_id:
+        return ""
+    return get_serializer().dumps(file_id, salt='media-proxy-salt')
+
+def deobfuscate_file_id(token):
+    try:
+        return get_serializer().loads(token, salt='media-proxy-salt', max_age=86400)
+    except BadSignature:
+        return None
+
+def get_file_url(file_id):
+    if not file_id:
+        return ""
+    if file_id.startswith('http://') or file_id.startswith('https://'):
+        if '/files/' in file_id and '/view' in file_id:
+            try:
+                parts = file_id.split('/files/')
+                if len(parts) > 1:
+                    file_id = parts[1].split('/')[0]
+            except Exception:
+                pass
+        else:
+            return file_id
+        
+    token = obfuscate_file_id(file_id)
+    return url_for('donation_bp.media_proxy', file_id=token, _external=True)
+
+@donation_bp.route('/donation/media-proxy/<path:file_id>')
+def media_proxy(file_id):
+    try:
+        real_file_id = deobfuscate_file_id(file_id)
+        if not real_file_id:
+            real_file_id = file_id
+
+        bucket_id = os.getenv('APPWRITE_BUCKET_ID')
+        project_id = os.getenv('APPWRITE_PROJECT_ID')
+        api_key = os.getenv('APPWRITE_API_KEY')
+        endpoint = os.getenv('APPWRITE_ENDPOINT')
+        appwrite_url = f"{endpoint}/storage/buckets/{bucket_id}/files/{real_file_id}/view?project={project_id}"
+        
+        headers = {
+            'X-Appwrite-Key': api_key,
+            'X-Appwrite-Project': project_id
+        }
+        
+        resp = requests.get(appwrite_url, headers=headers, stream=True)
+        if resp.status_code == 200:
+            return Response(resp.iter_content(chunk_size=1024), content_type=resp.headers.get('content-type', 'image/jpeg'))
+        else:
+            return jsonify({"error": "File not found or access denied"}), resp.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 def is_admin_user():
     user_info = session.get('user', {})
@@ -159,12 +217,14 @@ def index():
                 created_at.strftime("%B %d, %Y") if created_at and hasattr(created_at, 'strftime') else "N/A"
             )
 
+            raw_photo = data.get("photoURL", "")
+            photo_url = get_file_url(raw_photo) if raw_photo else ""
             donors.append({
                 "id": doc.id,
                 "donorName": data.get("donorName", "Anonymous Donor"),
                 "date": formatted_date,
                 "badge": data.get("badge", "Supporter"),
-                "photoURL": data.get("photoURL", ""),
+                "photoURL": photo_url,
                 "notes": data.get("description", "") or data.get("notes", ""),
                 "media": data.get("media", []),
                 "raw_date": created_at
@@ -177,7 +237,7 @@ def index():
     except Exception as e:
         print(f"Error fetching donor wall data: {e}")
 
-    return render_template('Donation.html', donors=donors[:6])
+    return render_template('Donation.html', donors=donors[:30])
 
 # Generate QRPH
 @donation_bp.route('/api/donation/qrph/generate', methods=['POST'])
@@ -520,12 +580,14 @@ def get_all_donor_wall_entries():
                 created_at.strftime("%B %d, %Y") if created_at and hasattr(created_at, 'strftime') else "N/A"
             )
 
+            raw_photo = data.get("photoURL", "")
+            photo_url = get_file_url(raw_photo) if raw_photo else ""
             donors.append({
                 "id": doc.id,
                 "donorName": data.get("donorName", "Anonymous Donor"),
                 "badge": data.get("badge", "Supporter"),
                 "description": data.get("description", "") or data.get("notes", ""),
-                "photoURL": data.get("photoURL", ""),
+                "photoURL": photo_url,
                 "media": data.get("media", []),
                 "date": formatted_date,
                 "raw_date": created_at
@@ -726,7 +788,8 @@ def get_all_donations():
             uid = data.get("uid")
             donor_key = uid or donor_name
             unique_donors.add(donor_key)
-            photo_url = data.get("photoURL") or user_photo_map.get(uid, "")
+            raw_photo = data.get("photoURL") or user_photo_map.get(uid, "")
+            photo_url = get_file_url(raw_photo) if raw_photo else ""
             stats = donor_stats.get(donor_key, {"cash": 0, "inkind_count": 0})
 
             if stats["cash"] >= 10000:

@@ -86,6 +86,14 @@ def index(pet_id=None):
         user_doc = db.collection('Users').document(uid).get()
         if user_doc.exists:
             user_dict = user_doc.to_dict()
+
+            if user_dict.get('is_eligible') or session.get('is_eligible'):
+                session.pop('pending_pet_id', None)
+                if pet_id:
+                    return redirect(url_for('adoption_form_bp.apply', pet_id=pet_id))
+                else:
+                    return redirect(url_for('pet_matching_bp.index'))
+
             lockout_until = user_dict.get('retake_lockout_until')
 
             if lockout_until:
@@ -117,7 +125,7 @@ def index(pet_id=None):
         lockout_time=lockout_time_str
     )
 
-# Eligibility Checker
+# Eligibility Checker Submit
 @eligibility_checker_bp.route('/eligibility/submit', methods=['POST'])
 @auth_required
 def submit_evaluation():
