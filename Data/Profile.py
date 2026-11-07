@@ -1,14 +1,47 @@
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify, Response
 from firebase_admin import firestore
 from functools import wraps
 import uuid
 import os
+import requests
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 from Data.audit import log_audit_event
 from appwrite.client import Client # type: ignore
 from appwrite.services.storage import Storage # type: ignore
 from appwrite.input_file import InputFile # type: ignore
 
 profile_bp = Blueprint('profile_bp', __name__)
+
+def get_serializer():
+    return URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
+
+def obfuscate_file_id(file_id):
+    if not file_id:
+        return ""
+    return get_serializer().dumps(file_id, salt='media-proxy-salt')
+
+def deobfuscate_file_id(token):
+    try:
+        return get_serializer().loads(token, salt='media-proxy-salt', max_age=86400)
+    except BadSignature:
+        return None
+
+def get_file_url(file_id):
+    if not file_id:
+        return ""
+    if file_id.startswith('http://') or file_id.startswith('https://'):
+        if '/files/' in file_id and '/view' in file_id:
+            try:
+                parts = file_id.split('/files/')
+                if len(parts) > 1:
+                    file_id = parts[1].split('/')[0]
+            except Exception:
+                pass
+        else:
+            return file_id
+        
+    token = obfuscate_file_id(file_id)
+    return url_for('profile_bp.media_proxy', file_id=token, _external=True)
 
 def get_storage():
     client = Client()
@@ -41,7 +74,50 @@ def get_user_full_name(db, uid, user_session):
 @profile_bp.route('/profile', methods=['GET'])
 @auth_required
 def profile():
-    return render_template('Profile.html')
+    db = firestore.client()
+    user_session = session.get('user', {})
+    uid = user_session.get('uid') or user_session.get('user_id')
+    user_info = {}
+    if uid:
+        user_doc = db.collection('Users').document(uid).get()
+        if user_doc.exists:
+            user_info = user_doc.to_dict()
+            raw_photo = user_info.get('photoURL', '')
+            user_info['photoURL'] = get_file_url(raw_photo) if raw_photo else ''
+            
+            if not user_info.get('username') and user_info.get('email'):
+                user_info['username'] = user_info.get('email').split('@')[0]
+            if not user_info.get('role'):
+                user_info['role'] = 'Adopter'
+
+    return render_template('Profile.html', user_profile=user_info)
+
+@profile_bp.route('/profile/media-proxy/<path:file_id>')
+@auth_required
+def media_proxy(file_id):
+    try:
+        real_file_id = deobfuscate_file_id(file_id)
+        if not real_file_id:
+            real_file_id = file_id 
+
+        bucket_id = os.getenv('APPWRITE_BUCKET_ID')
+        project_id = os.getenv('APPWRITE_PROJECT_ID')
+        api_key = os.getenv('APPWRITE_API_KEY')
+        endpoint = os.getenv('APPWRITE_ENDPOINT')
+        appwrite_url = f"{endpoint}/storage/buckets/{bucket_id}/files/{real_file_id}/view?project={project_id}"
+        
+        headers = {
+            'X-Appwrite-Key': api_key,
+            'X-Appwrite-Project': project_id
+        }
+        
+        resp = requests.get(appwrite_url, headers=headers, stream=True)
+        if resp.status_code == 200:
+            return Response(resp.iter_content(chunk_size=1024), content_type=resp.headers.get('content-type', 'image/jpeg'))
+        else:
+            return jsonify({"error": "File not found or access denied"}), resp.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Uploading Photo
 @profile_bp.route('/profile/upload_photo', methods=['POST'])
@@ -51,7 +127,6 @@ def upload_photo():
         db = firestore.client()
         storage = get_storage()
         bucket_id = os.getenv('APPWRITE_BUCKET_ID')
-        project_id = os.getenv('APPWRITE_PROJECT_ID')
         user_session = session.get('user', {})
         uid = user_session.get('uid') or user_session.get('user_id')
         
@@ -71,10 +146,12 @@ def upload_photo():
                 file_id='unique()',
                 file=InputFile.from_bytes(file_bytes, filename)
             )
-            photo_url = f"https://sgp.cloud.appwrite.io/v1/storage/buckets/{bucket_id}/files/{result.id}/view?project={project_id}"
-
+            
+            file_id = result.id
             user_ref = db.collection('Users').document(uid)
-            user_ref.update({'photoURL': photo_url})
+            user_ref.update({'photoURL': file_id})
+            
+            resolved_photo_url = get_file_url(file_id)
             user_name = get_user_full_name(db, uid, user_session)
             log_audit_event(
                 action="Updated Profile",
@@ -83,7 +160,7 @@ def upload_photo():
                 user_name=user_name
             )
 
-            return jsonify({'success': True, 'photoURL': photo_url})
+            return jsonify({'success': True, 'photoURL': resolved_photo_url})
         
         return jsonify({'success': False, 'error': 'Empty file submission.'}), 400
     except Exception as e:
@@ -98,7 +175,6 @@ def update_profile():
         db = firestore.client()
         storage = get_storage()
         bucket_id = os.getenv('APPWRITE_BUCKET_ID')
-        project_id = os.getenv('APPWRITE_PROJECT_ID')
         user_session = session.get('user', {})
         uid = user_session.get('uid') or user_session.get('user_id')
         
@@ -133,7 +209,7 @@ def update_profile():
                     file_id='unique()',
                     file=InputFile.from_bytes(file_bytes, filename)
                 )
-                update_payload['photoURL'] = f"https://sgp.cloud.appwrite.io/v1/storage/buckets/{bucket_id}/files/{result.id}/view?project={project_id}"
+                update_payload['photoURL'] = result.id
 
         user_ref = db.collection('Users').document(uid)
         user_ref.update(update_payload)

@@ -5,6 +5,7 @@ from functools import wraps
 import os
 import requests
 import smtplib
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 from email.message import EmailMessage
 
 from Data.audit import log_audit_event
@@ -84,6 +85,20 @@ def notify_admins_new_application(db, applicant_name, pet_name):
     except Exception as e:
         print(f"Failed to send new application notification to admins: {e}")
 
+def get_serializer():
+    return URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
+
+def obfuscate_file_id(file_id):
+    if not file_id:
+        return ""
+    return get_serializer().dumps(file_id, salt='media-proxy-salt')
+
+def deobfuscate_file_id(token):
+    try:
+        return get_serializer().loads(token, salt='media-proxy-salt', max_age=86400)
+    except BadSignature:
+        return None
+
 def get_file_url(file_id):
     if not file_id:
         return ""
@@ -92,13 +107,14 @@ def get_file_url(file_id):
             try:
                 parts = file_id.split('/files/')
                 if len(parts) > 1:
-                    f_id = parts[1].split('/')[0]
-                    return url_for('adoption_management_bp.media_proxy', file_id=f_id, _external=True)
+                    file_id = parts[1].split('/')[0]
             except Exception:
                 pass
-        return file_id
+        else:
+            return file_id
         
-    return url_for('adoption_management_bp.media_proxy', file_id=file_id, _external=True)
+    token = obfuscate_file_id(file_id)
+    return url_for('adoption_management_bp.media_proxy', file_id=token, _external=True)
 
 # Management
 @adoption_management_bp.route('/adoption/management', methods=['GET'])
@@ -228,7 +244,12 @@ def management_view():
 
         pet_id = app_data.get('petId')
         if pet_id and pet_id in pets_map:
-            app_data['pet_details'] = pets_map[pet_id]
+            p_dict = pets_map[pet_id]
+            if p_dict.get('images'):
+                p_dict['images'] = [get_file_url(img) for img in p_dict['images'] if img]
+            if p_dict.get('photoUrl'):
+                p_dict['photoUrl'] = get_file_url(p_dict['photoUrl'])
+            app_data['pet_details'] = p_dict
         else:
             cached_name = app_data.get('petName') or "Unknown Pet"
             app_data['pet_details'] = {"name": cached_name, "photoUrl": ""}
@@ -238,7 +259,9 @@ def management_view():
             if user_id and user_id in users_map:
                 applicant_dict = users_map[user_id]
                 app_data['applicant_name'] = applicant_dict.get('fullName', 'Anonymous')
-                app_data['applicant_pic'] = applicant_dict.get('photoURL', '')
+
+                raw_pic = applicant_dict.get('photoURL', '')
+                app_data['applicant_pic'] = get_file_url(raw_pic) if raw_pic else ''
             else:
                 app_data['applicant_name'] = "Unknown User"
                 app_data['applicant_pic'] = ""
@@ -283,15 +306,19 @@ def management_view():
         counts=counts
     )
 
-@adoption_management_bp.route('/adoption/media-proxy/<file_id>')
+@adoption_management_bp.route('/adoption/media-proxy/<path:file_id>')
 @auth_required
 def media_proxy(file_id):
     try:
+        real_file_id = deobfuscate_file_id(file_id)
+        if not real_file_id:
+            real_file_id = file_id 
+
         bucket_id = os.getenv('APPWRITE_BUCKET_ID')
         project_id = os.getenv('APPWRITE_PROJECT_ID')
         api_key = os.getenv('APPWRITE_API_KEY')
         endpoint = os.getenv('APPWRITE_ENDPOINT')
-        appwrite_url = f"{endpoint}/storage/buckets/{bucket_id}/files/{file_id}/view?project={project_id}"
+        appwrite_url = f"{endpoint}/storage/buckets/{bucket_id}/files/{real_file_id}/view?project={project_id}"
         
         headers = {
             'X-Appwrite-Key': api_key,
@@ -526,8 +553,8 @@ def inject_adoption_notifications():
             query = query.where('status', 'in', ['Submitted', 'Under Review', 'Return Requested'])
         else:
             query = query.where('userId', '==', uid)\
-                     .where('status', 'in', ['Approved', 'Visit Scheduled', 'Return Scheduled'])
-                     
+                   .where('status', 'in', ['Approved', 'Visit Scheduled', 'Return Scheduled'])
+                   
         pending_apps = query.limit(1).get()
         return dict(has_new_adoptions=len(pending_apps) > 0)
         

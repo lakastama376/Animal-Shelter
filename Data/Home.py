@@ -1,7 +1,40 @@
-from flask import Blueprint, render_template, session, jsonify
+import os
+from flask import Blueprint, render_template, session, jsonify, url_for
 from firebase_admin import firestore
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 
 home_bp = Blueprint('home', __name__)
+
+def get_serializer():
+    return URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
+
+def obfuscate_file_id(file_id):
+    if not file_id:
+        return ""
+    return get_serializer().dumps(file_id, salt='media-proxy-salt')
+
+def deobfuscate_file_id(token):
+    try:
+        return get_serializer().loads(token, salt='media-proxy-salt', max_age=86400)
+    except BadSignature:
+        return None
+
+def get_file_url(file_id):
+    if not file_id:
+        return ""
+    if file_id.startswith('http://') or file_id.startswith('https://'):
+        if '/files/' in file_id and '/view' in file_id:
+            try:
+                parts = file_id.split('/files/')
+                if len(parts) > 1:
+                    file_id = parts[1].split('/')[0]
+            except Exception:
+                pass
+        else:
+            return file_id
+        
+    token = obfuscate_file_id(file_id)
+    return url_for('adoption_management_bp.media_proxy', file_id=token, _external=True)
 
 @home_bp.route('/', methods=['GET'])
 def home():
@@ -25,8 +58,7 @@ def home():
                     wishlist = user_doc.to_dict().get('wishlist', [])
             except Exception as user_err:
                 print(f"User wishlist fetch error: {user_err}")
-
-        # Fetch Featured Pets
+                
         try:
             pets_ref = db.collection('Pets')
             pets_query = pets_ref.where('status', 'in', ['Available']).limit(10)
@@ -35,8 +67,13 @@ def home():
             for d in pets_query.stream():
                 p_data = d.to_dict()
                 p_data['id'] = d.id
-                if not p_data.get('images'):
+                
+                raw_images = p_data.get('images')
+                if raw_images:
+                    p_data['images'] = [get_file_url(img) for img in raw_images if img]
+                else:
                     p_data['images'] = ['https://via.placeholder.com/600x400?text=No+Image']
+                    
                 p_data['is_favorited'] = d.id in wishlist
                 all_pets.append(p_data)
 

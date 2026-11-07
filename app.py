@@ -8,6 +8,7 @@ import os
 import uuid 
 import json
 import re
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 from Data.audit import log_audit_event
 from dotenv import load_dotenv
 
@@ -67,6 +68,31 @@ else:
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
+def get_serializer():
+    return URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
+
+def obfuscate_file_id(file_id):
+    if not file_id:
+        return ""
+    return get_serializer().dumps(file_id, salt='media-proxy-salt')
+
+def get_file_url(file_id):
+    if not file_id:
+        return ""
+    if file_id.startswith('http://') or file_id.startswith('https://'):
+        if '/files/' in file_id and '/view' in file_id:
+            try:
+                parts = file_id.split('/files/')
+                if len(parts) > 1:
+                    file_id = parts[1].split('/')[0]
+            except Exception:
+                pass
+        else:
+            return file_id
+        
+    token = obfuscate_file_id(file_id)
+    return url_for('profile_bp.media_proxy', file_id=token, _external=True)
+
 @app.context_processor
 def inject_user_profile():
     if 'user' in session:
@@ -77,7 +103,11 @@ def inject_user_profile():
                 user_ref = db.collection('Users').document(uid)
                 user_doc = user_ref.get()
                 if user_doc.exists:
-                    return dict(user_profile=user_doc.to_dict())
+                    profile_data = user_doc.to_dict()
+                    raw_photo = profile_data.get('photoURL', '')
+                    if raw_photo:
+                        profile_data['photoURL'] = get_file_url(raw_photo)
+                    return dict(user_profile=profile_data)
             except Exception as e:
                 print(f"Error injecting template context: {e}")
     return dict(user_profile=None)
@@ -91,7 +121,7 @@ def validate_user_session():
         'login', 'signup', 'authorize', 'reset_password', 
         'terms', 'privacy', 'static',
         'home_bp.home', 'about_bp.about_page', 'contact_bp.contact_page',
-        'pet_public_bp.pet_list', 'donation_bp.index'       
+        'pet_public_bp.pet_list', 'donation_bp.index'      
     ]
     
     if request.endpoint in public_endpoints or (request.endpoint and 'static' in request.endpoint):

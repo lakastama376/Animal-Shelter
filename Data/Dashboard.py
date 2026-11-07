@@ -1,10 +1,43 @@
-from flask import Blueprint, render_template, session, redirect, request, url_for
+from flask import Blueprint, render_template, session, redirect, request, url_for, Response, jsonify
 from firebase_admin import firestore
 import functools
-from flask import jsonify
 from datetime import datetime, timedelta
+import os
+import requests
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 
 dashboard_bp = Blueprint('dashboard_bp', __name__)
+
+def get_serializer():
+    return URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
+
+def obfuscate_file_id(file_id):
+    if not file_id:
+        return ""
+    return get_serializer().dumps(file_id, salt='media-proxy-salt')
+
+def deobfuscate_file_id(token):
+    try:
+        return get_serializer().loads(token, salt='media-proxy-salt', max_age=86400)
+    except BadSignature:
+        return None
+
+def get_file_url(file_id):
+    if not file_id:
+        return ""
+    if file_id.startswith('http://') or file_id.startswith('https://'):
+        if '/files/' in file_id and '/view' in file_id:
+            try:
+                parts = file_id.split('/files/')
+                if len(parts) > 1:
+                    file_id = parts[1].split('/')[0]
+            except Exception:
+                pass
+        else:
+            return file_id
+        
+    token = obfuscate_file_id(file_id)
+    return url_for('adoption_management_bp.media_proxy', file_id=token, _external=True)
 
 def auth_required(f):
     @functools.wraps(f)
@@ -289,7 +322,7 @@ def dashboard_view():
                 else:
                     images = ['/static/images/placeholder.png']
 
-            pet_data['images'] = images
+            pet_data['images'] = [get_file_url(img) if img and 'placeholder' not in img else img for img in images]
             pet_data['petName'] = pet_data.get('petName') or pet_data.get('name') or 'Unnamed Pet'
             pet_data['species'] = (pet_data.get('species') or pet_data.get('type') or '').lower()
             pet_data['is_favorited'] = doc.id in wishlist_ids
@@ -319,7 +352,8 @@ def dashboard_view():
                 if pet_doc.exists:
                     p_data = pet_doc.to_dict()
                     app_data['pet_name'] = p_data.get('name') or p_data.get('petName', 'Unknown Pet')
-                    app_data['pet_photo'] = (p_data.get('images') or [None])[0] or p_data.get('photoUrl') or p_data.get('imageUrl', '')
+                    raw_photo = (p_data.get('images') or [None])[0] or p_data.get('photoUrl') or p_data.get('imageUrl', '')
+                    app_data['pet_photo'] = get_file_url(raw_photo) if raw_photo else ''
                 else:
                     app_data['pet_name'] = app_data.get('petName', 'Unknown Pet')
                     app_data['pet_photo'] = ''

@@ -1,9 +1,42 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from firebase_admin import firestore
 import random
+import os
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 from Data.audit import log_audit_event
 
 pet_matching_bp = Blueprint('pet_matching_bp', __name__)
+
+def get_serializer():
+    return URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
+
+def obfuscate_file_id(file_id):
+    if not file_id:
+        return ""
+    return get_serializer().dumps(file_id, salt='media-proxy-salt')
+
+def deobfuscate_file_id(token):
+    try:
+        return get_serializer().loads(token, salt='media-proxy-salt', max_age=86400)
+    except BadSignature:
+        return None
+
+def get_file_url(file_id):
+    if not file_id:
+        return ""
+    if file_id.startswith('http://') or file_id.startswith('https://'):
+        if '/files/' in file_id and '/view' in file_id:
+            try:
+                parts = file_id.split('/files/')
+                if len(parts) > 1:
+                    file_id = parts[1].split('/')[0]
+            except Exception:
+                pass
+        else:
+            return file_id
+        
+    token = obfuscate_file_id(file_id)
+    return url_for('adoption_management_bp.media_proxy', file_id=token, _external=True)
 
 @pet_matching_bp.route('/matching', methods=['GET'])
 def index():
@@ -59,6 +92,9 @@ def calculate_matches():
             pet_id = doc.id
             pet['id'] = pet_id
             pet['is_favorited'] = pet_id in user_wishlist
+
+            if pet.get('images'):
+                pet['images'] = [get_file_url(img) for img in pet['images'] if img]
             
             score = 100
             total_rules = 0

@@ -2,9 +2,42 @@ from flask import Blueprint, render_template, session, jsonify, redirect, url_fo
 from firebase_admin import firestore
 from functools import wraps
 import datetime
+import os
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 from Data.audit import log_audit_event
 
 wishlist_bp = Blueprint('wishlist_bp', __name__)
+
+def get_serializer():
+    return URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
+
+def obfuscate_file_id(file_id):
+    if not file_id:
+        return ""
+    return get_serializer().dumps(file_id, salt='media-proxy-salt')
+
+def deobfuscate_file_id(token):
+    try:
+        return get_serializer().loads(token, salt='media-proxy-salt', max_age=86400)
+    except BadSignature:
+        return None
+
+def get_file_url(file_id):
+    if not file_id:
+        return ""
+    if file_id.startswith('http://') or file_id.startswith('https://'):
+        if '/files/' in file_id and '/view' in file_id:
+            try:
+                parts = file_id.split('/files/')
+                if len(parts) > 1:
+                    file_id = parts[1].split('/')[0]
+            except Exception:
+                pass
+        else:
+            return file_id
+        
+    token = obfuscate_file_id(file_id)
+    return url_for('adoption_management_bp.media_proxy', file_id=token, _external=True)
 
 def auth_required(f):
     @wraps(f)
@@ -37,11 +70,15 @@ def view_wishlist():
                 if pet_doc.exists:
                     pet_data = pet_doc.to_dict()
                     pet_data['id'] = pet_doc.id  
+                    
+                    if pet_data.get('images'):
+                        pet_data['images'] = [get_file_url(img) for img in pet_data['images'] if img]
+
                     wishlist_items.append({
                         'pet': pet_data,
                         'date_added': datetime.date.today() 
                     })
-                    
+                
     except Exception as e:
         print(f"Error gathering wishlist records: {e}")
 

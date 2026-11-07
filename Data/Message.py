@@ -1,6 +1,9 @@
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, Response
 from functools import wraps
 import html
+import os
+import requests
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 import firebase_admin
 from firebase_admin import firestore
 from datetime import datetime, timedelta, timezone
@@ -9,6 +12,37 @@ message_bp = Blueprint('message_bp', __name__)
 
 def get_db():
     return firestore.client()
+
+def get_serializer():
+    return URLSafeTimedSerializer(os.getenv('SECRET_KEY', 'your-fallback-secret-key'))
+
+def obfuscate_file_id(file_id):
+    if not file_id:
+        return ""
+    return get_serializer().dumps(file_id, salt='media-proxy-salt')
+
+def deobfuscate_file_id(token):
+    try:
+        return get_serializer().loads(token, salt='media-proxy-salt', max_age=86400)
+    except BadSignature:
+        return None
+
+def get_file_url(file_id):
+    if not file_id:
+        return ""
+    if file_id.startswith('http://') or file_id.startswith('https://'):
+        if '/files/' in file_id and '/view' in file_id:
+            try:
+                parts = file_id.split('/files/')
+                if len(parts) > 1:
+                    file_id = parts[1].split('/')[0]
+            except Exception:
+                pass
+        else:
+            return file_id
+        
+    token = obfuscate_file_id(file_id)
+    return url_for('message_bp.media_proxy', file_id=token, _external=True)
 
 def auth_required(f):
     @wraps(f)
@@ -54,6 +88,33 @@ def message_page():
         print(f"Error fetching user role: {e}")
 
     return render_template('Message.html', user_role=user_role)
+
+@message_bp.route('/messages/media-proxy/<path:file_id>')
+@auth_required
+def media_proxy(file_id):
+    try:
+        real_file_id = deobfuscate_file_id(file_id)
+        if not real_file_id:
+            real_file_id = file_id 
+
+        bucket_id = os.getenv('APPWRITE_BUCKET_ID')
+        project_id = os.getenv('APPWRITE_PROJECT_ID')
+        api_key = os.getenv('APPWRITE_API_KEY')
+        endpoint = os.getenv('APPWRITE_ENDPOINT')
+        appwrite_url = f"{endpoint}/storage/buckets/{bucket_id}/files/{real_file_id}/view?project={project_id}"
+        
+        headers = {
+            'X-Appwrite-Key': api_key,
+            'X-Appwrite-Project': project_id
+        }
+        
+        resp = requests.get(appwrite_url, headers=headers, stream=True)
+        if resp.status_code == 200:
+            return Response(resp.iter_content(chunk_size=1024), content_type=resp.headers.get('content-type', 'image/jpeg'))
+        else:
+            return jsonify({"error": "File not found or access denied"}), resp.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Messages
 @message_bp.route('/api/conversations', methods=['GET'])
@@ -104,7 +165,8 @@ def get_conversations():
                             or f"{user_data.get('firstName', '')} {user_data.get('lastName', '')}".strip() 
                             or 'User'
                         )
-                        photo_url = user_data.get('photoURL')
+                        raw_photo = user_data.get('photoURL')
+                        photo_url = get_file_url(raw_photo) if raw_photo else None
 
             data['displayName'] = display_name
             data['photoURL'] = photo_url
@@ -306,7 +368,7 @@ def mark_as_read(conversation_id):
 @message_bp.app_context_processor
 def inject_unread_status():
     if 'user' not in session:
-        return dict(has_unread_messages=False)
+        return dict(has_new_adoptions=False, has_unread_messages=False)
 
     uid = session['user']['uid']
     try:

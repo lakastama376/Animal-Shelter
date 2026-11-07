@@ -5,6 +5,7 @@ from functools import wraps
 import uuid
 import os
 import json
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 from Data.audit import log_audit_event
 from appwrite.client import Client # type: ignore
 from appwrite.services.storage import Storage # type: ignore
@@ -18,6 +19,63 @@ def get_storage():
     client.set_project(os.getenv('APPWRITE_PROJECT_ID'))
     client.set_key(os.getenv('APPWRITE_API_KEY'))
     return Storage(client)
+
+def get_serializer():
+    return URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
+
+def obfuscate_file_id(file_id):
+    if not file_id:
+        return ""
+    return get_serializer().dumps(file_id, salt='media-proxy-salt')
+
+def deobfuscate_file_id(token):
+    try:
+        return get_serializer().loads(token, salt='media-proxy-salt', max_age=86400)
+    except BadSignature:
+        return None
+
+def get_file_url(file_id):
+    if not file_id:
+        return ""
+    if file_id.startswith('http://') or file_id.startswith('https://'):
+        if '/files/' in file_id and '/view' in file_id:
+            try:
+                parts = file_id.split('/files/')
+                if len(parts) > 1:
+                    file_id = parts[1].split('/')[0]
+            except Exception:
+                pass
+        else:
+            return file_id
+        
+    token = obfuscate_file_id(file_id)
+    return url_for('adoption_management_bp.media_proxy', file_id=token, _external=True)
+
+def extract_file_id(url_or_id):
+    if not url_or_id:
+        return ""
+    if 'media-proxy/' in url_or_id:
+        try:
+            return url_or_id.split('media-proxy/')[-1].split('?')[0]
+        except Exception:
+            pass
+    if '/files/' in url_or_id:
+        try:
+            parts = url_or_id.split('/files/')
+            if len(parts) > 1:
+                return parts[1].split('/')[0].split('?')[0]
+        except Exception:
+            pass
+    return url_or_id
+
+def delete_storage_file(storage, bucket_id, file_url_or_id):
+    if not file_url_or_id:
+        return
+    file_id = extract_file_id(file_url_or_id)
+    try:
+        storage.delete_file(bucket_id=bucket_id, file_id=file_id)
+    except Exception as e:
+        print(f"Error deleting file {file_id} from Appwrite storage: {e}")
 
 def admin_required(f):
     @wraps(f)
@@ -79,6 +137,11 @@ def index():
                 except ValueError:
                     pass
             
+            if p_data.get('images'):
+                p_data['images'] = [get_file_url(img) for img in p_data['images'] if img]
+            if p_data.get('storyVideos'):
+                p_data['storyVideos'] = [get_file_url(vid) for vid in p_data['storyVideos'] if vid]
+            
             pets_list.append(p_data)
             
         return render_template('PetManagement.html', pets=pets_list)
@@ -94,7 +157,12 @@ def get_pet_json(id):
         db = firestore.client()
         doc = db.collection('Pets').document(id).get()
         if doc.exists:
-            return jsonify(doc.to_dict()), 200
+            pet_data = doc.to_dict()
+            if pet_data.get('images'):
+                pet_data['images'] = [get_file_url(img) for img in pet_data['images'] if img]
+            if pet_data.get('storyVideos'):
+                pet_data['storyVideos'] = [get_file_url(vid) for vid in pet_data['storyVideos'] if vid]
+            return jsonify(pet_data), 200
         return jsonify({"error": "Target object key structure missing."}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -199,14 +267,26 @@ def update_pet():
             return redirect(url_for('pet_management_bp.index'))
 
         pet_ref = db.collection('Pets').document(pet_id)
-        current_pet = pet_ref.get().to_dict()
-        existing_images = current_pet.get('images', []) if current_pet else []
-        existing_videos = current_pet.get('storyVideos', []) if current_pet else []
-        deleted_images = [i.strip() for i in request.form.get('deletedImages', '').split('|||') if i.strip()]
-        deleted_videos = [v.strip() for v in request.form.get('deletedVideos', '').split('|||') if v.strip()]
-        filtered_images = [img for img in existing_images if img not in deleted_images]
-        filtered_videos = [vid for vid in existing_videos if vid not in deleted_videos]
+        current_doc = pet_ref.get()
+        if not current_doc.exists:
+            flash("Pet record not found.", "error")
+            return redirect(url_for('pet_management_bp.index'))
 
+        current_pet = current_doc.to_dict()
+        existing_images = current_pet.get('images', [])
+        existing_videos = current_pet.get('storyVideos', [])
+
+        deleted_images_raw = [i.strip() for i in request.form.get('deletedImages', '').split('|||') if i.strip()]
+        deleted_videos_raw = [v.strip() for v in request.form.get('deletedVideos', '').split('|||') if v.strip()]
+        deleted_image_ids = {extract_file_id(url) for url in deleted_images_raw}
+        deleted_video_ids = {extract_file_id(url) for url in deleted_videos_raw}
+        for img_url in deleted_images_raw:
+            delete_storage_file(storage, bucket_id, img_url)
+        for vid_url in deleted_videos_raw:
+            delete_storage_file(storage, bucket_id, vid_url)
+
+        filtered_images = [img for img in existing_images if extract_file_id(img) not in deleted_image_ids]
+        filtered_videos = [vid for vid in existing_videos if extract_file_id(vid) not in deleted_video_ids]
         if 'images' in request.files:
             for file in request.files.getlist('images'):
                 if file and file.filename != '':
@@ -285,12 +365,21 @@ def update_pet():
 def delete_pet(id):
     try:
         db = firestore.client()
+        storage = get_storage()
+        bucket_id = os.getenv('APPWRITE_BUCKET_ID')
+        
         pet_ref = db.collection('Pets').document(id)
         doc = pet_ref.get()
         pet_name = "Unknown Pet"
+        
         if doc.exists:
             pet_data = doc.to_dict()
             pet_name = pet_data.get('petName') or pet_data.get('name') or pet_name
+            
+            for img_url in pet_data.get('images', []):
+                delete_storage_file(storage, bucket_id, img_url)
+            for vid_url in pet_data.get('storyVideos', []):
+                delete_storage_file(storage, bucket_id, vid_url)
 
         pet_ref.delete()
         admin_uid, admin_name = get_admin_info()
@@ -301,7 +390,7 @@ def delete_pet(id):
             user_name=admin_name
         )
 
-        flash("Animal database instance discarded cleanly.", "success")
+        flash("Animal database instance and media files discarded cleanly.", "success")
     except Exception as e:
         print(f"Error purging entity sequence records targets: {e}")
         flash("Failed to drop record entry instance references.", "error")

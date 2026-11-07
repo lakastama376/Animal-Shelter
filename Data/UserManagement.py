@@ -1,11 +1,45 @@
 from datetime import datetime, timezone, timedelta
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, abort
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, abort, Response
 from functools import wraps
+import os
+import requests
 import firebase_admin
 from firebase_admin import firestore, auth
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 from Data.audit import log_audit_event
 
 user_management_bp = Blueprint('user_management_bp', __name__)
+
+def get_serializer():
+    return URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
+
+def obfuscate_file_id(file_id):
+    if not file_id:
+        return ""
+    return get_serializer().dumps(file_id, salt='media-proxy-salt')
+
+def deobfuscate_file_id(token):
+    try:
+        return get_serializer().loads(token, salt='media-proxy-salt', max_age=86400)
+    except BadSignature:
+        return None
+
+def get_file_url(file_id):
+    if not file_id:
+        return ""
+    if file_id.startswith('http://') or file_id.startswith('https://'):
+        if '/files/' in file_id and '/view' in file_id:
+            try:
+                parts = file_id.split('/files/')
+                if len(parts) > 1:
+                    file_id = parts[1].split('/')[0]
+            except Exception:
+                pass
+        else:
+            return file_id
+        
+    token = obfuscate_file_id(file_id)
+    return url_for('user_management_bp.media_proxy', file_id=token, _external=True)
 
 def admin_required(f):
     @wraps(f)
@@ -94,6 +128,9 @@ def get_users():
                 elif hasattr(joined_at_raw, 'to_datetime'):
                     joined_at_str = joined_at_raw.to_datetime().strftime('%B %d, %Y')
 
+            raw_photo = data.get('photoURL', '')
+            resolved_photo = get_file_url(raw_photo) if raw_photo else ''
+
             users.append({
                 'uid': doc.id,
                 'fullName': data.get('fullName') or f"{data.get('firstName', '')} {data.get('lastName', '')}".strip() or 'N/A',
@@ -102,7 +139,7 @@ def get_users():
                 'address': data.get('address', 'N/A'),
                 'role': data.get('role', 'Adopter'),
                 'status': status,
-                'photoURL': data.get('photoURL', ''),
+                'photoURL': resolved_photo,
                 'bio': data.get('bio', ''),
                 'joinedAt': joined_at_str,
                 'adoptionCount': data.get('adoptionCount', 0),
@@ -112,6 +149,33 @@ def get_users():
         return jsonify({"status": "success", "users": users}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@user_management_bp.route('/user-management/media-proxy/<path:file_id>')
+@admin_required
+def media_proxy(file_id):
+    try:
+        real_file_id = deobfuscate_file_id(file_id)
+        if not real_file_id:
+            real_file_id = file_id
+
+        bucket_id = os.getenv('APPWRITE_BUCKET_ID')
+        project_id = os.getenv('APPWRITE_PROJECT_ID')
+        api_key = os.getenv('APPWRITE_API_KEY')
+        endpoint = os.getenv('APPWRITE_ENDPOINT')
+        appwrite_url = f"{endpoint}/storage/buckets/{bucket_id}/files/{real_file_id}/view?project={project_id}"
+        
+        headers = {
+            'X-Appwrite-Key': api_key,
+            'X-Appwrite-Project': project_id
+        }
+        
+        resp = requests.get(appwrite_url, headers=headers, stream=True)
+        if resp.status_code == 200:
+            return Response(resp.iter_content(chunk_size=1024), content_type=resp.headers.get('content-type', 'image/jpeg'))
+        else:
+            return jsonify({"error": "File not found or access denied"}), resp.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Status
 @user_management_bp.route('/api/users/<uid>/role', methods=['PUT'])
