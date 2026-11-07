@@ -54,18 +54,27 @@ def get_file_url(file_id):
 def extract_file_id(url_or_id):
     if not url_or_id:
         return ""
+    token = ""
     if 'media-proxy/' in url_or_id:
         try:
-            return url_or_id.split('media-proxy/')[-1].split('?')[0]
+            token = url_or_id.split('media-proxy/')[-1].split('?')[0]
         except Exception:
             pass
-    if '/files/' in url_or_id:
+    elif '/files/' in url_or_id:
         try:
             parts = url_or_id.split('/files/')
             if len(parts) > 1:
-                return parts[1].split('/')[0].split('?')[0]
+                token = parts[1].split('/')[0].split('?')[0]
         except Exception:
             pass
+    else:
+        token = url_or_id
+
+    if token:
+        real_id = deobfuscate_file_id(token)
+        if real_id:
+            return real_id
+        return token
     return url_or_id
 
 def delete_storage_file(storage, bucket_id, file_url_or_id):
@@ -287,6 +296,7 @@ def update_pet():
 
         filtered_images = [img for img in existing_images if extract_file_id(img) not in deleted_image_ids]
         filtered_videos = [vid for vid in existing_videos if extract_file_id(vid) not in deleted_video_ids]
+
         if 'images' in request.files:
             for file in request.files.getlist('images'):
                 if file and file.filename != '':
