@@ -121,7 +121,9 @@ def validate_user_session():
         'login', 'signup', 'authorize', 'reset_password', 
         'terms', 'privacy', 'static',
         'home_bp.home', 'about_bp.about_page', 'contact_bp.contact_page',
-        'pet_public_bp.pet_list', 'donation_bp.index'      
+        'pet_public_bp.pet_list', 'pet_public_bp.public_media_proxy',
+        'home_bp.media_proxy',
+        'donation_bp.index'      
     ]
     
     if request.endpoint in public_endpoints or (request.endpoint and 'static' in request.endpoint):

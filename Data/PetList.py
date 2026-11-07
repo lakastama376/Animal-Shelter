@@ -1,7 +1,8 @@
 import os
-from flask import Blueprint, render_template, request, jsonify, session, url_for
+from flask import Blueprint, render_template, request, jsonify, session, url_for, Response
 from firebase_admin import firestore
 from itsdangerous import URLSafeTimedSerializer, BadSignature
+import requests
 
 pet_public_bp = Blueprint('pet_public_bp', __name__)
 
@@ -34,7 +35,33 @@ def get_file_url(file_id):
             return file_id
         
     token = obfuscate_file_id(file_id)
-    return url_for('adoption_management_bp.media_proxy', file_id=token, _external=True)
+    return url_for('pet_public_bp.public_media_proxy', file_id=token, _external=True)
+
+@pet_public_bp.route('/explore/media-proxy/<path:file_id>')
+def public_media_proxy(file_id):
+    try:
+        real_file_id = deobfuscate_file_id(file_id)
+        if not real_file_id:
+            real_file_id = file_id 
+
+        bucket_id = os.getenv('APPWRITE_BUCKET_ID')
+        project_id = os.getenv('APPWRITE_PROJECT_ID')
+        api_key = os.getenv('APPWRITE_API_KEY')
+        endpoint = os.getenv('APPWRITE_ENDPOINT')
+        appwrite_url = f"{endpoint}/storage/buckets/{bucket_id}/files/{real_file_id}/view?project={project_id}"
+        
+        headers = {
+            'X-Appwrite-Key': api_key,
+            'X-Appwrite-Project': project_id
+        }
+        
+        resp = requests.get(appwrite_url, headers=headers, stream=True)
+        if resp.status_code == 200:
+            return Response(resp.iter_content(chunk_size=1024), content_type=resp.headers.get('content-type', 'image/jpeg'))
+        else:
+            return jsonify({"error": "File not found or access denied"}), resp.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Viewing Pets
 @pet_public_bp.route('/explore', methods=['GET'])
@@ -62,7 +89,7 @@ def pet_list():
             if raw_images:
                 p_data['images'] = [get_file_url(img) for img in raw_images if img]
             else:
-                p_data['images'] = ['https://via.placeholder.com/400x250']
+                p_data['images'] = ['/static/images/placeholder.png']
                 
             p_data['is_favorited'] = d.id in wishlist
             pets_list.append(p_data)
