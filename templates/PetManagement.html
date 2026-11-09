@@ -120,6 +120,7 @@
                 <button class="modal-close-btn" onclick="closeModal()">&times;</button>
             </div>
             <form id="petForm" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" id="petId" name="petId">
                 <input type="hidden" id="deletedImagesString" name="deletedImages" value="">
                 <input type="hidden" id="deletedVideosString" name="deletedVideos" value="">

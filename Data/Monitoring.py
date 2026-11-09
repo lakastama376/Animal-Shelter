@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import uuid
 import os
 import smtplib
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 from email.message import EmailMessage
 from Data.audit import log_audit_event
 from appwrite.client import Client # type: ignore
@@ -18,6 +19,37 @@ def get_storage():
     client.set_project(os.getenv('APPWRITE_PROJECT_ID'))
     client.set_key(os.getenv('APPWRITE_API_KEY'))
     return Storage(client)
+
+def get_serializer():
+    return URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
+
+def obfuscate_file_id(file_id):
+    if not file_id:
+        return ""
+    return get_serializer().dumps(file_id, salt='media-proxy-salt')
+
+def deobfuscate_file_id(token):
+    try:
+        return get_serializer().loads(token, salt='media-proxy-salt', max_age=86400)
+    except BadSignature:
+        return None
+
+def get_file_url(file_id):
+    if not file_id:
+        return ""
+    if file_id.startswith('http://') or file_id.startswith('https://'):
+        if '/files/' in file_id and '/view' in file_id:
+            try:
+                parts = file_id.split('/files/')
+                if len(parts) > 1:
+                    file_id = parts[1].split('/')[0]
+            except Exception:
+                pass
+        else:
+            return file_id
+        
+    token = obfuscate_file_id(file_id)
+    return url_for('adoption_management_bp.media_proxy', file_id=token, _external=True)
 
 def auth_required(f):
     from functools import wraps
@@ -110,8 +142,11 @@ def monitoring_view():
     application = next((a for a in eligible_apps if a['id'] == selected_app_id), eligible_apps[0])
     pet_doc = db.collection('Pets').document(application.get('petId')).get()
     pet = pet_doc.to_dict() if pet_doc.exists else None
-    updates_ref = db.collection('Applications').document(application['id']).collection('WeeklyUpdates').stream()
+    
+    if pet and pet.get('images'):
+        pet['images'] = [get_file_url(img) for img in pet['images'] if img]
 
+    updates_ref = db.collection('Applications').document(application['id']).collection('WeeklyUpdates').stream()
     submitted_weeks = {}
     for update in updates_ref:
         data = update.to_dict()

@@ -78,7 +78,7 @@
                                     {% if w.is_submitted %}
                                         <i class="fa-solid fa-check"></i>
                                     {% elif w.is_overdue %}
-                                        <i class="fa-solid fa-exclamation"></i>
+                                        <i class="fa-solid fa-exclamation" style="color:#ef4444; font-size: 1.5em;"></i>
                                     {% else %}
                                         {{ w.number }}
                                     {% endif %}
@@ -96,6 +96,7 @@
                                 {% set current_week = weeks[active_week - 1] %}
                                 {% if current_week.can_submit %}
                                     <form id="monitoringUpdateForm" action="{{ url_for('monitoring_bp.submit_week_update', application_id=application.id, week_number=active_week) }}" method="POST" enctype="multipart/form-data" class="form-card form-update-card">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">    
                                         <div class="form-section-title form-update-title">
                                             Week {{ active_week }} Update
                                             {% if current_week.is_overdue %}

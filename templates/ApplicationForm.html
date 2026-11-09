@@ -110,6 +110,7 @@
                     <!--Application Form-->
                     {% else %}
                     <form action="{{ url_for('adoption_form_bp.apply', pet_id=pet.id if pet else 'generic') }}" method="POST" enctype="multipart/form-data" class="form-card">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="form-section-title">Personal Information</div>
                         <div class="form-row">
                             <div class="form-group">

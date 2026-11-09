@@ -122,10 +122,16 @@ async function processSocialAuthResult(result) {
     const extraData = {
         first_name: nameParts[0] || "",
         last_name: nameParts.slice(1).join(" ") || "",
-        username: derivedUsername, 
+        username: derivedUsername,
         contact: user.phoneNumber || "",
         address: "",
-        photo_url: user.photoURL || ""
+        photo_url:
+            user.photoURL ||
+            user.providerData?.find(
+                provider => provider.providerId === "google.com"
+            )?.photoURL ||
+            user.providerData?.[0]?.photoURL ||
+            ""
     };
 
     loginUser(user, idToken, extraData);

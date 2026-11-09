@@ -95,7 +95,7 @@ def media_proxy(file_id):
     try:
         real_file_id = deobfuscate_file_id(file_id)
         if not real_file_id:
-            real_file_id = file_id 
+            return jsonify({"error": "Not found"}), 404
 
         bucket_id = os.getenv('APPWRITE_BUCKET_ID')
         project_id = os.getenv('APPWRITE_PROJECT_ID')

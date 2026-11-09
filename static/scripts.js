@@ -1,3 +1,36 @@
+const originalFetch = window.fetch.bind(window);
+window.fetch = async function (url, options = {}) {
+    const method = (
+        options.method ||
+        (url instanceof Request ? url.method : 'GET')
+    ).toUpperCase();
+
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        const requestUrl = new URL(
+            url instanceof Request ? url.url : url,
+            window.location.origin
+        );
+
+        if (requestUrl.origin === window.location.origin) {
+            const match = document.cookie.match(
+                /(?:^|; )csrf_token=([^;]*)/
+            );
+            options.headers = new Headers(
+                options.headers ||
+                (url instanceof Request ? url.headers : {})
+            );
+
+            if (match) {
+                options.headers.set(
+                    'X-CSRFToken',
+                    decodeURIComponent(match[1])
+                );
+            }
+        }
+    }
+    return originalFetch(url, options);
+};
+
 // Navbar
 const hamburgerBtn = document.getElementById('hamburgerBtn');
 const closeBtn = document.getElementById('closeBtn');

@@ -15,8 +15,8 @@ content_management_bp = Blueprint('content_management_bp', __name__)
 
 FACEBOOK_PAGE_ID_KEY = os.getenv('FACEBOOK_PAGE_ID_2')
 INSTAGRAM_ID_KEY = os.getenv('INSTAGRAM_ID')
-FB_PAGE_ACCESS_TOKEN_KEY = "EAAeRZCceQMi4BSZBrE6qP45S33hx5ZADqyZCIUKjXCoMTC2gX15P4lYjZBYBGpi5d7ignZAQVtkzbKgEfPdWFqARD9jlIjeROnpZB44nIayIaoZC2OhQedz7NkR3pAPsXzOK7tLOYzaNK4tWD9MeUM2mF8lx88YG9IPgesKfiTa8SZAtZC2yAsHpfXBcfYW0mFUX3p"
-IG_PAGE_ACCESS_TOKEN_KEY = "EAAOZC2QFMz70BS9mLb4FlGdwrowKPRLRadku6z6NcqaqMZBdD1G1Lq4AH21u5IMv8tMFQ0ihSQkS8MifRMBH5ZBJVNDZBcY7ZAYTzeIqo9TPtXfBNPk3zmRRUwzwHyKiFwO1Bhg0kkTCPrNDjafepQQ3CaJ0XojJbTsGQ8NZAJZCa5hxSNM8xilxH84wV3u"
+FB_PAGE_ACCESS_TOKEN_KEY = "EAAeRZCceQMi4BS2KWJxvy9QQZBePrBBCyLJEyJalEjbzBzQ6pX8Dg9fUswshh0xg1zg0SpK8NLcZCm0kb8qMRdMp40eBbKFDarvsYfM4BkuBawVJ6SKdEAo8zAxGSGMaqtFTMFla5v2WRm0mzZCkLJNdZBH3S9o9Dhk02CTySz7XctHdyRHa8vMl1DACsLMQSNF3jDVE0"
+IG_PAGE_ACCESS_TOKEN_KEY = "EAAOZC2QFMz70BS4KU4FqbtZAoF2OuV6ei3mR5vEZBVgJo695XTqimUXcYuaNm65DdWyWqNFiofXI4AYAEXHZC0ZAkgYIjnhcTaecRev4RtuAGCAJPqAqlIEz9dliqQj5eXzMk2SgJqZAoaWf8PJrji0WbwGEUwztCQhu7JPB8qE77iM7zaJH6a7V5h7hCeYrX7"
 
 def get_storage():
     client = Client()
@@ -35,10 +35,10 @@ def admin_required(f):
             db = firestore.client()
             uid = session['user'].get('uid') or session['user'].get('user_id')
             user_doc = db.collection('Users').document(uid).get()
+            
             if not user_doc.exists or user_doc.to_dict().get('role') != 'Admin':
                 return jsonify({"status": "error", "message": "Access denied. Admins only."}), 403
             return f(*args, **kwargs)
-        
         except Exception as e:
             return jsonify({"status": "error", "message": f"Auth engine error: {str(e)}"}), 500
     return decorated_function
@@ -105,7 +105,6 @@ def post_content():
     try:
         message = request.form.get("message")
         platforms = request.form.getlist("platforms")
-
         storage = get_storage()
         bucket_id = os.getenv('APPWRITE_BUCKET_ID') 
         project_id = os.getenv('APPWRITE_PROJECT_ID')
@@ -192,7 +191,6 @@ def post_content():
             elif not INSTAGRAM_ID_KEY or INSTAGRAM_ID_KEY == "INSTAGRAM_BUSINESS_ACCOUNT_ID":
                 errors.append("IG Error: Instagram Account ID is not configured.")
             elif len(uploaded_media_urls) == 1:
-                # Single media container
                 container_url = f"https://graph.facebook.com/v18.0/{INSTAGRAM_ID_KEY}/media"
                 container_payload = {
                     "caption": message,

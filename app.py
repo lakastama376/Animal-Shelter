@@ -10,6 +10,7 @@ import json
 import re
 from itsdangerous import URLSafeTimedSerializer, BadSignature
 from Data.audit import log_audit_event
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 from dotenv import load_dotenv
 
 from Data.Home import home_bp
@@ -45,6 +46,17 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)  
 app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' 
+
+csrf = CSRFProtect(app)
+@app.after_request
+def set_csrf_cookie(response):
+    response.set_cookie(
+        'csrf_token',
+        generate_csrf(),
+        samesite='Lax',
+        secure=app.config['SESSION_COOKIE_SECURE']
+    )
+    return response
 
 @app.after_request
 def add_security_headers(response):
@@ -125,7 +137,7 @@ def validate_user_session():
         'home_bp.public_media_proxy', 'donation_bp.index',
         'donation_bp.media_proxy', 'article_list_bp.list_articles'     
     ]
-    
+
     if request.endpoint in public_endpoints or (request.endpoint and 'static' in request.endpoint):
         return
 
@@ -173,6 +185,7 @@ def auth_required(f):
     return decorated_function
 
 @app.route('/auth', methods=['POST'])
+@csrf.exempt
 def authorize():
     token = request.headers.get('Authorization')
     if not token or not token.startswith('Bearer '):
@@ -182,9 +195,16 @@ def authorize():
     try:
         decoded_token = auth.verify_id_token(token, check_revoked=True, clock_skew_seconds=60)
         uid = decoded_token['uid']
+        firebase_user = auth.get_user(uid)
+        photo_url = (
+            firebase_user.photo_url
+            or data.get('photo_url')
+            or decoded_token.get('picture')
+            or ''
+        )
+
         user_ref = db.collection('Users').document(uid)
         user_doc = user_ref.get()
-
         if user_doc.exists:
             user_data = user_doc.to_dict()
             if user_data.get('status') == 'blocked':
@@ -197,13 +217,15 @@ def authorize():
         if not user_doc.exists:
             contact_number = data.get('contact', '')
             phone_regex = r'^09\d{9}$'
-            if not re.match(phone_regex, contact_number):
-                return jsonify({"status": "error", "message": "Invalid contact number format. Must be 11 digits starting with 09."}), 400
+            sign_in_provider = decoded_token.get('firebase', {}).get('sign_in_provider', '')
+            if sign_in_provider not in ['google.com', 'facebook.com']:
+                if not re.match(phone_regex, contact_number):
+                    return jsonify({"status": "error", "message": "Invalid contact number format. Must be 11 digits starting with 09."}), 400
 
+        first_name = data.get('first_name', '')
+        last_name = data.get('last_name', '')
         if not decoded_token.get('email_verified', False):
             if not user_doc.exists:
-                first_name = data.get('first_name', '')
-                last_name = data.get('last_name', '')
                 user_profile = {
                     'uid': uid,
                     'email': decoded_token.get('email', data.get('email', '')),
@@ -213,13 +235,13 @@ def authorize():
                     'fullName': f"{first_name} {last_name}".strip(),
                     'phone': data.get('contact', ''),
                     'address': data.get('address', ''),
-                    'role': data.get('role', 'Adopter'),
-                    'status': "active",
+                    'role': 'Adopter',
+                    'status': 'active',
                     'emailVerified': False,
-                    'photoURL': data.get('photo_url', ''),  
+                    'photoURL': photo_url,
                     'joinedAt': firestore.SERVER_TIMESTAMP,
                     'lastLogin': firestore.SERVER_TIMESTAMP,
-                    'currentSessionToken': new_session_token, 
+                    'currentSessionToken': new_session_token,
                     'adoptionCount': 0,
                     'rescueReportsSubmitted': 0,
                     'wishlist': [],
@@ -230,9 +252,6 @@ def authorize():
 
         session['user'] = decoded_token 
         session['session_token'] = new_session_token
-        first_name = data.get('first_name', '')
-        last_name = data.get('last_name', '')
-        
         if not user_doc.exists:
             user_profile = {
                 'uid': uid,
@@ -243,13 +262,13 @@ def authorize():
                 'fullName': f"{first_name} {last_name}".strip(),
                 'phone': data.get('contact', ''),
                 'address': data.get('address', ''),
-                'role': data.get('role', 'Adopter'),
-                'status': "active",
+                'role': 'Adopter',
+                'status': 'active',
                 'emailVerified': True,
-                'photoURL': data.get('photo_url', ''), 
+                'photoURL': photo_url,
                 'joinedAt': firestore.SERVER_TIMESTAMP,
                 'lastLogin': firestore.SERVER_TIMESTAMP,
-                'currentSessionToken': new_session_token,  
+                'currentSessionToken': new_session_token,
                 'adoptionCount': 0,
                 'rescueReportsSubmitted': 0,
                 'wishlist': [],
@@ -263,8 +282,7 @@ def authorize():
                 'emailVerified': True,
                 'currentSessionToken': new_session_token 
             }
-            
-            photo_url = data.get('photo_url')
+
             if first_name:
                 update_payload['firstName'] = first_name
                 update_payload['lastName'] = last_name or ''
@@ -311,7 +329,7 @@ def login():
     if 'user' in session:
         uid = session['user'].get('uid')
         client_token = session.get('session_token')
-        
+
         if uid:
             user_doc = db.collection('Users').document(uid).get()
             if user_doc.exists:

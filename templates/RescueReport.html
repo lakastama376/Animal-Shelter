@@ -43,6 +43,7 @@
                 <!--Rescue Report Form-->
                 {% if capacity.status == 'Accepting' %}
                 <form id="rescueReportForm" action="{{ url_for('rescue_report_bp.submit_report') }}" method="POST" enctype="multipart/form-data" class="card">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="form-group">
                         <label class="required">Type of Animal</label>
                         <input type="hidden" name="animalType" id="animalTypeInput" required>

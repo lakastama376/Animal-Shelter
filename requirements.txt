@@ -4,3 +4,4 @@ gunicorn
 python-dotenv
 appwrite
 requests
+flask-wtf
