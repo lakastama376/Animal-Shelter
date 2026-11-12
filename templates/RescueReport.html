@@ -55,8 +55,9 @@
                     </div>
                     <div class="form-group">
                         <label class="required">Location</label>
-                        <input type="text" name="location" required placeholder="Street name, barangay, city (e.g., Aguinaldo Highway near 7-Eleven, Silang)">
-                        <div class="hint">Be as specific as possible — landmarks help our team find the location faster.</div>
+                        <input type="text" name="location" id="locationAddress" required placeholder="Select a location on the map to get its address...">
+                        <div class="hint">The address will automatically appear when you pin a location on the map. You can also edit the address manually if needed.</div>
+                        <div id="addressStatus" class="hint" style="color:#166534;"></div>
                     </div>
                     <div class="form-group">
                         <label class="required">Animal Condition</label>
@@ -206,6 +207,19 @@
             progressBar.style.width = percentage + '%';
         }
 
+        const reportForm = document.getElementById('rescueReportForm');
+        if (reportForm) {
+            reportForm.addEventListener('submit', function(e) {
+                const submitBtn = reportForm.querySelector('.submit-btn');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.7';
+                    submitBtn.style.cursor = 'not-allowed';
+                    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting Report...';
+                }
+            });
+        }
+
         // Shelter Coordinates
         const shelterLatLng = L.latLng(14.24972, 120.98140);
         const map = L.map('map').setView(shelterLatLng, 13);
@@ -287,8 +301,107 @@
             strings: { title: "Find my current location" }
         }).addTo(map);
 
+        // Pinned Location
         let pinnedMarker = null;
         let pinnedCircle = null;
+        const locationAddress = document.getElementById('locationAddress');
+        const addressStatus = document.getElementById('addressStatus');
+        let reverseGeocodeController = null;
+        let reverseGeocodeRequestId = 0;
+        async function getReadableAddress(latitude, longitude) {
+            if (reverseGeocodeController) {
+                reverseGeocodeController.abort();
+            }
+
+            reverseGeocodeController = new AbortController();
+            const currentRequestId = ++reverseGeocodeRequestId;
+            locationAddress.value = '';
+            locationAddress.placeholder = 'Finding address...';
+            addressStatus.innerText = 'Getting the address of your selected location...';
+
+            try {
+                const response = await fetch(
+                    `https://photon.komoot.io/reverse/?lon=${longitude}&lat=${latitude}`,
+                    {
+                        method: 'GET',
+                        signal: reverseGeocodeController.signal
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error('Unable to retrieve the address.');
+                }
+
+                const data = await response.json();
+                if (currentRequestId !== reverseGeocodeRequestId) {
+                    return;
+                }
+
+                if (!data.features || data.features.length === 0) {
+                    locationAddress.placeholder = 'Enter the location address manually...';
+                    addressStatus.innerText =
+                        'No readable address was found. Please enter the address manually.';
+                    return;
+                }
+
+                const address = data.features[0].properties;
+                const addressParts = [];
+                if (address.name) {
+                    addressParts.push(address.name);
+                }
+                if (address.street && address.street !== address.name) {
+                    addressParts.push(address.street);
+                }
+                if (address.housenumber) {
+                    addressParts.push(address.housenumber);
+                }
+                if (address.suburb) {
+                    addressParts.push(address.suburb);
+                }
+                if (address.district) {
+                    addressParts.push(address.district);
+                }
+                if (address.city) {
+                    addressParts.push(address.city);
+                } else if (address.town) {
+                    addressParts.push(address.town);
+                } else if (address.village) {
+                    addressParts.push(address.village);
+                }
+                if (address.state) {
+                    addressParts.push(address.state);
+                }
+                if (address.country) {
+                    addressParts.push(address.country);
+                }
+
+                const readableAddress = [...new Set(addressParts)]
+                    .filter(Boolean)
+                    .join(', ');
+
+                if (readableAddress) {
+                    locationAddress.value = readableAddress;
+                    locationAddress.placeholder = 'Street, barangay, city...';
+                    addressStatus.innerText = 'Address successfully detected from your pin.';
+                } else {
+                    locationAddress.placeholder = 'Enter the location address manually...';
+                    addressStatus.innerText =
+                        'Address details are unavailable. Please enter the address manually.';
+                }
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    return;
+                }
+
+                console.error('Reverse geocoding error:', error);
+                if (currentRequestId === reverseGeocodeRequestId) {
+                    locationAddress.placeholder = 'Enter the location address manually...';
+                    addressStatus.innerText =
+                        'Unable to detect the address. Your GPS coordinates are still recorded. Please enter the address manually.';
+                }
+            }
+        }
 
         function processLocationPin(targetLatLng) {
             const pt = turf.point([targetLatLng.lng, targetLatLng.lat]);
@@ -311,6 +424,7 @@
             document.getElementById('geoLongitude').value = targetLatLng.lng;
             document.getElementById('coordDisplay').innerText = `Lat: ${targetLatLng.lat.toFixed(5)}, Lng: ${targetLatLng.lng.toFixed(5)}`;
             document.getElementById('routeStatus').innerText = "📍 Target Position Logged";
+            getReadableAddress(targetLatLng.lat, targetLatLng.lng);
 
             if (pinnedMarker) {
                 map.removeLayer(pinnedMarker);

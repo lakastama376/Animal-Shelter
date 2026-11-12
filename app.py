@@ -235,6 +235,8 @@ def authorize():
                     'fullName': f"{first_name} {last_name}".strip(),
                     'phone': data.get('contact', ''),
                     'address': data.get('address', ''),
+                    'addressLatitude': data.get('latitude'),
+                    'addressLongitude': data.get('longitude'),
                     'role': 'Adopter',
                     'status': 'active',
                     'emailVerified': False,

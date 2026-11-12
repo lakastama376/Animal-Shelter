@@ -128,7 +128,6 @@
     const itemsPerPage = 10;
 
     document.addEventListener("DOMContentLoaded", fetchUsers);
-
     async function fetchUsers() {
         try {
             const response = await fetch('/api/users');
@@ -159,15 +158,15 @@
 
     function filterUsers() {
         const query = document.getElementById('searchInput').value.toLowerCase();
-        
+
         filteredUsers = allUsers.filter(u => {
             const userStatus = (u.status || 'active').toLowerCase();
             const matchesStatus = (currentStatusFilter === 'all') || (userStatus === currentStatusFilter);
 
             const matchesQuery = u.fullName?.toLowerCase().includes(query) || 
-                                u.email?.toLowerCase().includes(query) ||
-                                (u.phone && u.phone.toLowerCase().includes(query)) ||
-                                (u.address && u.address.toLowerCase().includes(query));
+                                 u.email?.toLowerCase().includes(query) ||
+                                 (u.phone && u.phone.toLowerCase().includes(query)) ||
+                                 (u.address && u.address.toLowerCase().includes(query));
             return matchesStatus && matchesQuery;
         });
 
@@ -394,7 +393,7 @@
 
             const data = await response.json();
             if (data.status === 'success' && data.conversation) {
-                window.location.href = `/messages?active=${data.conversation.id}`;
+                window.location.href = `/messages?conversationId=${data.conversation.id}`;
             } else {
                 alert("Unable to open conversation: " + (data.message || 'Unknown error'));
             }
@@ -403,6 +402,25 @@
             alert("An error occurred while opening the messaging portal.");
         }
     }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        // If this script is on the messages page, handle conversation auto-selection
+        if (typeof loadConversations === 'function') {
+            await loadConversations(); 
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetConversationId = urlParams.get('conversationId') || urlParams.get('active');
+
+            if (targetConversationId) {
+                const conversationElement = document.querySelector(`[data-id="${targetConversationId}"]`); 
+                if (conversationElement) {
+                    conversationElement.click();
+                } else if (typeof selectConversation === 'function') {
+                    selectConversation(targetConversationId);
+                }
+            }
+        }
+    });
 </script>
 </body>
 </html>

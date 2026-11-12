@@ -64,12 +64,13 @@ def public_media_proxy(file_id):
         return jsonify({"error": str(e)}), 500
 
 # Viewing Pets
+# Viewing Pets
 @pet_public_bp.route('/explore', methods=['GET'])
 def pet_list():
     try:
         db = firestore.client()
         pets_ref = db.collection('Pets')
-        docs = pets_ref.stream()
+        docs = pets_ref.where('status', '==', 'Available').stream()
         user_data = session.get('user') or {}
         uid = user_data.get('uid') or user_data.get('user_id') or session.get('user_id') or session.get('uid')
         is_logged_in = True if uid or 'user' in session else False

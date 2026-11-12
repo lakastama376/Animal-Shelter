@@ -170,12 +170,14 @@
             });
 
             const data = await res.json();  
-            if (data.status === 'success') {
+            if (data.status === 'success' && data.conversation) {
                 await loadConversations(data.conversation.id, false);
-
-                if (isMobileView()) {
-                    selectConversation(data.conversation);
-                }
+                setTimeout(() => {
+                    const cardElement = document.querySelector(`.conv-card[data-id="${data.conversation.id}"]`);
+                    selectConversation(data.conversation, cardElement);
+                }, 50);
+            } else {
+                console.error("Unable to open shelter chat: " + (data.message || 'Unknown error'));
             }
         } catch (e) {
             console.error("Error starting admin conversation:", e);
@@ -391,6 +393,20 @@
         }
     }, 3000);
     loadConversations();
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetConversationId = urlParams.get('conversationId') || urlParams.get('active');
+        await loadConversations(targetConversationId, false);
+        if (targetConversationId) {
+            setTimeout(() => {
+                const conversationElement = document.querySelector(`.conv-card[data-id="${targetConversationId}"]`);
+                if (conversationElement) {
+                    conversationElement.click();
+                }
+            }, 100);
+        }
+    });
 </script>
 </body>
 </html>

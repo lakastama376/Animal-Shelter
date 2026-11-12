@@ -26,6 +26,23 @@
                     </button>
                 </div>
 
+                <!--Shelter Capacity-->
+                <div class="capacity">
+                    <div class="capacity-header">
+                        <span class="label">Current Shelter Capacity</span>
+                        <span class="val"><strong>{{ config.occupied }}</strong> / {{ config.maxCapacity }}</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" style="--progress-width: {{ config.percentage }}%;"></div>
+                    </div>
+                    <div class="capacity-footer">
+                        <span class="percentage-text">{{ config.percentage }}% capacity filled</span>
+                        <span class="status-badge {% if config.isAccepting %}accepting{% else %}closed{% endif %}">
+                            {% if config.isAccepting %}Accepting Animals{% else %}Intake Paused{% endif %}
+                        </span>
+                    </div>
+                </div>
+
                 <!--Search-->
                 <div class="control-wrapper">
                     <div class="search-box">

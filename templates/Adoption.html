@@ -495,7 +495,7 @@
     }
 
     // Modal View Application
-    function openViewModal(buttonElement) {
+function openViewModal(buttonElement) {
         const appDataRaw = buttonElement.getAttribute('data-application');
 
         if (!appDataRaw) return;
@@ -508,8 +508,8 @@
         let additionalAnswersHtml = '';
 
         const skipKeys = [
-            'id', 'applicationId', 'application_id', 'petId', 'userId', 'status', 'submittedAt', 'updatedAt', 'pet_details', 
-            'applicant_name', 'applicant_pic', 'applicantPic', 'scheduleVisitation', 
+            'id', 'applicationId', 'application_id', 'petId', 'userId', 'status', 'submittedAt', 'updatedAt', 
+            'pet_details','applicant_name', 'applicant_pic', 'applicantPic', 
             'formatted_submitted', 'formatted_updated', 'petName', 'uploaded_images', 
             'uploadedImages', 'firstName', 'lastName', 'documentGovIdUrl', 
             'document_gov_id_url', 'documentProofAddressUrl', 'document_proof_address_url',
@@ -520,7 +520,7 @@
         const livingFields = ['typeOfHome', 'homeOwnership', 'hasPets', 'familyAgreement', 'householdCount'];
             
         for (const [key, value] of Object.entries(app)) {
-            if (!skipKeys.includes(key) && typeof value !== 'object') {
+            if (!skipKeys.includes(key) && key !== 'scheduleVisitation' && key !== 'scheduleReturn' && typeof value !== 'object') {
                 const label = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
                 const cleanValue = value || 'Not provided';
                 const isLong = cleanValue.length > 50;
@@ -537,6 +537,21 @@
                     additionalAnswersHtml += fieldHtml;
                 }
             }
+        }
+
+        let scheduleDetailsHtml = '';
+        if (app.scheduleVisitation && (app.status === 'Visit Scheduled' || app.status === 'Approved')) {
+            scheduleDetailsHtml = `
+                <div class="data-item">
+                    <div class="data-label">Schedule Visitation</div>
+                    <div class="data-value">${app.scheduleVisitation}</div>
+                </div>`;
+        } else if (app.scheduleReturn && (app.status === 'Return Scheduled' || app.status === 'Return Requested')) {
+            scheduleDetailsHtml = `
+                <div class="data-item">
+                    <div class="data-label">Schedule Return</div>
+                    <div class="data-value">${app.scheduleReturn}</div>
+                </div>`;
         }
 
         const updates = app.weekly_updates || app.weeklyUpdates || [];
@@ -675,6 +690,7 @@
                     <div class="data-label">Current Status</div>
                     <div class="data-value"><span class="badge ${badgeClass}">${app.status}</span></div>
                 </div>
+                ${scheduleDetailsHtml}
                 <div class="data-item">
                     <div class="data-label">Application ID</div>
                     <div class="data-value">${applicationId}</div>
@@ -690,7 +706,7 @@
                 </div>
                 <div class="data-item">
                     <div class="data-label">Submission Date</div>
-                    <div class="data-value">${app.submittedAt || 'N/A'}</div>
+                    <div class="data-value" style="border: none; background: transparent; padding: 0;">${app.submittedAt || 'N/A'}</div>
                 </div>
                 ${personalInfoHtml}
                 ${livingSituationHtml ? '<div class="section-separator">Living Situation</div>' + livingSituationHtml : ''}

@@ -125,18 +125,41 @@ def get_admin_info():
             admin_name = u_data.get('fullName') or f"{u_data.get('firstName', '')} {u_data.get('lastName', '')}".strip() or admin_name
     return uid, admin_name
 
+def get_shelter_settings(db):
+    settings_ref = db.collection('Settings').document('shelter_config')
+    doc = settings_ref.get()
+    
+    if doc.exists:
+        return doc.to_dict()
+    else:
+        default_settings = {
+            "maxCapacity": 50,
+            "isAccepting": True,
+            "enforceBoundary": True,
+            "showShelterPin": True
+        }
+        settings_ref.set(default_settings)
+        return default_settings
+
 @pet_management_bp.route('/', methods=['GET'])
 @admin_required
 def index():
     try:
         db = firestore.client()
+        shelter_config = get_shelter_settings(db)
+        max_capacity = shelter_config.get('maxCapacity', 50)
+        is_accepting = shelter_config.get('isAccepting', True)
         pets_ref = db.collection('Pets')
         docs = pets_ref.stream()
-        
         pets_list = []
+        current_capacity = 0
+
         for d in docs:
             p_data = d.to_dict()
             p_data['id'] = d.id  
+
+            if p_data.get('status') != 'Adopted':
+                current_capacity += 1
 
             raw_date = p_data.get('rescueDate')
             if raw_date:
@@ -152,12 +175,25 @@ def index():
                 p_data['storyVideos'] = [get_file_url(vid) for vid in p_data['storyVideos'] if vid]
             
             pets_list.append(p_data)
+
+        capacity_pct = round((current_capacity / max_capacity) * 100, 1) if max_capacity > 0 else 0
+        config = {
+            'occupied': current_capacity,
+            'maxCapacity': max_capacity,
+            'percentage': min(capacity_pct, 100),
+            'isAccepting': is_accepting
+        }
             
-        return render_template('PetManagement.html', pets=pets_list)
+        return render_template('PetManagement.html', pets=pets_list, config=config)
     except Exception as e:
         print(f"Error reading pet system databases entries: {e}")
         flash("Could not populate the tracked shelter listings.", "error")
-        return render_template('PetManagement.html', pets=[])
+        return render_template('PetManagement.html', pets=[], config={
+            'occupied': 0,
+            'maxCapacity': 50,
+            'percentage': 0,
+            'isAccepting': True
+        })
 
 @pet_management_bp.route('/api/<id>', methods=['GET'])
 @admin_required

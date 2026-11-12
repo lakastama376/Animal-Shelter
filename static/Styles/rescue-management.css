@@ -139,7 +139,8 @@ td { padding: 1rem; border-bottom: 1px solid var(--border-color); vertical-align
 
 .details-tags { display: flex; gap: 12px; font-size: 0.875rem; font-weight: 500; color: #475569; flex-wrap: wrap; }
 .tag { display: flex; align-items: center; gap: 4px; }
-.badge { padding: 0.35rem 0.85rem; border-radius: 50px; font-size: 0.8125rem; font-weight: 700; }
+.badge { padding: 0.35rem 0.85rem; border-radius: 50px; font-size: 0.8125rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem; }
+.badge::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: currentColor; }
 .badge-submitted { background: var(--badge-submitted); color: var(--badge-submitted-text); }
 .badge-review { background: var(--badge-review); color: var(--badge-review-text); }
 .badge-dispatched { background: var(--badge-dispatched); color: var(--badge-dispatched-text); }

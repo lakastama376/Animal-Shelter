@@ -55,7 +55,7 @@
                                         <th>Condition</th>
                                         <th>Submitted</th>
                                         <th>Status</th>
-                                        <th style="text-align: right;">Actions</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="adminTableBody">
@@ -113,9 +113,6 @@
                                                         <i class="fa-solid fa-xmark"></i>
                                                     </button>
                                                 {% endif %}
-                                                <button class="btn-action" title="Reject Report" onclick="updateRescueStatus('{{ report.id }}', 'Rejected')">
-                                                    <i class="fa-solid fa-xmark"></i>
-                                                </button>
                                             </div>
                                         </td>
                                     </tr>

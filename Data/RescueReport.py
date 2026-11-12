@@ -7,13 +7,48 @@ import uuid
 import requests
 import smtplib
 from email.message import EmailMessage
-
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 from Data.audit import log_audit_event
 from appwrite.client import Client # type: ignore
 from appwrite.services.storage import Storage # type: ignore
 from appwrite.input_file import InputFile # type: ignore
 
 rescue_report_bp = Blueprint('rescue_report_bp', __name__)
+
+def get_serializer():
+    return URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
+
+def obfuscate_file_id(file_id):
+    if not file_id:
+        return ""
+    return get_serializer().dumps(file_id, salt='media-proxy-salt')
+
+def deobfuscate_file_id(token):
+    try:
+        return get_serializer().loads(token, salt='media-proxy-salt', max_age=86400)
+    except BadSignature:
+        return None
+
+def get_rescue_file_url(file_id):
+    if not file_id:
+        return ""
+    
+    if file_id.startswith('data:'):
+        return file_id
+
+    if file_id.startswith('http://') or file_id.startswith('https://'):
+        if '/media-proxy/' in file_id:
+            try:
+                parts = file_id.split('/media-proxy/')
+                if len(parts) > 1:
+                    file_id = parts[1].split('/')[0]
+            except Exception:
+                pass
+        else:
+            return file_id
+        
+    token = obfuscate_file_id(file_id)
+    return url_for('rescue_report_bp.media_proxy', file_id=token, _external=True)
 
 def get_storage():
     client = Client()
@@ -125,6 +160,33 @@ def notify_admins_new_rescue(db, reporter_name, animal_type, location_text):
                 email_notification(admin_email, subject, html_body)
     except Exception as e:
         print(f"Failed to notify admins of new rescue report: {e}")
+
+@rescue_report_bp.route('/rescue/media-proxy/<file_id>')
+@auth_required
+def media_proxy(file_id):
+    try:
+        actual_file_id = deobfuscate_file_id(file_id)
+        if not actual_file_id:
+            actual_file_id = file_id
+
+        bucket_id = os.getenv('APPWRITE_BUCKET_ID')
+        project_id = os.getenv('APPWRITE_PROJECT_ID')
+        api_key = os.getenv('APPWRITE_API_KEY')
+        appwrite_url = f"https://sgp.cloud.appwrite.io/v1/storage/buckets/{bucket_id}/files/{actual_file_id}/view?project={project_id}"
+        
+        headers = {
+            'X-Appwrite-Key': api_key,
+            'X-Appwrite-Project': project_id
+        }
+        
+        resp = requests.get(appwrite_url, headers=headers, stream=True)
+        if resp.status_code == 200:
+            from flask import Response
+            return Response(resp.iter_content(chunk_size=1024), content_type=resp.headers.get('content-type', 'image/jpeg'))
+        else:
+            return jsonify({"error": "File not found or access denied"}), resp.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
         
 # Rescue Form 
 @rescue_report_bp.route('/report', methods=['GET'])
@@ -184,6 +246,26 @@ def submit_report():
             flash("Intake is currently paused or shelter capacity is reached. We cannot accept new rescue reports at this time.", "error")
             return redirect(url_for('rescue_report_bp.index'))
         
+        user_data = session.get('user', {})
+        uid = user_data.get('uid') or user_data.get('user_id') or "Anonymous"
+        latitude_val = request.form.get('latitude', '').strip()
+        longitude_val = request.form.get('longitude', '').strip()
+        animal_type = request.form.get('animalType', '').strip()
+        location_text = request.form.get('location', '').strip()
+
+        if uid != "Anonymous":
+            existing_reports = db.collection('RescueReports')\
+                .where('reporterUid', '==', uid)\
+                .where('animalType', '==', animal_type)\
+                .where('locationText', '==', location_text)\
+                .where('status', 'in', ['Submitted', 'Under Review'])\
+                .limit(1)\
+                .stream()
+            
+            if list(existing_reports):
+                flash("You have already submitted a pending rescue report for this animal at this location.", "error")
+                return redirect(url_for('rescue_report_bp.index'))
+
         media_list = []
         photo_count = 0
         video_count = 0
@@ -262,7 +344,7 @@ def submit_report():
             "latitude": float(latitude_val) if latitude_val else None,
             "longitude": float(longitude_val) if longitude_val else None,
             "animalCondition": request.form.get('condition', '').strip(),
-            "contactInfo": request.form.get('contact', '').strip(),
+            "contact": request.form.get('contact', '').strip(),
             "description": request.form.get('description', '').strip(),
             "additionalNotes": request.form.get('additionalNotes', '').strip(),
             "media": media_list,  
@@ -316,6 +398,10 @@ def management_view():
             report_data['formatted_submitted'] = ts.strftime('%B %d, %Y')
         else:
             report_data['formatted_submitted'] = 'Recently'
+
+        raw_media = report_data.get('media') or []
+        if raw_media:
+            report_data['media'] = [get_rescue_file_url(m) for m in raw_media if m]
         
         if role == 'Admin':
             reporter_doc = db.collection('Users').document(report_data.get('reporterUid', '')).get()
@@ -407,30 +493,6 @@ def update_status(report_id):
         return jsonify({"status": "success", "message": "Rescue report status updated successfully."})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
-@rescue_report_bp.route('/rescue/media-proxy/<file_id>')
-@auth_required
-def media_proxy(file_id):
-    try:
-        bucket_id = os.getenv('APPWRITE_BUCKET_ID')
-        project_id = os.getenv('APPWRITE_PROJECT_ID')
-        api_key = os.getenv('APPWRITE_API_KEY')
-        appwrite_url = f"https://sgp.cloud.appwrite.io/v1/storage/buckets/{bucket_id}/files/{file_id}/view?project={project_id}"
-        
-        headers = {
-            'X-Appwrite-Key': api_key,
-            'X-Appwrite-Project': project_id
-        }
-        
-        resp = requests.get(appwrite_url, headers=headers, stream=True)
-        
-        if resp.status_code == 200:
-            from flask import Response
-            return Response(resp.iter_content(chunk_size=1024), content_type=resp.headers.get('content-type', 'image/jpeg'))
-        else:
-            return jsonify({"error": "File not found or access denied"}), resp.status_code
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
     
 # Notification 
 @rescue_report_bp.app_context_processor

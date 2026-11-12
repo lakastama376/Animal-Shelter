@@ -90,7 +90,17 @@ def apply(pet_id):
         
         if not uid:
             return jsonify({"status": "error", "message": "Unauthorized action profile"}), 401
+
+        existing_apps = db.collection('Applications')\
+            .where('userId', '==', uid)\
+            .where('petId', '==', pet_id)\
+            .where('status', '==', 'Under Review')\
+            .limit(1)\
+            .stream()
         
+        if list(existing_apps):
+            return jsonify({"status": "error", "message": "You already have a pending application under review for this pet."}), 400
+
         try:
             age = int(request.form.get('age', 0))
         except ValueError:

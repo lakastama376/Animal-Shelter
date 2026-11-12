@@ -199,24 +199,14 @@ def get_conversations():
 @auth_required
 def admin_conversation():
     uid = session['user']['uid']
-    
     try:
         db = get_db()
-        admin_docs = db.collection('Users').where('role', '==', 'Admin').limit(1).get()
-        admin_uid = None
-
-        for doc in admin_docs:
-            admin_uid = doc.id
-            break
+        admin_uids = set()
+        for doc in db.collection('Users').where('role', 'in', ['Admin', 'admin']).stream():
+            admin_uids.add(doc.id)
             
-        if not admin_uid:
-            admin_docs_lower = db.collection('Users').where('role', '==', 'admin').limit(1).get()
-            for doc in admin_docs_lower:
-                admin_uid = doc.id
-                break
-
-        if not admin_uid:
-            return jsonify({"status": "error", "message": "No system administrator found."}), 404
+        if not admin_uids:
+            return jsonify({"status": "error", "message": "No system administrators found."}), 404
 
         query = db.collection('Conversations')\
                   .where('participants', 'array_contains', uid)\
@@ -225,37 +215,54 @@ def admin_conversation():
         existing_conv = None
         for doc in query:
             data = doc.to_dict()
-            if admin_uid in data.get('participants', []):
+            conv_participants = data.get('participants', [])
+
+            if any(a_id in conv_participants for a_id in admin_uids):
                 existing_conv = data
                 existing_conv['id'] = doc.id
                 existing_conv['displayName'] = 'Tails of Freedom Admin'
                 existing_conv['subject'] = existing_conv.get('subject', 'General Inquiry')
                 existing_conv['photoURL'] = None
+                existing_conv.pop('updatedAt', None) 
+                
+                updated_participants = list(set(conv_participants).union(admin_uids))
+                if set(conv_participants) != set(updated_participants):
+                    db.collection('Conversations').document(doc.id).update({
+                        'participants': updated_participants,
+                        'updatedAt': firestore.SERVER_TIMESTAMP
+                    })
                 break
 
         if existing_conv:
             return jsonify({"status": "success", "conversation": existing_conv}), 200
         
         now = firestore.SERVER_TIMESTAMP
+        all_participants = list(admin_uids.union({uid}))
         new_conv = {
-            'participants': [uid, admin_uid], 
+            'participants': all_participants, 
             'title': 'Tails of Freedom Admin',
             'subject': 'General Inquiry',
             'lastMessage': '',
             'updatedAt': now,
             'unread': False
         }
-        doc_ref = db.collection('Conversations').add(new_conv)
-        new_conv['id'] = doc_ref[1].id
-        new_conv['displayName'] = 'Tails of Freedom Admin'
-        new_conv['subject'] = 'General Inquiry'
-        new_conv['photoURL'] = None
         
-        return jsonify({"status": "success", "conversation": new_conv}), 201
+        doc_ref = db.collection('Conversations').add(new_conv)
+        response_conv = {
+            'id': doc_ref[1].id,
+            'participants': all_participants,
+            'title': 'Tails of Freedom Admin',
+            'subject': 'General Inquiry',
+            'lastMessage': '',
+            'unread': False,
+            'displayName': 'Tails of Freedom Admin',
+            'photoURL': None
+        }
 
+        return jsonify({"status": "success", "conversation": response_conv}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
+    
 # Fetch Messages
 @message_bp.route('/api/conversations/<conversation_id>/messages', methods=['GET'])
 @auth_required

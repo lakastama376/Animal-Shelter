@@ -56,20 +56,44 @@
                     <div class="input-group password-wrapper">
                         <label for="password-input">Password</label>
                         <div class="input-with-icon">
-                            <input type="password" id="password-input" name="password" 
-                                placeholder="Min. 8 chars, 1 uppercase, 1 number, 1 special char" 
-                                pattern="^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':&quot;\\|,.<>\/?]).{8,}$"
-                                title="Must contain at least 8 characters, including 1 uppercase letter, 1 number, and 1 special character."
-                                required>
+                            <input type="password" id="password-input" name="password" placeholder="Enter your password"
+                                pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}"
+                                title="At least 8 characters, one uppercase, one lowercase, one number, and one special character." required>
                             <i class="fa-regular fa-eye toggle-password"></i>
+                        </div>
+                        <div class="password-requirements" id="password-requirements">
+                            <div class="requirement" id="length-requirement">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span>8 or more characters</span>
+                            </div>
+                            <div class="requirement" id="special-requirement">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span>One special character</span>
+                            </div>
+                            <div class="requirement" id="number-requirement">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span>One number</span>
+                            </div>
+                            <div class="requirement" id="uppercase-requirement">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span>One upper-case letter</span>
+                            </div>
+                            <div class="requirement" id="lowercase-requirement">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span>One lower-case letter</span>
+                            </div>
                         </div>
                         <div id="password-error-message" class="error-msg"></div>
                     </div>
                     <div class="input-group password-wrapper">
                         <label for="confirm-password-input">Confirm Password</label>
                         <div class="input-with-icon">
-                            <input type="password" id="confirm-password-input" name="confirm_password" required>
+                            <input type="password" id="confirm-password-input" name="confirm_password" placeholder="Confirm your password" required>
                             <i class="fa-regular fa-eye toggle-password"></i>
+                        </div>
+                        <div id="confirm-password-message"
+                            class="password-match-message"
+                            aria-live="polite">
                         </div>
                     </div>
                     <div class="input-group">
@@ -78,13 +102,229 @@
                         <div id="contact-error-message" class="error-msg"></div>
                     </div>
                     <div class="input-group">
-                        <label for="address-input">Address</label>
-                        <input type="text" id="address-input" name="address" placeholder="City, Province" required>
+                        <label for="address-input">Current Address</label>
+                        <input type="text" id="address-input" name="address" placeholder="Detecting your current address..." autocomplete="street-address" required>
+                        <small id="location-status" class="location-status">
+                            <i class="fa-solid fa-spinner fa-spin">
+                            </i>Automatically detecting your current location...
+                        </small>
+                        <input type="hidden" id="address-latitude" name="latitude">
+                        <input type="hidden" id="address-longitude" name="longitude">
                     </div>
+                    <div class="form-full-width agreement-container">
+                    <div class="agreement-item">
+                        <input type="checkbox" id="agreement-checkbox"
+                            name="agreement_accepted" required disabled>
+                        <label for="agreement-checkbox">
+                            I have read and agree to the
+                            <a href="#" id="open-agreement-modal" style="color: #ff7a1a;">
+                                Terms of Service & Privacy Policy
+                            </a>.
+                        </label>
+                    </div>
+                    <small class="agreement-note">
+                        <i class="fa-solid fa-circle-info"></i>
+                        Please read and accept the agreement before creating your account.
+                    </small>
+                    <div id="agreement-error" class="error-msg"></div>
+                </div>
                     <div class="form-full-width">
                         <button type="submit" id="create-account-btn" class="login-btn">Create Account</button>
                     </div>
                 </form>
+                <div class="agreement-modal" id="agreement-modal" aria-hidden="true">
+                    <div class="agreement-modal-content"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="agreement-modal-title">
+                        <div class="agreement-modal-header">
+                            <div>
+                                <h2 id="agreement-modal-title">Terms of Service & Privacy Policy</h2>
+                                <p>Please read the entire agreement before continuing.</p>
+                            </div>
+                            <button type="button" class="agreement-close"
+                                    id="close-agreement-modal" aria-label="Close">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+
+                        <div class="agreement-modal-body" id="agreement-modal-body">
+                            <h2>Part I: Terms of Service</h2>
+                            <p>
+                                Welcome to <strong>Tails of Freedom Animal Haven</strong>.
+                                By accessing or using our platform, creating an account,
+                                submitting an adoption application, or making a donation,
+                                you agree to be bound by these Terms of Service.
+                            </p>
+                            <h3>1. Account Eligibility & Responsibilities</h3>
+                            <ul>
+                                <li><strong>Account Creation:</strong> You must provide accurate,
+                                    current, and complete information during registration,
+                                    including your real name, valid phone number, and physical
+                                    residential address.</li>
+                                <li><strong>Email Verification:</strong> Access to full system
+                                    functionality requires verifying your email address via
+                                    the link provided upon signup.</li>
+                                <li><strong>Account Security:</strong> You are responsible for
+                                    safeguarding your credentials. Notify us immediately if
+                                    you suspect unauthorized access to your account.
+                                    Administrator accounts reserve the right to suspend or
+                                    block users violating platform policies.</li>
+                            </ul>
+                            <h3>2. Adoption Process & Application Policy</h3>
+                            <p>All adoption submissions are subject to administrative review and screening:</p>
+                            <ul>
+                                <li><strong>Eligibility Screening:</strong> Completing the
+                                    preliminary quiz or application form does not guarantee
+                                    adoption approval.</li>
+                                <li><strong>Identity & Document Verification:</strong>
+                                    Applicants must submit genuine government-issued IDs
+                                    and valid proof of residence. Providing fraudulent
+                                    documentation may lead to application rejection and
+                                    account suspension.</li>
+                                <li><strong>Visitation & Final Approval:</strong> Approved
+                                    applicants must attend scheduled shelter visitations.
+                                    The shelter retains discretion to decline adoptions
+                                    if a placement environment is deemed unsafe for the animal.</li>
+                            </ul>
+                            <h3>3. Mandatory Post-Adoption Weekly Monitoring</h3>
+                            <p>To ensure animal welfare, adopters commit to post-adoption check-ins:</p>
+                            <ul>
+                                <li>Adopters must submit mandatory weekly updates, including
+                                    photos, videos, and status notes, for a designated
+                                    monitoring period (typically four consecutive weeks).</li>
+                                <li>Failure to submit updates on time will flag the application
+                                    as overdue. Persistent neglect of reporting or evidence
+                                    of animal mistreatment may result in shelter intervention
+                                    or legal action under applicable animal welfare laws.</li>
+                            </ul>
+                            <h3>4. Donations & Payment Processing</h3>
+                            <ul>
+                                <li><strong>Payment Processing:</strong> Online transactions
+                                    and donations are processed through PayMongo, supporting
+                                    available payment methods such as QR Ph, e-wallets,
+                                    and credit/debit cards.</li>
+                                <li><strong>Finality of Donations:</strong> Financial
+                                    donations are voluntary and non-refundable once processed,
+                                    subject to applicable law and payment-provider policies.</li>
+                                <li><strong>Payment Security:</strong> Payment credentials
+                                    are handled through the payment provider's infrastructure
+                                    and are not stored on our local servers, as applicable
+                                    to the actual payment integration.</li>
+                            </ul>
+                            <h3>5. Pet Returns</h3>
+                            <p>
+                                If an adopter is no longer capable of caring for an adopted
+                                pet, they must initiate an official <strong>Return Request</strong>
+                                through the platform. Abandoning or rehoming the pet to an
+                                unauthorized third party without shelter consent is prohibited.
+                            </p>
+                            <h3>6. Incident Reporting & Community Standards</h3>
+                            <p>
+                                Users submitting rescue reports or incident alerts must
+                                provide accurate location details and factual information.
+                                Submitting false reports, harassing shelter personnel, or
+                                attempting to compromise platform security is prohibited.
+                            </p>
+                            <h3>7. Contact Information</h3>
+                            <p>
+                                For questions regarding these Terms of Service or shelter
+                                operations, please visit our
+                                <a href="{{ url_for('contact_bp.contact_page') }}" target="_blank" style="color: #ff7a1a; text-decoration: none;">
+                                    Contact Page
+                                </a>.
+                            </p>
+                            <hr>
+                            <h2>Part II: Privacy Policy</h2>
+                            <p>
+                                At <strong>Tails of Freedom Animal Haven</strong>, we are
+                                committed to protecting your personal information and
+                                respecting your privacy. This Privacy Policy explains how
+                                we collect, use, store, and safeguard your data when you
+                                access or use our web application.
+                            </p>
+                            <h3>1. Information We Collect</h3>
+                            <p>To facilitate pet adoptions, user eligibility verification,
+                                and ongoing monitoring, we may collect:</p>
+                            <ul>
+                                <li><strong>Account Information:</strong> Full name, email
+                                    address, username, contact number, and residential address.</li>
+                                <li><strong>Authentication Data:</strong> Login details
+                                    processed through the authentication service, including
+                                    social sign-in data when applicable.</li>
+                                <li><strong>Adoption Application Data:</strong> Personal
+                                    details, housing conditions, proof of residence,
+                                    government-issued IDs, and screening questionnaire responses.</li>
+                                <li><strong>Post-Adoption Monitoring Media:</strong> Photos,
+                                    videos, and status updates submitted during post-adoption
+                                    check-ins.</li>
+                                <li><strong>Technical & Usage Information:</strong> Session
+                                    tokens, IP addresses, audit logs, and interaction records
+                                    necessary for system security.</li>
+                            </ul>
+                            <h3>2. How We Use Your Information</h3>
+                            <p>We use collected information for operational and animal welfare purposes, including:</p>
+                            <ul>
+                                <li>Evaluating and processing pet adoption applications.</li>
+                                <li>Verifying applicant identities and contact information.</li>
+                                <li>Tracking post-adoption monitoring reports.</li>
+                                <li>Sending account updates, adoption status notifications,
+                                    and visitation schedules.</li>
+                                <li>Maintaining system security, audit trails, and preventing
+                                    fraudulent applications.</li>
+                            </ul>
+                            <h3>3. Data Storage & Security</h3>
+                            <p>We apply administrative, technical, and physical safeguards
+                                to protect personal information:</p>
+                            <ul>
+                                <li><strong>Database Storage:</strong> User records and
+                                    adoption document metadata are stored in Google Cloud
+                                    Firestore.</li>
+                                <li><strong>File & Media Storage:</strong> Uploaded
+                                    identification documents, proof of address, and
+                                    monitoring photos/videos are stored through the
+                                    configured cloud storage infrastructure.</li>
+                                <li><strong>Access Controls:</strong> Sensitive applicant
+                                    data, including government IDs, is restricted to
+                                    authorized administrative personnel.</li>
+                            </ul>
+                            <p class="agreement-highlight">
+                                <strong>Important:</strong>
+                                Users should maintain strong passwords and keep their account
+                                credentials confidential.
+                            </p>
+                            <h3>4. User Rights & Data Retention</h3>
+                            <p>
+                                You may review, update, or request correction of your
+                                personal details through your Profile settings. Adoption
+                                records and audit logs are retained only for as long as
+                                necessary for operational purposes, animal protection
+                                history, and applicable legal obligations.
+                            </p>
+                            <h3>5. Contact Information</h3>
+                            <p>
+                                For questions, concerns, or requests regarding this Privacy
+                                Policy, please contact us through our
+                                <a href="{{ url_for('contact_bp.contact_page') }}" target="_blank" style="color: #ff7a1a; text-decoration: none;">
+                                    Contact
+                                </a>.
+                            </p>
+
+                        </div>
+                        <div class="agreement-modal-footer">
+                            <span class="read-status" id="agreement-read-status">
+                                <i class="fa-solid fa-arrow-down"></i>
+                                Scroll to the bottom to continue.
+                            </span>
+                            <button type="button"
+                                    class="agreement-accept-btn"
+                                    id="accept-agreement-btn"
+                                    disabled>
+                                I Agree
+                            </button>
+                        </div>
+                    </div>
+                </div>
                 <div class="signup-link-container">
                     Already have an account? <a href="{{ url_for('login') }}">Sign in</a>
                 </div>

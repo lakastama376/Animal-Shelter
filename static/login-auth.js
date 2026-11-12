@@ -212,6 +212,8 @@ function authCreateAccountWithEmail() {
     const usernameEl = document.getElementById("username-input");
     const contactEl = document.getElementById("contact-input");
     const addressEl = document.getElementById("address-input");
+    const latitudeEl = document.getElementById("address-latitude");
+    const longitudeEl = document.getElementById("address-longitude");
     const errorMsgContact = document.getElementById("contact-error-message");
 
     if (errorMsgPassword) errorMsgPassword.textContent = "";
@@ -224,10 +226,11 @@ function authCreateAccountWithEmail() {
         return;
     }
 
-    const passwordRequirements = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+    const passwordRequirements = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
     if (!passwordRequirements.test(password)) {
         if (errorMsgPassword) {
-            errorMsgPassword.textContent = "Password must be at least 8 characters long and include 1 uppercase letter, 1 number, and 1 special character.";
+            errorMsgPassword.textContent =
+                "Please meet all the password requirements.";
         }
         return;
     }
@@ -245,11 +248,17 @@ function authCreateAccountWithEmail() {
 
     if (contactEl) contactEl.value = formattedContact;
     const extraData = {
-        first_name: firstNameEl ? firstNameEl.value : "",
-        last_name: lastNameEl ? lastNameEl.value : "",
-        username: usernameEl ? usernameEl.value : "",
+        first_name: firstNameEl ? firstNameEl.value.trim() : "",
+        last_name: lastNameEl ? lastNameEl.value.trim() : "",
+        username: usernameEl ? usernameEl.value.trim() : "",
         contact: formattedContact,
-        address: addressEl ? addressEl.value : ""
+        address: addressEl ? addressEl.value.trim() : "",
+        latitude: latitudeEl && latitudeEl.value
+            ? parseFloat(latitudeEl.value)
+            : null,
+        longitude: longitudeEl && longitudeEl.value
+            ? parseFloat(longitudeEl.value)
+            : null
     };
 
     console.log("Starting account creation process...");
@@ -362,20 +371,140 @@ function clearInputField(field) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+    const passwordInput = document.getElementById("password-input");
+    const passwordRequirementsContainer = document.getElementById("password-requirements");
+    const confirmPasswordInput = document.getElementById("confirm-password-input");
+    const confirmPasswordMessage = document.getElementById("confirm-password-message");
+    const requirements = {
+        length: {
+            element: document.getElementById("length-requirement"),
+            test: password => password.length >= 8
+        },
+        special: {
+            element: document.getElementById("special-requirement"),
+            test: password => /[^A-Za-z0-9]/.test(password)
+        },
+        number: {
+            element: document.getElementById("number-requirement"),
+            test: password => /\d/.test(password)
+        },
+        uppercase: {
+            element: document.getElementById("uppercase-requirement"),
+            test: password => /[A-Z]/.test(password)
+        },
+        lowercase: {
+            element: document.getElementById("lowercase-requirement"),
+            test: password => /[a-z]/.test(password)
+        }
+    };
+
+    function hidePasswordFeedback() {
+        if (passwordRequirementsContainer) {
+            passwordRequirementsContainer.classList.remove("show");
+        }
+        if (confirmPasswordMessage) {
+            confirmPasswordMessage.style.display = "none";
+        }
+    }
+
+    function checkPasswordRequirements() {
+        if (!passwordInput) return;
+        const password = passwordInput.value;
+        if (passwordRequirementsContainer) {
+            if (password.length > 0) {
+                passwordRequirementsContainer.classList.add("show");
+            } else {
+                passwordRequirementsContainer.classList.remove("show");
+            }
+        }
+
+        for (const key in requirements) {
+            const requirement = requirements[key];
+            if (!requirement.element) continue;
+            if (requirement.test(password)) {
+                requirement.element.classList.add("valid");
+            } else {
+                requirement.element.classList.remove("valid");
+            }
+        }
+        if (typeof errorMsgPassword !== "undefined" && errorMsgPassword) {
+            errorMsgPassword.textContent = "";
+        }
+        checkPasswordMatch();
+    }
+
+    function checkPasswordMatch() {
+        if (!passwordInput || !confirmPasswordInput || !confirmPasswordMessage) {
+            return;
+        }
+        const password = passwordInput.value;
+        const confirmPassword = confirmPasswordInput.value;
+        if (confirmPassword.length === 0) {
+            confirmPasswordMessage.textContent = "";
+            confirmPasswordMessage.className = "password-match-message";
+            return;
+        }
+        if (password.length === 0) {
+            confirmPasswordMessage.textContent = "Please enter your password first.";
+            confirmPasswordMessage.className = "password-match-message not-match";
+            return;
+        }
+        if (password === confirmPassword) {
+            confirmPasswordMessage.textContent = "✓ Passwords match.";
+            confirmPasswordMessage.className = "password-match-message match";
+        } else {
+            confirmPasswordMessage.textContent = "✕ Passwords do not match.";
+            confirmPasswordMessage.className = "password-match-message not-match";
+        }
+    }
+
+    if (passwordInput) {
+        passwordInput.addEventListener("input", checkPasswordRequirements);
+        passwordInput.addEventListener("focus", function () {
+            if (confirmPasswordMessage) {
+                confirmPasswordMessage.style.display = "none";
+            }
+            if (this.value.length > 0 && passwordRequirementsContainer) {
+                passwordRequirementsContainer.classList.add("show");
+            }
+        });
+    }
+
+    if (confirmPasswordInput) {
+        confirmPasswordInput.addEventListener("input", checkPasswordMatch);
+        confirmPasswordInput.addEventListener("focus", function () {
+            if (passwordRequirementsContainer) {
+                passwordRequirementsContainer.classList.remove("show");
+            }
+            if (this.value.length > 0 && confirmPasswordMessage) {
+                checkPasswordMatch();
+                confirmPasswordMessage.style.display = "block";
+            }
+        });
+    }
+
+    const allFormInputs = document.querySelectorAll(".auth-form-grid input");
+    allFormInputs.forEach(input => {
+        input.addEventListener("focus", function () {
+            if (input !== passwordInput && input !== confirmPasswordInput) {
+                hidePasswordFeedback();
+            }
+        });
+    });
+
     const togglePasswordIcons = document.querySelectorAll(".toggle-password");
     togglePasswordIcons.forEach(icon => {
         icon.addEventListener("click", function () {
-            const passwordInput = this.parentElement.querySelector("input");
-            if (passwordInput) {
-                if (passwordInput.type === "password") {
-                    passwordInput.type = "text";
-                    this.classList.remove("fa-eye");
-                    this.classList.add("fa-eye-slash");
-                } else {
-                    passwordInput.type = "password";
-                    this.classList.remove("fa-eye-slash");
-                    this.classList.add("fa-eye");
-                }
+            const input = this.parentElement.querySelector("input");
+            if (!input) return;
+            if (input.type === "password") {
+                input.type = "text";
+                this.classList.remove("fa-eye");
+                this.classList.add("fa-eye-slash");
+            } else {
+                input.type = "password";
+                this.classList.remove("fa-eye-slash");
+                this.classList.add("fa-eye");
             }
         });
     });
@@ -385,5 +514,220 @@ document.addEventListener("DOMContentLoaded", () => {
         contactInput.addEventListener("blur", function () {
             this.value = formatPhoneNumber(this.value);
         });
+    }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    const addressInput = document.getElementById("address-input");
+    const locationStatus = document.getElementById("location-status");
+    const latitudeInput = document.getElementById("address-latitude");
+    const longitudeInput = document.getElementById("address-longitude");
+    if (!addressInput || !locationStatus) {
+        return;
+    }
+
+    function updateLocationStatus(message, color) {
+        locationStatus.textContent = message;
+        locationStatus.style.color = color;
+    }
+
+    if (!navigator.geolocation) {
+        updateLocationStatus(
+            "Your browser does not support automatic location detection. Please enter your address manually.",
+            "red"
+        );
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        async (position) => {
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            try {
+                updateLocationStatus(
+                    "Retrieving your current address...",
+                    "#5d888f"
+                );
+
+                const response = await fetch(
+                    `https://photon.komoot.io/reverse?lat=${latitude}&lon=${longitude}`
+                );
+
+                if (!response.ok) {
+                    throw new Error("Address lookup failed.");
+                }
+
+                const data = await response.json();
+                if (!data.features || data.features.length === 0) {
+                    throw new Error("No address found.");
+                }
+
+                const place = data.features[0].properties;
+                const addressParts = [];
+                if (place.housenumber && place.street) {
+                    addressParts.push(
+                        `${place.housenumber} ${place.street}`
+                    );
+                } else if (place.street) {
+                    addressParts.push(place.street);
+                } else if (place.name) {
+                    addressParts.push(place.name);
+                }
+                if (place.suburb) {
+                    addressParts.push(place.suburb);
+                }
+                if (place.district && place.district !== place.suburb) {
+                    addressParts.push(place.district);
+                }
+                if (place.city) {
+                    addressParts.push(place.city);
+                } else if (place.town) {
+                    addressParts.push(place.town);
+                } else if (place.village) {
+                    addressParts.push(place.village);
+                }
+                if (place.state) {
+                    addressParts.push(place.state);
+                }
+                if (place.postcode) {
+                    addressParts.push(place.postcode);
+                }
+                if (place.country) {
+                    addressParts.push(place.country);
+                }
+
+                const formattedAddress = [...new Set(addressParts)]
+                    .join(", ");
+
+                if (!formattedAddress) {
+                    throw new Error("Unable to format the address.");
+                }
+
+                addressInput.value = formattedAddress;
+                latitudeInput.value = latitude;
+                longitudeInput.value = longitude;
+                updateLocationStatus(
+                    "Your current address was detected. Please verify it before registering.",
+                    "green"
+                );
+            } catch (error) {
+                console.error("Address detection error:", error);
+                updateLocationStatus(
+                    "Unable to retrieve your address. Please enter it manually.",
+                    "red"
+                );
+                addressInput.placeholder = "Enter your complete address";
+            }
+        },
+
+        (error) => {
+            let message = "Unable to detect your location. Please enter your address manually.";
+            if (error.code === error.PERMISSION_DENIED) {
+                message = "Location permission denied. Please enter your address manually.";
+            } else if (error.code === error.TIMEOUT) {
+                message = "Location request timed out. Please enter your address manually.";
+            } else if (error.code === error.POSITION_UNAVAILABLE) {
+                message = "Your location is unavailable. Please enter your address manually.";
+            }
+            updateLocationStatus(message, "red");
+            addressInput.placeholder = "Enter your complete address";
+        },
+
+        {
+            enableHighAccuracy: true,
+            timeout: 20000,
+            maximumAge: 0
+        }
+    );
+
+    const agreementCheckbox = document.getElementById("agreement-checkbox");
+    const agreementModal = document.getElementById("agreement-modal");
+    const agreementBody = document.getElementById("agreement-modal-body");
+    const openAgreementButton = document.getElementById("open-agreement-modal");
+    const closeAgreementButton = document.getElementById("close-agreement-modal");
+    const acceptAgreementButton = document.getElementById("accept-agreement-btn");
+    const agreementReadStatus = document.getElementById("agreement-read-status");
+    const agreementError = document.getElementById("agreement-error");
+    
+    let agreementFullyRead = false;
+    if (openAgreementButton) {
+        openAgreementButton.addEventListener("click", function (event) {
+            event.preventDefault();
+            agreementModal.classList.add("active");
+            agreementModal.setAttribute("aria-hidden", "false");
+            document.body.style.overflow = "hidden";
+            agreementBody.scrollTop = 0;
+            agreementFullyRead = false;
+            acceptAgreementButton.disabled = true;
+            agreementReadStatus.classList.remove("completed");
+            agreementReadStatus.innerHTML =
+                '<i class="fa-solid fa-arrow-down"></i> Scroll to the bottom to continue.';
+            checkAgreementReading();
+        });
+    }
+
+    function checkAgreementReading() {
+        if (!agreementBody || !acceptAgreementButton) return;
+
+        const reachedBottom =
+            agreementBody.scrollTop + agreementBody.clientHeight >=
+            agreementBody.scrollHeight - 5;
+
+        if (reachedBottom) {
+            agreementFullyRead = true;
+            acceptAgreementButton.disabled = false;
+
+            agreementReadStatus.classList.add("completed");
+            agreementReadStatus.innerHTML =
+                '<i class="fa-solid fa-circle-check"></i> You have reached the end of the agreement.';
+        }
+    }
+
+    if (agreementBody) {
+        agreementBody.addEventListener("scroll", checkAgreementReading);
+    }
+
+    if (acceptAgreementButton) {
+        acceptAgreementButton.addEventListener("click", function () {
+            if (!agreementFullyRead) return;
+
+            agreementCheckbox.disabled = false;
+            agreementCheckbox.checked = true;
+            agreementModal.classList.remove("active");
+            agreementModal.setAttribute("aria-hidden", "true");
+            document.body.style.overflow = "";
+
+            if (agreementError) {
+                agreementError.textContent = "";
+            }
+        });
+    }
+
+    if (closeAgreementButton) {
+        closeAgreementButton.addEventListener("click", function () {
+            agreementModal.classList.remove("active");
+            agreementModal.setAttribute("aria-hidden", "true");
+
+            document.body.style.overflow = "";
+        });
+    }
+
+    const registerForm = document.querySelector(".auth-form-grid");
+    if (registerForm) {
+        registerForm.addEventListener("submit", function (event) {
+            if (!agreementCheckbox || !agreementCheckbox.checked) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+
+                if (agreementError) {
+                    agreementError.textContent =
+                        "Please read and agree to the Terms of Service & Privacy Policy before creating your account.";
+                }
+
+                if (openAgreementButton) {
+                    openAgreementButton.focus();
+                }
+            }
+        }, true);
     }
 });
