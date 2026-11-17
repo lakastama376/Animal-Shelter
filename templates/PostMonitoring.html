@@ -128,7 +128,9 @@
                                             <div class="upload-preview-list" id="main-video-previews"></div>
                                         </div>
                                         <div class="divider"></div>
-                                        <button type="submit" class="submit-btn" style="margin-top: 20px;">Submit Week {{ active_week }} Update</button>
+                                        <button type="submit" id="submit-monitoring-btn" class="submit-btn" style="margin-top: 20px;">
+                                            <i class="fa-solid fa-paper-plane" style="margin-right: 8px;"></i>Submit Week {{ active_week }} Update
+                                        </button>
                                     </form>
                                 {% else %}
                                     <div class="form-card" style="text-align: center; padding: 32px 20px;">
@@ -596,19 +598,41 @@
             monitoringForm.addEventListener('submit', function(event) {
                 const photoCount = capturedPhotos.length;
                 const videoCount = capturedVideos.length;
+                const submitButton = document.getElementById('submit-monitoring-btn');
                 let validationErrors = [];
-
                 if (photoCount < 3) {
-                    validationErrors.push(`You have staged ${photoCount} photo(s). At least 3 photos are required.`);
+                    validationErrors.push(
+                        `You have staged ${photoCount} photo(s). At least 3 photos are required.`
+                    );
                 }
 
                 if (videoCount < 1) {
-                    validationErrors.push(`You have staged ${videoCount} video(s). At least 1 video is required.`);
+                    validationErrors.push(
+                        `You have staged ${videoCount} video(s). At least 1 video is required.`
+                    );
                 }
 
                 if (validationErrors.length > 0) {
-                    event.preventDefault(); 
-                    alert("Submission Checklist Failed:\n\n" + validationErrors.join("\n"));
+                    event.preventDefault();
+                    alert(
+                        "Submission Checklist Failed:\n\n" +
+                        validationErrors.join("\n")
+                    );
+                    return;
+                }
+
+                if (submitButton) {
+                    if (submitButton.disabled) {
+                        event.preventDefault();
+                        return;
+                    }
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = `
+                        <i class="fa-solid fa-spinner fa-spin" style="margin-right: 8px;"></i>
+                        Submitting Update...
+                    `;
+                    submitButton.style.cursor = 'not-allowed';
+                    submitButton.style.opacity = '0.65';
                 }
             });
         }

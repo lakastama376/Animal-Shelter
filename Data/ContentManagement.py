@@ -7,6 +7,8 @@ import requests
 from functools import wraps
 from datetime import datetime, timezone
 from Data.audit import log_audit_event
+from appwrite.permission import Permission # type: ignore
+from appwrite.role import Role # type: ignore
 from appwrite.client import Client # type: ignore
 from appwrite.services.storage import Storage # type: ignore
 from appwrite.input_file import InputFile # type: ignore
@@ -119,7 +121,10 @@ def post_content():
                 result = storage.create_file(
                     bucket_id=bucket_id,
                     file_id='unique()',
-                    file=InputFile.from_bytes(file_bytes, filename)
+                    file=InputFile.from_bytes(file_bytes, filename),
+                    permissions=[
+                        Permission.read(Role.any())
+                    ]
                 )
                 file_id = result.id
                 file_url = f"https://sgp.cloud.appwrite.io/v1/storage/buckets/{bucket_id}/files/{file_id}/view?project={project_id}"

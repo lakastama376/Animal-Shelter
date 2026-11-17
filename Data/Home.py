@@ -42,27 +42,56 @@ def get_file_url(file_id):
 def public_media_proxy(file_id):
     try:
         real_file_id = deobfuscate_file_id(file_id)
+
         if not real_file_id:
-            return jsonify({"error": "Not found"}), 404
+            return jsonify({"error": "Invalid or expired media link"}), 404
 
         bucket_id = os.getenv('APPWRITE_BUCKET_ID')
         project_id = os.getenv('APPWRITE_PROJECT_ID')
         api_key = os.getenv('APPWRITE_API_KEY')
         endpoint = os.getenv('APPWRITE_ENDPOINT')
-        appwrite_url = f"{endpoint}/storage/buckets/{bucket_id}/files/{real_file_id}/view?project={project_id}"
-        
+
+        if not all([bucket_id, project_id, api_key, endpoint]):
+            return jsonify({"error": "Appwrite configuration is incomplete"}), 500
+
+        appwrite_url = (
+            f"{endpoint.rstrip('/')}/storage/buckets/"
+            f"{bucket_id}/files/{real_file_id}/view"
+            f"?project={project_id}"
+        )
+
         headers = {
             'X-Appwrite-Key': api_key,
             'X-Appwrite-Project': project_id
         }
-        
-        resp = requests.get(appwrite_url, headers=headers, stream=True)
-        if resp.status_code == 200:
-            return Response(resp.iter_content(chunk_size=1024), content_type=resp.headers.get('content-type', 'image/jpeg'))
-        else:
-            return jsonify({"error": "File not found or access denied"}), resp.status_code
+
+        resp = requests.get(
+            appwrite_url,
+            headers=headers,
+            stream=True,
+            timeout=30
+        )
+
+        if resp.status_code != 200:
+            print("Appwrite media error:", resp.status_code, resp.text[:500])
+            return jsonify({"error": "Unable to retrieve media from Appwrite"}), resp.status_code
+
+        return Response(
+            resp.iter_content(chunk_size=8192),
+            content_type=resp.headers.get('content-type', 'application/octet-stream'),
+            headers={
+                'Cache-Control': 'public, max-age=3600',
+                'X-Content-Type-Options': 'nosniff'
+            }
+        )
+
+    except requests.RequestException as e:
+        print("Appwrite request error:", str(e))
+        return jsonify({"error": "Media service unavailable"}), 502
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print("Media proxy error:", str(e))
+        return jsonify({"error": "Unable to load media"}), 500
 
 @home_bp.route('/', methods=['GET'])
 def home():
@@ -159,12 +188,23 @@ def home():
             
             for doc in posts_ref.stream():
                 post_data = doc.to_dict()
-                media_urls = post_data.get('mediaUrls', [])
-                raw_image = post_data.get('imageUrl') or (media_urls[0] if media_urls else None)
-                image = raw_image if raw_image else ''
+
+                raw_media_urls = post_data.get('mediaUrls', [])
+                if not isinstance(raw_media_urls, list):
+                    raw_media_urls = []
+
+                media_urls = []
+                for media_url in raw_media_urls:
+                    if media_url:
+                        media_urls.append(get_file_url(media_url))
+
+                raw_image = post_data.get('imageUrl')
+                if not raw_image and raw_media_urls:
+                    raw_image = raw_media_urls[0]
+
+                image = get_file_url(raw_image) if raw_image else ''
                 created_at = post_data.get('createdAt')
                 formatted_date = "Recent"
-
                 if created_at and hasattr(created_at, 'strftime'):
                     formatted_date = created_at.strftime("%b %d, %Y")
                     
