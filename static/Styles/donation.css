@@ -102,10 +102,12 @@ body {
 .info-item-title { font-size: 0.9rem; font-weight: 600; }
 .info-item-sub { font-size: 0.8rem; color: var(--text-muted); }
 .notice-box { background: #fffbf5; border-left: 3px solid var(--primary); padding: 12px; border-radius: 6px; font-size: 0.8rem; color: #9a3412; margin-top: auto; }
+.required::after { content: " *"; color: #ef4444; font-size: 0.95rem;}
 
 .category-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
 .category-card { border: 1px solid var(--border-color); background: #f8fafc; padding: 20px; border-radius: 10px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 20px; }
-.category-card:hover, .category-card.active { border-color: var(--primary); background: #fff4ed; }
+.category-card:hover { border-color: var(--primary); background: #fff4ed; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(242, 101, 34, 0.08); }
+.category-card.active { border-color: var(--primary); background: #fff4ed; }
 .category-card .title { font-size: 1rem; font-weight: 700; padding: 10px; }
 .category-card .sub { font-size: 0.75rem; color: var(--text-muted); }
 #inkindFormMessage { display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; font-size: 0.9rem; }

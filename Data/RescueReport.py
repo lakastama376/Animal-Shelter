@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify, current_app
 from firebase_admin import firestore
 from functools import wraps
 from datetime import datetime
@@ -6,6 +6,7 @@ import os
 import uuid
 import requests
 import smtplib
+import threading
 from email.message import EmailMessage
 from itsdangerous import URLSafeTimedSerializer, BadSignature
 from Data.audit import log_audit_event
@@ -141,25 +142,22 @@ def email_notification(to_email, subject, html_content):
     except Exception as e:
         print(f"Failed to send email to {to_email}: {e}")
         return False
-    
-def notify_admins_new_rescue(db, reporter_name, animal_type, location_text):
-    try:
-        admin_docs = db.collection('Users').where('role', '==', 'Admin').stream()
-        for admin_doc in admin_docs:
-            admin_data = admin_doc.to_dict()
-            admin_email = admin_data.get('email')
-            if admin_email:
-                subject = f"New Rescue Report Submitted for {animal_type or 'stray animal'}"
-                html_body = render_template(
-                    'EmailNotification.html',
-                    reporter_name=reporter_name,
-                    animal_type=animal_type or 'stray animal',
-                    location_text=location_text or 'Unspecified Location',
-                    status='Admin New Rescue Report'
-                )
-                email_notification(admin_email, subject, html_body)
-    except Exception as e:
-        print(f"Failed to notify admins of new rescue report: {e}")
+
+def notify_admins_new_rescue(app, db, subject, html_body):
+    with app.app_context():
+        try:
+            admin_docs = db.collection('Users').where('role', '==', 'Admin').stream()
+            for admin_doc in admin_docs:
+                admin_data = admin_doc.to_dict()
+                admin_email = admin_data.get('email')
+                if admin_email:
+                    email_notification(admin_email, subject, html_body)
+        except Exception as e:
+            print(f"Failed to notify admins of new rescue report: {e}")
+
+def send_status_update_email_async(app, reporter_email, subject, html_body):
+    with app.app_context():
+        email_notification(reporter_email, subject, html_body)
 
 @rescue_report_bp.route('/rescue/media-proxy/<file_id>')
 @auth_required
@@ -303,9 +301,6 @@ def submit_report():
 
         storage = get_storage()
         bucket_id = os.getenv('APPWRITE_BUCKET_ID') 
-        user_data = session.get('user', {})
-        uid = user_data.get('uid') or user_data.get('user_id') or "Anonymous"
-
         for file in files:
             if file and file.filename != '':
                 file_bytes = file.read()
@@ -331,11 +326,6 @@ def submit_report():
                     f"{u_data.get('firstName', '')} {u_data.get('lastName', '')}".strip() or 
                     user_name
                 )
-
-        latitude_val = request.form.get('latitude', '').strip()
-        longitude_val = request.form.get('longitude', '').strip()
-        animal_type = request.form.get('animalType', '').strip()
-        location_text = request.form.get('location', '').strip()
 
         report_payload = {
             "reporterUid": uid,
@@ -365,7 +355,21 @@ def submit_report():
             user_name=full_name
         )
 
-        notify_admins_new_rescue(db, full_name, animal_type, location_text)
+        subject = f"New Rescue Report Submitted for {animal_type or 'stray animal'}"
+        html_body = render_template(
+            'EmailNotification.html',
+            reporter_name=full_name,
+            animal_type=animal_type or 'stray animal',
+            location_text=location_text or 'Unspecified Location',
+            status='Admin New Rescue Report'
+        )
+
+        app_instance = current_app._get_current_object()
+        threading.Thread(
+            target=notify_admins_new_rescue,
+            args=(app_instance, db, subject, html_body)
+        ).start()
+
         flash("Rescue report submitted successfully! Thank you for looking out for them.", "success")
         return redirect(url_for('rescue_report_bp.management_view'))
     except Exception as e:
@@ -477,7 +481,6 @@ def update_status(report_id):
 
             if reporter_email:
                 location_text = report_data.get('locationText') or 'the specified location'
-
                 subject = f"Rescue Status Update: {new_status} ({animal_type})"
                 
                 html_body = render_template(
@@ -488,7 +491,11 @@ def update_status(report_id):
                     status=new_status
                 )
 
-                email_notification(reporter_email, subject, html_body)
+                app_instance = current_app._get_current_object()
+                threading.Thread(
+                    target=send_status_update_email_async,
+                    args=(app_instance, reporter_email, subject, html_body)
+                ).start()
 
         return jsonify({"status": "success", "message": "Rescue report status updated successfully."})
     except Exception as e:

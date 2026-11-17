@@ -89,42 +89,42 @@
                     <div class="card-header">
                         <div class="card-title">
                             <h2>In-Kind Donation</h2>
-                            <p>Donate supplies, food, medicine & more</p>
+                            <p class="required">Donate supplies, food, medicine & more</p>
                         </div>
                     </div>
                     <div class="category-grid">
-                        <div class="category-card active" onclick="selectCategory('Pet Food', this)">
+                        <div class="category-card active" onclick="toggleCategory('Pet Food', this)">
                             <div class="title">Pet Food</div>
                             <div class="sub">Dry/wet food for dogs & cats</div>
                         </div>
-                        <div class="category-card" onclick="selectCategory('Medicine', this)">
+                        <div class="category-card" onclick="toggleCategory('Medicine', this)">
                             <div class="title">Medicine</div>
                             <div class="sub">Vaccines, dewormers, topical</div>
                         </div>
-                        <div class="category-card" onclick="selectCategory('Supplies', this)">
+                        <div class="category-card" onclick="toggleCategory('Supplies', this)">
                             <div class="title">Supplies</div>
                             <div class="sub">Cages, beds, leashes, bowls</div>
                         </div>
-                        <div class="category-card" onclick="selectCategory('Other', this)">
+                        <div class="category-card" onclick="toggleCategory('Other', this)">
                             <div class="title">Other</div>
                             <div class="sub">Blankets, towels, cleaning items</div>
                         </div>
                     </div>
                     <div id="inkindFormMessage"></div>
                     <form id="inkindForm" onsubmit="submitInKindDonation(event)">
-                        <input type="hidden" id="selectedCategory" value="Pet Food">
+                        <input type="hidden" id="selectedCategories" value="Pet Food">
                         <div class="form-group">
-                            <label>Your Name *</label>
+                            <label class="required">Your Name</label>
                             <input type="text" id="donorName" class="form-control" required 
                                    value="{% if user_profile %}{{ user_profile.fullName }}{% endif %}">
                         </div>
                         <div class="form-group">
-                            <label>Contact Number *</label>
+                            <label class="required">Contact Number</label>
                             <input type="text" id="donorContact" class="form-control" placeholder="+63 917 000 0000" required
                                    value="{% if user_profile %}{{ user_profile.phone }}{% endif %}">
                         </div>
                         <div class="form-group">
-                            <label>Preferred Schedule *</label>
+                            <label class="required">Preferred Schedule</label>
                             <input type="date" id="preferredDate" class="form-control" required>
                         </div>
                         <div class="form-group">
@@ -235,12 +235,30 @@
 <script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
 <script>
     let pollTimer = null;
-    function selectCategory(category, element) {
-        document.querySelectorAll('.category-card').forEach(el => el.classList.remove('active'));
-        element.classList.add('active');
-        document.getElementById('selectedCategory').value = category;
+    let selectedCategoriesArray = ['Pet Food'];
+    function toggleCategory(category, element) {
+        const msgBox = document.getElementById('inkindFormMessage');
+        if (selectedCategoriesArray.length === 1 && selectedCategoriesArray.includes(category)) {
+            if (msgBox) {
+                msgBox.style.display = 'block';
+                msgBox.style.backgroundColor = '#fee2e2';
+                msgBox.style.color = '#991b1b';
+                msgBox.style.border = '1px solid #fecaca';
+                msgBox.innerHTML = 'Please select at least one category for your in-kind donation.';
+            }
+            return;
+        }
+        if (msgBox) {
+            msgBox.style.display = 'none';
+        }
+        element.classList.toggle('active');
+        if (selectedCategoriesArray.includes(category)) {
+            selectedCategoriesArray = selectedCategoriesArray.filter(c => c !== category);
+        } else {
+            selectedCategoriesArray.push(category);
+        }
+        document.getElementById('selectedCategories').value = selectedCategoriesArray.join(', ');
     }
-
     function toggleSide(open) {
         const side = document.getElementById('historySide');
         const overlay = document.getElementById('sideOverlay');
@@ -264,12 +282,10 @@
         try {
             const res = await fetch('/api/donation/history');
             const data = await res.json();
-
             if (res.status === 401) {
                 container.innerHTML = `<span style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">Please log in to view history.</span>`;
                 return;
             }
-
             if (data.status === 'success') {
                 if (data.history.length === 0) {
                     container.innerHTML = `<span style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-top: 20px;">No transactions found yet.</span>`;
@@ -278,7 +294,7 @@
 
             container.innerHTML = data.history.map(item => {
                 const isCash = item.type === 'cash';
-                const displayTitle = isCash ? 'Cash Donation' : `In-Kind (${item.category || 'General'})`;
+                const displayTitle = isCash ? 'Cash Donation' : `In-Kind (${item.category || item.donation_type || 'General'})`;
                 const displayAmount = isCash ? `₱${parseFloat(item.amount).toLocaleString('en-US', {minimumFractionDigits: 2})}` : 'Item Supply';
                 const rawStatus = (item.status || '').toLowerCase();
                 let badgeClass = 'status-pending';
@@ -326,7 +342,6 @@
 
         container.innerHTML = `<span style="font-size: 0.85rem; color: #64748b;">Generating QR Code...</span>`;
         statusBadge.innerHTML = '';
-
         try {
             const response = await fetch('/api/donation/qrph/generate', {
                 method: 'POST',
@@ -338,7 +353,6 @@
             });
 
             const data = await response.json();
-
             if (data.status === 'success') {
                 container.innerHTML = `<img src="${data.qrCodeUrl}" alt="Scan QR Code to Pay">`;
                 statusBadge.innerHTML = `<span class="status-badge status-pending">Awaiting Payment...</span>`;
@@ -371,7 +385,6 @@
     // In Kind Donation
     async function submitInKindDonation(event) {
         event.preventDefault();
-
         const msgBox = document.getElementById('inkindFormMessage');
         msgBox.style.display = 'none';
         msgBox.className = '';
@@ -379,7 +392,7 @@
         const payload = {
             name: document.getElementById('donorName').value,
             contact: document.getElementById('donorContact').value,
-            donation_type: document.getElementById('selectedCategory').value,
+            donation_type: selectedCategoriesArray,
             schedule: document.getElementById('preferredDate').value,
             notes: document.getElementById('donationNotes').value
         };
@@ -397,8 +410,14 @@
                 msgBox.style.backgroundColor = '#d1fae5';
                 msgBox.style.color = '#065f46';
                 msgBox.style.border = '1px solid #a7f3d0';
-                msgBox.innerHTML = '✓ Thank you! Your in-kind donation request has been submitted successfully.';
+                msgBox.innerHTML = '✓ Thank you! Your multi-item in-kind donation request has been submitted successfully.';
                 document.getElementById('inkindForm').reset();
+                selectedCategoriesArray = ['Pet Food'];
+                document.querySelectorAll('.category-card').forEach((card, idx) => {
+                    if(idx === 0) card.classList.add('active');
+                    else card.classList.remove('active');
+                });
+                document.getElementById('selectedCategories').value = 'Pet Food';
                 setMinDate();
             } else {
                 msgBox.style.backgroundColor = '#fee2e2';
@@ -440,7 +459,6 @@
     // Donor Wall Modal
     let currentModalMediaList = [];
     let currentMediaIndex = 0;
-
     function openDonorMediaModal(index) {
         if (!donorDataList || !donorDataList[index]) {
             console.warn('Donor data not loaded yet or invalid index');
@@ -471,7 +489,6 @@
         currentModalMediaList = donor.media || [];
         currentMediaIndex = 0;
         renderDonorMedia();
-
         const modal = document.getElementById('donor-modal');
         modal.style.display = 'flex';
     }

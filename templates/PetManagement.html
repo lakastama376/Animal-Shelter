@@ -54,6 +54,9 @@
                         <button class="tab-btn" onclick="switchTab('Available', this)">Available</button>
                         <button class="tab-btn" onclick="switchTab('Pending', this)">Pending</button>
                         <button class="tab-btn" onclick="switchTab('Adopted', this)">Adopted</button>
+                        <button class="tab-btn" onclick="switchTab('VaccineDue', this)">
+                            Vaccine Due <span id="vaxDueCountBadge" class="tab-badge">0</span>
+                        </button>
                     </div>
                 </div>
 
@@ -75,7 +78,11 @@
                             </thead>
                             <tbody id="petTableBody">
                                 {% for pet in pets %}
-                                <tr data-status="{{ pet.status }}" data-name="{{ pet.petName | lower }}" data-breed="{{ pet.breed | lower }}">
+                                <tr data-status="{{ pet.status }}" 
+                                    data-name="{{ pet.petName | lower }}" 
+                                    data-breed="{{ pet.breed | lower }}"
+                                    data-vaccines='{{ pet.vaccinationHistory | tojson | safe if pet.vaccinationHistory else "[]" }}'
+                                    data-created="{{ pet.createdAt.isoformat() if pet.createdAt and pet.createdAt.isoformat is defined else (pet.createdAt or '') }}">
                                     <td>
                                         <div class="animal-cell">
                                             <img class="animal-avatar" src="{{ pet.images[0] if pet.images else 'https://via.placeholder.com/150' }}" alt="">
@@ -144,12 +151,16 @@
                 <div class="modal-body">
                     <div class="modal-form-grid">
                         <div class="form-group">
-                            <label for="petName">Pet Name *</label>
+                            <label for="petName" class="required">Pet Name</label>
                             <input type="text" id="petName" name="petName" required>
                         </div>
                         <div class="form-group">
-                            <label for="type">Pet Type *</label>
-                            <input type="text" id="type" name="type" placeholder="e.g. Dog, Cat, Chinchilla, Bird" required>
+                            <label for="type" class="required">Pet Type</label>
+                            <select id="type" name="type" required>
+                                <option value="">Select pet type</option>
+                                <option value="Dog">Dog</option>
+                                <option value="Cat">Cat</option>
+                            </select>
                         </div>
                     </div>
                     <div class="modal-form-grid">
@@ -159,12 +170,12 @@
                         </div>
                         <div class="form-group">
                             <label for="age">Age</label>
-                            <input type="text" id="age" name="age" placeholder="e.g. 2 years / 6 months">
+                            <input type="text" id="age" name="age" placeholder="e.g. 2 years">
                         </div>
                     </div>
                     <div class="modal-form-grid">
                         <div class="form-group">
-                            <label for="gender">Gender *</label>
+                            <label for="gender" class="required">Gender</label>
                             <select id="gender" name="gender" required>
                                 <option value="">Select gender</option>
                                 <option value="Male">Male</option>
@@ -172,7 +183,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="status">Status *</label>
+                            <label for="status" class="required">Status</label>
                             <select id="status" name="status" required>
                                 <option value="Available">Available</option>
                                 <option value="Pending">Pending</option>
@@ -196,7 +207,7 @@
                     </div>
                     <div class="modal-form-grid">
                         <div class="form-group">
-                            <label for="activityLevel">Activity Level</label>
+                            <label for="activityLevel" class="required">Activity Level</label>
                             <select id="activityLevel" name="activityLevel" required>
                                 <option value="Sedentary">Sedentary</option>
                                 <option value="Low">Lightly Active</option>
@@ -205,7 +216,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="rescueDate">Rescue Date *</label>
+                            <label for="rescueDate" class="required">Rescue Date</label>
                             <input type="date" id="rescueDate" name="rescueDate" required>
                         </div>
                     </div>
@@ -261,7 +272,7 @@
                         </div>
                     </div>
                     <div class="form-group full-width">
-                        <label for="description">Description</label>
+                        <label for="description">Description / Story</label>
                         <textarea id="description" name="description" rows="4" placeholder="Write a short summary/story about the pet..."></textarea>
                     </div>
                 </div>
@@ -373,13 +384,43 @@
 
     function filterTable() {
         const query = document.getElementById('tableSearch').value.toLowerCase();
-        const rows = Array.from(document.querySelectorAll('#petTableBody tr')).filter(r => r.children.length > 1);
+        let rows = Array.from(document.querySelectorAll('#petTableBody tr')).filter(r => r.children.length > 1);
+        rows.sort((a, b) => {
+            const timeA = new Date(a.getAttribute('data-created') || 0).getTime();
+            const timeB = new Date(b.getAttribute('data-created') || 0).getTime();
+            return timeB - timeA;
+        });
 
+        const tableBody = document.getElementById('petTableBody');
+        rows.forEach(r => tableBody.appendChild(r));
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const visibleRows = rows.filter(row => {
             const status = row.getAttribute('data-status');
             const name = row.getAttribute('data-name');
             const breed = row.getAttribute('data-breed');
-            const matchesStatus = (currentTabStatus === 'All' || status === currentTabStatus);
+            const vaccinesRaw = row.getAttribute('data-vaccines');
+            
+            let matchesStatus = true;
+            if (currentTabStatus === 'VaccineDue') {
+                let hasDueSoonOrOverdue = false;
+                try {
+                    const vaccines = JSON.parse(vaccinesRaw || '[]');
+                    hasDueSoonOrOverdue = vaccines.some(v => {
+                        if (!v.due) return false;
+                        const dueDate = new Date(v.due);
+                        if (isNaN(dueDate.getTime())) return false;
+                        const diffTime = dueDate - today;
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        return diffDays <= 30; 
+                    });
+                } catch (err) {
+                    hasDueSoonOrOverdue = false;
+                }
+                matchesStatus = hasDueSoonOrOverdue;
+            } else {
+                matchesStatus = (currentTabStatus === 'All' || status === currentTabStatus);
+            }
             const matchesSearch = (name.includes(query) || breed.includes(query));
             return matchesStatus && matchesSearch;
         });
@@ -387,7 +428,6 @@
         rows.forEach(r => r.style.display = 'none');
         const totalItems = visibleRows.length;
         const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-
         if (currentPage > totalPages) currentPage = 1;
 
         const start = (currentPage - 1) * itemsPerPage;
@@ -605,6 +645,42 @@
             }, 3000);
         });
     });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        filterTable();
+        updateVaccineDueBadgeCount();
+    });
+
+    function updateVaccineDueBadgeCount() {
+        const rows = document.querySelectorAll('#petTableBody tr');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        let dueCount = 0;
+
+        rows.forEach(row => {
+            const vaccinesRaw = row.getAttribute('data-vaccines');
+            if (!vaccinesRaw) return;
+            try {
+                const vaccines = JSON.parse(vaccinesRaw);
+                const isDue = vaccines.some(v => {
+                    if (!v.due) return false;
+                    const dueDate = new Date(v.due);
+                    if (isNaN(dueDate.getTime())) return false;
+                    const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+                    return diffDays <= 30;
+                });
+                if (isDue) dueCount++;
+            } catch (e) {
+            }
+        });
+        const badge = document.getElementById('vaxDueCountBadge');
+        if (badge && dueCount > 0) {
+            badge.textContent = dueCount;
+            badge.style.display = 'inline-block';
+        } else if (badge) {
+            badge.style.display = 'none';
+        }
+    }
 </script>
 </body>
 </html>

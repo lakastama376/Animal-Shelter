@@ -50,7 +50,7 @@
                 <div class="column-grid">
                     <div class="card">
                         <div class="card-header">
-                            <i class="fa-solid fa-dollar-sign" style="color: var(--color-emerald); font-size: 1.125rem;"></i>
+                            <i class="fa-solid fa-peso-sign" style="color: var(--color-emerald); font-size: 1.125rem;"></i>
                             <h2>Cash Donations</h2>
                         </div>
                         <div id="admin-cash-list" class="data-list">
@@ -91,10 +91,7 @@
                         <h1>My Donations</h1>
                         <p>Your contribution history</p>
                     </div>
-                    <a href="/donation" class="btn-primary">
-                        <i class="fa-solid fa-dollar-sign"></i>
-                        Donate
-                    </a>
+                    <a href="/donation" class="btn-primary">₱ Donate</a>
                 </div>
 
                 <!--User Statistics-->
@@ -140,25 +137,27 @@
                 </button>
             </div>
             <div class="modal-body">
-                <div class="modal-detail">
-                    <span class="modal-label">Donor Name</span>
-                    <span id="modal-donor-name" class="modal-value">-</span>
-                </div>
-                <div class="modal-detail">
-                    <span class="modal-label">Contact Number</span>
-                    <span id="modal-donor-contact" class="modal-value">-</span>
-                </div>
-                <div class="modal-detail">
-                    <span class="modal-label">Item / Category</span>
-                    <span id="modal-item-title" class="modal-value">-</span>
-                </div>
-                <div class="modal-detail">
-                    <span class="modal-label">Scheduled Date</span>
-                    <span id="modal-scheduled-date" class="modal-value">-</span>
-                </div>
-                <div class="modal-detail">
-                    <span class="modal-label">Notes / Description</span>
-                    <div id="modal-notes" class="modal-notes">No notes provided.</div>
+                <div class="modal-grid">
+                    <div class="modal-detail">
+                        <span class="modal-label">Donor Name</span>
+                        <span id="modal-donor-name" class="modal-value">-</span>
+                    </div>
+                    <div class="modal-detail">
+                        <span class="modal-label">Contact Number</span>
+                        <span id="modal-donor-contact" class="modal-value">-</span>
+                    </div>
+                    <div class="modal-detail">
+                        <span class="modal-label">Category</span>
+                        <span id="modal-item-title" class="modal-value">-</span>
+                    </div>
+                    <div class="modal-detail">
+                        <span class="modal-label">Scheduled Date</span>
+                        <span id="modal-scheduled-date" class="modal-value">-</span>
+                    </div>
+                    <div class="modal-detail full-width">
+                        <span class="modal-label">Notes / Description</span>
+                        <div id="modal-notes" class="modal-notes">No notes provided.</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -182,7 +181,7 @@
                         <datalist id="donorsList"></datalist>
                     </div>
                     <div class="form-group">
-                        <label for="adminDonorBadge">Badge / Tier</label>
+                        <label for="adminDonorBadge">Badge</label>
                         <select id="adminDonorBadge" class="form-control">
                             <option value="Supporter">Supporter ⭐</option>
                             <option value="Hero">Hero 🏅</option>
@@ -190,12 +189,12 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Upload Media (Photos / Videos)</label>
+                        <label>Upload Attachments</label>
                         <input type="file" id="adminDonorMediaInput" multiple accept="image/*,video/*" class="form-control" onchange="handleMediaUpload(event)">
                         <div id="media-preview-container" class="media-preview-grid"></div>
                     </div>
                     <div class="form-group form-group-lg">
-                        <label for="adminDonorDescription">Description / Note</label>
+                        <label for="adminDonorDescription">Notes / Description</label>
                         <textarea id="adminDonorDescription" class="form-control" rows="3" placeholder="Message or donation note..." required></textarea>
                     </div>
                     <div class="modal-actions">

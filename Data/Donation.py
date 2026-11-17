@@ -434,6 +434,13 @@ def submit_inkind_donation():
         if not name or not contact or not donation_type or not schedule:
             return jsonify({"status": "error", "message": "Please fill in all required fields."}), 400
 
+        if isinstance(donation_type, list):
+            donation_category_str = ", ".join(donation_type)
+            donation_category_stored = donation_type
+        else:
+            donation_category_str = str(donation_type)
+            donation_category_stored = [donation_type]
+
         user_info = session.get('user', {})
         photo_url = user_info.get('photoURL', '') or user_info.get('picture', '')
         
@@ -447,7 +454,7 @@ def submit_inkind_donation():
             "donorName": name,
             "donorEmail": donor_email or "",
             "contactNumber": contact,
-            "donationCategory": donation_type,
+            "donationCategory": donation_category_stored,
             "scheduledDate": schedule,
             "notes": notes,
             "uid": user_info.get('uid', None),
@@ -458,12 +465,12 @@ def submit_inkind_donation():
 
         threading.Thread(
             target=notify_admins_new_donation,
-            args=(db, name, donation_type, 'in-kind')
+            args=(db, name, donation_category_str, 'in-kind')
         ).start()
 
         log_audit_event(
             action="Submitted In-Kind Donation",
-            details=f"{name} submitted {donation_type} donation request scheduled for {schedule}",
+            details=f"{name} submitted {donation_category_str} donation request scheduled for {schedule}",
             user_id=user_info.get('uid'),
             user_name=name
         )

@@ -54,12 +54,6 @@
                         <div class="error-message" id="error-animalType">Please select the type of animal.</div>
                     </div>
                     <div class="form-group">
-                        <label class="required">Location</label>
-                        <input type="text" name="location" id="locationAddress" required placeholder="Select a location on the map to get its address...">
-                        <div class="hint">The address will automatically appear when you pin a location on the map. You can also edit the address manually if needed.</div>
-                        <div id="addressStatus" class="hint" style="color:#166534;"></div>
-                    </div>
-                    <div class="form-group">
                         <label class="required">Animal Condition</label>
                         <input type="hidden" name="condition" id="conditionInput" required>
                         <div class="condition-grid">
@@ -88,7 +82,7 @@
                         <button type="button" class="submit-btn btn-launch-camera" id="btn-open-rescue-camera-modal">
                             <i class="fa-solid fa-video"></i> Launch Live Photo/Video Capture
                         </button>
-                        <div class="hint"><strong>3 Clear Photos and 1 Video Clip (Max-25MB)</strong> - Show the animal condition, environment, and one with you</div>
+                        <div class="hint"><strong>3 Clear Photos and 1 Video Clip (Max-25MB)</strong>Show the animal condition, environment, and one with you</div>
                         <div class="error-message" id="error-media">Please capture the required 3 photos and 1 video.</div>
                     </div>
                     <input type="file" name="rescue_photos" id="input-rescue-photos" accept="image/jpeg" multiple class="hidden-input">
@@ -116,16 +110,22 @@
                         </div>
                     </div>
                     <div class="form-group">
+                        <label class="required">Location</label>
+                        <input type="text" name="location" id="locationAddress" required placeholder="Select a location on the map to get its address...">
+                        <div class="hint">The address will automatically appear when you pin a location on the map. You can also edit the address manually if needed.</div>
+                        <div id="addressStatus" class="hint" style="color:#166534;"></div>
+                    </div>
+                    <div class="form-group">
                         <label>Additional Notes</label>
                         <textarea name="additionalNotes" rows="3" placeholder="Any additional information that might help our team..."></textarea>
                     </div>
-                    <button type="submit" class="submit-btn">Submit Rescue Report</button>
+                    <button type="submit" id="submitRescueBtn" class="submit-btn">Submit Rescue Report</button>
                     {% else %}
                     <div class="card" style="text-align: center; padding: 30px;">
                         <h2>Intake Paused</h2>
                         <p>Our shelter has reached max capacity or intake is temporarily paused. Please check back later or contact local authorities for urgent cases.</p>
                     </div>
-                {% endif %}
+                    {% endif %}
                 </form>
             </div>
         </div>
@@ -205,19 +205,6 @@
         if (progressBar) {
             const percentage = progressBar.getAttribute('data-percentage');
             progressBar.style.width = percentage + '%';
-        }
-
-        const reportForm = document.getElementById('rescueReportForm');
-        if (reportForm) {
-            reportForm.addEventListener('submit', function(e) {
-                const submitBtn = reportForm.querySelector('.submit-btn');
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.style.opacity = '0.7';
-                    submitBtn.style.cursor = 'not-allowed';
-                    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting Report...';
-                }
-            });
         }
 
         // Shelter Coordinates
@@ -832,35 +819,70 @@
         }
 
         if (rescueForm) {
+            let isSubmitting = false;
             rescueForm.addEventListener('submit', function (event) {
-                let isFormValid = true;
+                if (isSubmitting) {
+                    event.preventDefault();
+                    return;
+                }
 
+                let isFormValid = true;
                 const animalType = document.getElementById('animalTypeInput')?.value;
                 const animalTypeValid = animalType && animalType.trim() !== "";
                 toggleError('animalTypeInput', 'error-animalType', animalTypeValid);
-                if (!animalTypeValid) isFormValid = false;
+                if (!animalTypeValid) {
+                    isFormValid = false;
+                }
 
                 const condition = document.getElementById('conditionInput')?.value;
                 const conditionValid = condition && condition.trim() !== "";
                 toggleError('conditionInput', 'error-condition', conditionValid);
-                if (!conditionValid) isFormValid = false;
+                if (!conditionValid) {
+                    isFormValid = false;
+                }
 
                 const lat = document.getElementById('geoLatitude')?.value;
                 const lng = document.getElementById('geoLongitude')?.value;
-                const gpsValid = (lat && lng && lat.trim() !== "" && lng.trim() !== "");
+                const gpsValid = lat && lng && lat.trim() !== "" && lng.trim() !== "";
                 toggleError('geoLatitude', 'error-gps', gpsValid);
-                if (!gpsValid) isFormValid = false;
+                if (!gpsValid) {
+                    isFormValid = false;
+                }
 
-                const mediaValid = (capturedPhotos.length === 3 && capturedVideos.length === 1);
+                const mediaValid = (
+                    capturedPhotos.length === 3 &&
+                    capturedVideos.length === 1
+                );
+
                 toggleError(null, 'error-media', mediaValid);
-                if (!mediaValid) isFormValid = false;
+                if (!mediaValid) {
+                    isFormValid = false;
+                }
 
                 if (!isFormValid) {
                     event.preventDefault();
-                    const firstError = document.querySelector('.error-message[style*="display: block"]');
+                    const firstError = document.querySelector(
+                        '.error-message[style*="display: block"]'
+                    );
                     if (firstError) {
-                        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        firstError.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center'
+                        });
                     }
+                    return;
+                }
+
+                isSubmitting = true;
+                const submitBtn = document.getElementById('submitRescueBtn');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.7';
+                    submitBtn.style.cursor = 'not-allowed';
+                    submitBtn.innerHTML = `
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+                        Submitting Report...
+                    `;
                 }
             });
         }

@@ -339,8 +339,8 @@ td { padding: 1rem; border-bottom: 1px solid var(--border-color); vertical-align
     table { min-width: 600px; }
     .card-meta { flex-direction: row; justify-content: space-between; align-items: flex-start; }
     .report-info-block { flex-direction: row;  align-items: flex-start; gap: 10px; }
-    .report-title{ font-size: 1.125rem; font-weight: 700; }
-    .badge { font-size: 0.7rem; flex-shrink: 0;  }
+    .report-title{ font-size: 1rem; font-weight: 600; }
+    .badge { font-size: 0.65rem; flex-shrink: 0; }
     .details-tags { display: none; }
     .tracker-line { display: flex; padding: 0 0 10px 0; gap: 12px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; justify-content: flex-start; }
     .tracker-line::-webkit-scrollbar { display: none; }

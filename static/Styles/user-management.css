@@ -182,7 +182,7 @@ body {
     min-width: 40px;
     border-radius: 50%;
     object-fit: cover;
-    background-color: #cbd5e1;
+    background-color: #ff914d;
     color: #ffffff;
     display: flex;
     align-items: center;
@@ -323,11 +323,11 @@ body {
     width: 64px;
     height: 64px;
     border-radius: 50%;
-    background-color: #f1f5f9;
+    background-color: #ff914d;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-muted);
+    color: #ffffff;
     font-size: 2rem;
     object-fit: cover;
     flex-shrink: 0;

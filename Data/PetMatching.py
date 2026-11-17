@@ -135,11 +135,11 @@ def calculate_matches():
                 total_rules += 1
                 compatibility_list = [c.lower() for c in pet.get('compatibility', [])]
                 personality_list = [c.lower() for c in pet.get('personality', [])]
-                if 'living solo' in pref_household.lower() and ('calm' not in personality_list and 'chill' not in personality_list):
+                if 'living solo' in pref_household.lower() and ('calm' not in personality_list and 'chill' not in personality_list and 'uncomfortable' not in personality_list):
                     score -= 20
                 if 'couple' in pref_household.lower() and ('friendly' not in compatibility_list and 'people' not in compatibility_list):
                     score -= 20
-                if 'family with kids' in pref_household.lower() and ('family' not in compatibility_list and 'kid' not in compatibility_list):
+                if 'family with kids' in pref_household.lower() and ('family' not in compatibility_list and 'kids' not in compatibility_list and 'kid' not in compatibility_list):
                     score -= 20
                 if 'roommates' in pref_household.lower() and ('friendly' not in compatibility_list and 'people' not in compatibility_list):
                     score -= 20

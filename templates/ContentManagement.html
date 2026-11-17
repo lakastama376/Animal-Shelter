@@ -20,9 +20,6 @@
                     <h1>Content Management</h1>
                     <p>Manage articles, announcements, and educational content</p>
                 </div>
-                <button class="btn-orange" onclick="openModal('articleModal')">
-                    <i class="fa-solid fa-plus"></i> New Article
-                </button>
             </div>
 
             <!--Tabs-->
@@ -35,7 +32,12 @@
 
             <!--Articles Content Panel-->
             <div id="articlesPanel" class="panel active content-card">
-                <h2>Published Articles</h2>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap: 12px;">
+                    <h2>Published Articles</h2>
+                    <button class="btn-orange" style="padding:8px 14px; font-size:13px;" onclick="openModal('articleModal')">
+                        <i class="fa-solid fa-plus"></i> New Article
+                    </button>
+                </div>
                 <div class="landscape-list">
                     {% for article in articles %}
                     <div class="landscape-item" id="item-Articles-{{ article.id }}">
@@ -435,9 +437,9 @@
                     <div style="display: flex; gap: 8px; margin-bottom: 8px;">
                         <input type="text" id="choiceInput" placeholder="Add option text..." style="flex: 2;">
                         <select id="choiceStatus" style="flex: 1; padding: 0 8px; border-radius: 8px; border: 1px solid #cbd5e1;">
-                            <option value="correct">🎯 Correct</option>
-                            <option value="good">👍 Good Answer</option>
-                            <option value="incorrect">❌ Incorrect</option>
+                            <option value="correct">Correct</option>
+                            <option value="good">Good Answer</option>
+                            <option value="incorrect">Incorrect</option>
                         </select>
                         <button type="button" class="btn-orange" style="padding: 0 16px; border-radius: 8px; font-size: 13px;" onclick="addAdvancedChoiceItem('choicesContainer', 'choiceInput', 'choiceStatus')">Add</button>
                     </div>
@@ -447,7 +449,7 @@
                     <label>System Evaluation Type</label>
                     <select id="questionType" onchange="toggleArticleMapping(this.value, 'linkedArticleWrapper', 'linkedArticleId')">
                         <option value="default">Default Section Question</option>
-                        <option value="random">Randomly Generated Inside Content</option>
+                        <option value="random">Randomly Generated Inside Article</option>
                     </select>
                 </div>
                 <div class="form-group" id="linkedArticleWrapper" style="display: none;">
@@ -483,9 +485,9 @@
                     <div style="display: flex; gap: 8px; margin-bottom: 8px;">
                         <input type="text" id="editChoiceInput" placeholder="Add option text..." style="flex: 2;">
                         <select id="editChoiceStatus" style="flex: 1; padding: 0 8px; border-radius: 8px; border: 1px solid #cbd5e1;">
-                            <option value="correct">🎯 Correct</option>
-                            <option value="good">👍 Good Answer</option>
-                            <option value="incorrect">❌ Incorrect</option>
+                            <option value="correct">Correct</option>
+                            <option value="good">Good Answer</option>
+                            <option value="incorrect">Incorrect</option>
                         </select>
                         <button type="button" class="btn-orange" style="padding: 0 16px; border-radius: 8px; font-size: 13px;" onclick="addAdvancedChoiceItem('editChoicesContainer', 'editChoiceInput', 'editChoiceStatus')">Add</button>
                     </div>
@@ -495,7 +497,7 @@
                     <label>System Evaluation Type</label>
                     <select id="editQuestionType" onchange="toggleArticleMapping(this.value, 'editLinkedArticleWrapper', 'editLinkedArticleId')">
                         <option value="default">Default Section Question</option>
-                        <option value="random">Randomly Generated Inside Content</option>
+                        <option value="random">Randomly Generated Inside Article</option>
                     </select>
                 </div>
                 <div class="form-group" id="editLinkedArticleWrapper" style="display: none;">
@@ -718,16 +720,16 @@
         activeChoicesList.forEach((choice, idx) => {
             let badgeBackground = '#fee2e2'; 
             let badgeTextColor = '#991b1b';
-            let labelText = '❌ Incorrect';
+            let labelText = 'Incorrect';
 
             if (choice.status === 'correct') {
                 badgeBackground = '#dcfce7';
                 badgeTextColor = '#166534';
-                labelText = '🎯 Correct';
+                labelText = 'Correct';
             } else if (choice.status === 'good') {
                 badgeBackground = '#fef9c3';
                 badgeTextColor = '#854d0e';
-                labelText = '👍 Good';
+                labelText = 'Good';
             }
 
             const badgeRow = document.createElement('div');

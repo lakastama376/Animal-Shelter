@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify, abort
 from firebase_admin import firestore
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 import uuid
 import os
@@ -183,8 +183,9 @@ def index():
             'percentage': min(capacity_pct, 100),
             'isAccepting': is_accepting
         }
-            
-        return render_template('PetManagement.html', pets=pets_list, config=config)
+        
+        has_upcoming_vaccines = check_vaccine_due_status()
+        return render_template('PetManagement.html', pets=pets_list, config=config, has_upcoming_vaccines=has_upcoming_vaccines)
     except Exception as e:
         print(f"Error reading pet system databases entries: {e}")
         flash("Could not populate the tracked shelter listings.", "error")
@@ -193,7 +194,7 @@ def index():
             'maxCapacity': 50,
             'percentage': 0,
             'isAccepting': True
-        })
+        }, has_upcoming_vaccines=False)
 
 @pet_management_bp.route('/api/<id>', methods=['GET'])
 @admin_required
@@ -442,3 +443,38 @@ def delete_pet(id):
         flash("Failed to drop record entry instance references.", "error")
         
     return redirect(url_for('pet_management_bp.index'))
+
+def check_vaccine_due_status():
+    try:
+        db = firestore.client()
+        pets_ref = db.collection('Pets').stream()
+        today = datetime.now().date()
+        
+        for doc in pets_ref:
+            p_data = doc.to_dict()
+            if p_data.get('status') == 'Adopted':
+                continue
+            vax_history = p_data.get('vaccinationHistory', [])
+            for vax in vax_history:
+                due_str = vax.get('due')
+                if due_str:
+                    due_str = due_str.strip()
+                    parsed_date = None
+                    for fmt in ('%Y-%m-%d', '%B %Y', '%b %Y', '%B %d, %Y'):
+                        try:
+                            parsed_date = datetime.strptime(due_str, fmt).date()
+                            if fmt in ('%B %Y', '%b %Y'):
+                                if parsed_date.month == 12:
+                                    parsed_date = parsed_date.replace(year=parsed_date.year + 1, month=1, day=1) - timedelta(days=1)
+                                else:
+                                    parsed_date = parsed_date.replace(month=parsed_date.month + 1, day=1) - timedelta(days=1)
+                            break
+                        except ValueError:
+                            continue
+                    
+                    if parsed_date and (parsed_date - today).days <= 30:
+                        return True
+        return False
+    except Exception as e:
+        print(f"Error checking vaccine notifications: {e}")
+        return False

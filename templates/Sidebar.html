@@ -15,8 +15,11 @@
           <i class="flex-spacer"></i>
         </a>
         <a href="{{ url_for('pet_management_bp.index') }}" class="nav-link {% if request.endpoint == 'pet_management_bp.index' %}active{% endif %}" aria-label="Pet Management" title="Pet Management">
-          <i data-lucide="paw-print"></i>
-          <span>Pet Management</span>
+            <i data-lucide="paw-print"></i>
+            <span>Pet Management</span>
+            {% if has_upcoming_vaccines %}
+                <span class="sidebar-notification-dot"></span>
+            {% endif %}
         </a>
         <a href="{{ url_for('adoption_management_bp.management_view') }}" class="nav-link {% if request.endpoint == 'adoption_management_bp.management_view' %}active{% endif %}" aria-label="Adoptions" title="Adoptions">
           <i data-lucide="file-text"></i>
@@ -33,7 +36,7 @@
           {% endif %}
         </a>
         <a href="{{ url_for('donation_bp.management') }}" class="nav-link {% if request.endpoint == 'donation_bp.management' %}active{% endif %}" aria-label="Donations Management" title="Donations Management">
-          <i data-lucide="dollar-sign"></i>
+          <i data-lucide="hand-coins"></i>
           <span>Donations</span>
         </a>
         <a href="{{ url_for('content_management_bp.index') }}" class="nav-link {% if request.endpoint == 'content_management_bp.index' %}active{% endif %}" aria-label="Content Management" title="Content Management">

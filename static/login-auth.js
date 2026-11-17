@@ -1,11 +1,9 @@
-import { auth, provider, facebookProvider } from "./firebase-config.js";
+import { auth, provider } from "./firebase-config.js";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, sendEmailVerification } 
 from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
 const signInWithGoogleButtonEl = document.getElementById("sign-in-with-google-btn");
 const signUpWithGoogleButtonEl = document.getElementById("sign-up-with-google-btn");
-const signInWithFacebookButtonEl = document.getElementById("sign-in-with-facebook-btn");
-const signUpWithFacebookButtonEl = document.getElementById("sign-up-with-facebook-btn");
 
 const emailInputEl = document.getElementById("email-input");
 const passwordInputEl = document.getElementById("password-input");
@@ -13,13 +11,38 @@ const signInButtonEl = document.getElementById("sign-in-btn");
 const createAccountButtonEl = document.getElementById("create-account-btn");
 const emailForgotPasswordEl = document.getElementById("email-forgot-password");
 const forgotPasswordButtonEl = document.getElementById("forgot-password-btn");
-
 const loginFormEl = document.querySelector(".auth-form-vertical"); 
 const signupFormEl = document.querySelector(".auth-form-grid");
-
 const errorMsgEmail = document.getElementById("email-error-message");
 const errorMsgPassword = document.getElementById("password-error-message");
 const errorMsgGoogleSignIn = document.getElementById("google-signin-error-message");
+
+function setLoginButtonLoading() {
+    if (!signInButtonEl) return;
+    signInButtonEl.disabled = true;
+    signInButtonEl.innerHTML =
+        '<i class="fa-solid fa-spinner fa-spin" style="margin-right: 8px;"></i>Signing In...';
+}
+
+function resetLoginButton() {
+    if (!signInButtonEl) return;
+    signInButtonEl.disabled = false;
+    signInButtonEl.innerHTML =
+        'Sign In &nbsp;<i class="fa-solid fa-arrow-right-long"></i>';
+}
+
+function setRegisterButtonLoading() {
+    if (!createAccountButtonEl) return;
+    createAccountButtonEl.disabled = true;
+    createAccountButtonEl.innerHTML =
+        '<i class="fa-solid fa-spinner fa-spin" style="margin-right: 8px;"></i>Creating Account...';
+}
+
+function resetRegisterButton() {
+    if (!createAccountButtonEl) return;
+    createAccountButtonEl.disabled = false;
+    createAccountButtonEl.textContent = "Create Account";
+}
 
 if (loginFormEl) {
     loginFormEl.addEventListener("submit", (e) => {
@@ -40,12 +63,6 @@ if (signInWithGoogleButtonEl) {
 }
 if (signUpWithGoogleButtonEl) {
     signUpWithGoogleButtonEl.addEventListener("click", authSignUpWithGoogle);
-}
-if (signInWithFacebookButtonEl) {
-    signInWithFacebookButtonEl.addEventListener("click", authSignInWithFacebook);
-}
-if (signUpWithFacebookButtonEl) {
-    signUpWithFacebookButtonEl.addEventListener("click", authSignUpWithFacebook);
 }
 if (forgotPasswordButtonEl) {
     forgotPasswordButtonEl.addEventListener("click", resetPassword);
@@ -75,28 +92,6 @@ async function authSignUpWithGoogle() {
         console.error("Error during Google signup: ", error.message);
         if (errorMsgGoogleSignIn) {
             errorMsgGoogleSignIn.textContent = "Google Sign-Up failed. Please try again.";
-        }
-    }
-}
-
-//Facebook Auth
-async function authSignInWithFacebook() {
-    try {
-        const result = await signInWithPopup(auth, facebookProvider);
-        processSocialAuthResult(result);
-    } catch (error) {
-        handleSocialAuthError(error, "Facebook Sign-In failed. Please try again.");
-    }
-}
-
-async function authSignUpWithFacebook() {
-    try {
-        const result = await signInWithPopup(auth, facebookProvider);
-        processSocialAuthResult(result);
-    } catch (error) {
-        console.error("Error during Facebook signup: ", error.message);
-        if (errorMsgGoogleSignIn) {
-            errorMsgGoogleSignIn.textContent = "Facebook Sign-Up failed. Please try again.";
         }
     }
 }
@@ -133,7 +128,6 @@ async function processSocialAuthResult(result) {
             user.providerData?.[0]?.photoURL ||
             ""
     };
-
     loginUser(user, idToken, extraData);
 }
 
@@ -148,43 +142,63 @@ function handleSocialAuthError(error, customMessage) {
 }
 
 function authSignInWithEmail() {
-    const email = emailInputEl.value;
+    const email = emailInputEl.value.trim();
     const password = passwordInputEl.value;
-
+    if (errorMsgEmail) errorMsgEmail.textContent = "";
+    if (errorMsgPassword) errorMsgPassword.textContent = "";
+    if (signInButtonEl.disabled) return;
+    setLoginButtonLoading();
     signInWithEmailAndPassword(auth, email, password)
         .then((userCredential) => {
             const user = userCredential.user;
-
             if (!user.emailVerified) {
                 if (errorMsgPassword) {
-                    errorMsgPassword.textContent = "Please verify your email before logging in. Check your inbox for the confirmation link.";
+                    errorMsgPassword.textContent =
+                        "Please verify your email before logging in. Check your inbox for the confirmation link.";
                 }
                 auth.signOut();
+                resetLoginButton();
                 return;
             }
 
-            user.getIdToken().then(function(idToken) {
-                loginUser(user, idToken);
-            });
+            user.getIdToken()
+                .then(function(idToken) {
+                    loginUser(user, idToken);
+                })
+                .catch((error) => {
+                    console.error("Token error:", error);
+                    if (errorMsgPassword) {
+                        errorMsgPassword.textContent =
+                            "Unable to authenticate your account. Please try again.";
+                    }
+                    resetLoginButton();
+                });
         })
         .catch((error) => {
             const errorCode = error.code;
             console.error("Error code: ", errorCode);
-
             if (errorCode === "auth/user-disabled") {
-                const blockedMsg = "Your account has been blocked by an administrator. Please contact support.";
+                const blockedMsg =
+                    "Your account has been blocked by an administrator. Please contact support.";
                 alert(blockedMsg);
-                if (errorMsgPassword) errorMsgPassword.textContent = blockedMsg;
-                return;
+                if (errorMsgPassword) {
+                    errorMsgPassword.textContent = blockedMsg;
+                }
+            } else if (errorCode === "auth/invalid-email") {
+                if (errorMsgEmail) {
+                    errorMsgEmail.textContent = "Invalid email.";
+                }
+            } else if (errorCode === "auth/invalid-credential") {
+                if (errorMsgPassword) {
+                    errorMsgPassword.textContent =
+                        "Login failed - invalid email or password.";
+                }
+            } else {
+                if (errorMsgPassword) {
+                    errorMsgPassword.textContent = error.message;
+                }
             }
-
-            if (errorCode === "auth/invalid-email" && errorMsgEmail) {
-                errorMsgEmail.textContent = "Invalid email";
-            } else if (errorCode === "auth/invalid-credential" && errorMsgPassword) {
-                errorMsgPassword.textContent = "Login failed - invalid email or password";
-            } else if (errorMsgPassword) {
-                errorMsgPassword.textContent = error.message;
-            }
+            resetLoginButton();
         });
 }
 
@@ -262,6 +276,7 @@ function authCreateAccountWithEmail() {
     };
 
     console.log("Starting account creation process...");
+    setRegisterButtonLoading();
     createUserWithEmailAndPassword(auth, email, password)
         .then(async (userCredential) => {
             const user = userCredential.user;
@@ -269,18 +284,20 @@ function authCreateAccountWithEmail() {
             await sendEmailVerification(user);
             console.log("Verification email sent successfully.");
             const idToken = await user.getIdToken();
-            await loginUser(user, idToken, extraData, true); 
+            await loginUser(user, idToken, extraData, true);
         })
         .catch((error) => {
+            resetRegisterButton();
             const errorCode = error.code;
             console.error("Signup error caught:", error);
-
             if (errorCode === "auth/invalid-email" && errorMsgEmail) {
                 errorMsgEmail.textContent = "Invalid email";
             } else if (errorCode === "auth/weak-password" && errorMsgPassword) {
-                errorMsgPassword.textContent = "Password is too weak. Please meet all complexity requirements.";
+                errorMsgPassword.textContent =
+                    "Password is too weak. Please meet all complexity requirements.";
             } else if (errorCode === "auth/email-already-in-use" && errorMsgEmail) {
-                errorMsgEmail.textContent = "An account already exists for this email.";
+                errorMsgEmail.textContent =
+                    "An account already exists for this email.";
             } else if (errorMsgPassword) {
                 errorMsgPassword.textContent = error.message;
             }
@@ -356,6 +373,9 @@ function loginUser(user, idToken, extraData = null, isRegistration = false) {
     })
     .catch(error => {
         console.error('Error with Fetch operation: ', error);
+        if (isRegistration) {
+            resetRegisterButton();
+        }
     });
 }
 

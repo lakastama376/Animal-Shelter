@@ -120,6 +120,18 @@
             data-year-data='{{ yearly_chart_data | tojson }}'>
           </canvas>
         </div>
+        <div class="chart-axis-totals">
+          <div class="axis-total-item">
+            <span class="legend-square" style="background-color: #f97316;"></span>
+            <span class="axis-total-label">Total Adoptions:</span>
+            <strong id="totalAdoptionsVal">0</strong>
+          </div>
+          <div class="axis-total-item">
+            <span class="legend-square" style="background-color: #1877f2;"></span>
+            <span class="axis-total-label">Total Rescues:</span>
+            <strong id="totalRescuesVal">0</strong>
+          </div>
+        </div>
       </div>
 
       <!--Donation Revenue Chart-->
@@ -438,7 +450,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% if is_admin %}
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', () => {
     const h1Labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
     const h2Labels = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -448,28 +460,41 @@ document.addEventListener('DOMContentLoaded', () => {
       const rawData = JSON.parse(barCtx.dataset.yearData || '{}');
       const yearSelect = document.getElementById('yearSelectAdoptions');
       const rangeSelect = document.getElementById('rangeSelectAdoptions');
+      const totalAdoptionsEl = document.getElementById('totalAdoptionsVal');
+      const totalRescuesEl = document.getElementById('totalRescuesVal');
 
       const getBarSlice = () => {
         const yr = yearSelect.value;
         const range = rangeSelect.value;
-        const yearObj = rawData[yr] || { adoptions: [0]*12, rescues: [0]*12 };
-
+        const yearObj = rawData[yr] || { adoptions: new Array(12).fill(0), rescues: new Array(12).fill(0) };
         if (range === 'H1') {
           return {
             labels: h1Labels,
             adoptions: yearObj.adoptions.slice(0, 6),
-            rescues: yearObj.rescues.slice(0, 6)
+            rescues: yearObj.rescues.slice(0, 6),
+            fullYear: yearObj 
           };
         } else {
           return {
             labels: h2Labels,
             adoptions: yearObj.adoptions.slice(6, 12),
-            rescues: yearObj.rescues.slice(6, 12)
+            rescues: yearObj.rescues.slice(6, 12),
+            fullYear: yearObj 
           };
         }
       };
 
+      const updateYearlyTotals = () => {
+        const yr = yearSelect.value;
+        const yearObj = rawData[yr] || { adoptions: new Array(12).fill(0), rescues: new Array(12).fill(0) };
+        const sumAdoptions = yearObj.adoptions.reduce((a, b) => a + b, 0);
+        const sumRescues = yearObj.rescues.reduce((a, b) => a + b, 0);
+        if (totalAdoptionsEl) totalAdoptionsEl.textContent = sumAdoptions;
+        if (totalRescuesEl) totalRescuesEl.textContent = sumRescues;
+      };
+
       const initialBar = getBarSlice();
+      updateYearlyTotals();
       const adoptionsChart = new Chart(barCtx.getContext('2d'), {
         type: 'bar',
         data: {
@@ -496,12 +521,12 @@ document.addEventListener('DOMContentLoaded', () => {
         adoptionsChart.data.datasets[0].data = updated.adoptions;
         adoptionsChart.data.datasets[1].data = updated.rescues;
         adoptionsChart.update();
+        updateYearlyTotals();
+        updateURLParams(yearSelect.value, rangeSelect.value);
       }
-
       yearSelect.addEventListener('change', updateBarChart);
       rangeSelect.addEventListener('change', updateBarChart);
     }
-
     // Donation Revenue
     const lineCtx = document.getElementById('donationRevenueChart');
       if (lineCtx) {

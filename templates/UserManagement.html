@@ -404,13 +404,10 @@
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
-        // If this script is on the messages page, handle conversation auto-selection
         if (typeof loadConversations === 'function') {
             await loadConversations(); 
-
             const urlParams = new URLSearchParams(window.location.search);
             const targetConversationId = urlParams.get('conversationId') || urlParams.get('active');
-
             if (targetConversationId) {
                 const conversationElement = document.querySelector(`[data-id="${targetConversationId}"]`); 
                 if (conversationElement) {

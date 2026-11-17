@@ -115,7 +115,7 @@ body {
     display: flex; 
     align-items: center; 
     justify-content: center; 
-    background-color: #cbd5e1; 
+    background-color: #ff914d; 
     color: #ffffff;
     width: 36px;
     height: 36px;
@@ -427,4 +427,14 @@ td { padding: 1rem; border-bottom: 1px solid var(--border-color); vertical-align
     .modal-card { width: 95%; margin: 10px auto; }
     .data-grid { grid-template-columns: 1fr; }
     .data-item.full-width, .section-separator { grid-column: span 1; }
+    .data-item.full-width div[style*="display: flex"] {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important;
+        gap: 8px !important;
+    }
+    .data-item.full-width div[style*="display: flex"] img,
+    .data-item.full-width div[style*="display: flex"] video {
+        width: 100% !important;
+        height: 90px !important;
+    }
 }

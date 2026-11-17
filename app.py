@@ -218,7 +218,7 @@ def authorize():
             contact_number = data.get('contact', '')
             phone_regex = r'^09\d{9}$'
             sign_in_provider = decoded_token.get('firebase', {}).get('sign_in_provider', '')
-            if sign_in_provider not in ['google.com', 'facebook.com']:
+            if sign_in_provider not in ['google.com']:
                 if not re.match(phone_regex, contact_number):
                     return jsonify({"status": "error", "message": "Invalid contact number format. Must be 11 digits starting with 09."}), 400
 
