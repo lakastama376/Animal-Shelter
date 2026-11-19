@@ -135,13 +135,15 @@ header h1 { font-size: 2.5rem; font-weight: 800; margin: 0 0 0.5rem 0; color: #0
     gap: 0.35rem;
 }
 
-.status-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.status-badge::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
 .status-available { background-color: var(--status-available); color: var(--status-available-text); }
 .status-available::before { background-color: var(--status-available-text); }
 .status-pending { background-color: var(--status-pending); color: var(--status-pending-text); }
 .status-pending::before { background-color: var(--status-pending-text); }
 .status-adopted { background-color: var(--status-adopted); color: var(--status-adopted-text); }
 .status-adopted::before { background-color: var(--status-adopted-text); }
+.status-reserved { background-color: var(--text-muted); color: #ffffff; }
+.status-reserved::before { background-color: #ffffff; }
 
 .btn-favorite-circle { 
     color: var(--text-muted); 
@@ -253,7 +255,6 @@ header h1 { font-size: 2.5rem; font-weight: 800; margin: 0 0 0.5rem 0; color: #0
 }
 
 .btn-close-modal:hover { background-color: #f3f4f6; color: var(--text-dark); }
-
 .modal-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
 
 .filter-group { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -278,6 +279,7 @@ header h1 { font-size: 2.5rem; font-weight: 800; margin: 0 0 0.5rem 0; color: #0
 }
 
 .filter-select:focus { border-color: var(--primary); }
+.filter-select option:checked { background-color: var(--primary); color: #ffffff; }
 
 .modal-footer {
     display: flex;

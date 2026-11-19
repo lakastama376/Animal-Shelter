@@ -24,9 +24,10 @@
                 <!--Pet Wishlist-->
                 <div class="wishlist-grid" id="wishlistGrid">
                     {% for item in wishlist_items %}
+                    {% set card_status = item.pet.display_status if item.pet.display_status else item.pet.status %}
                     <div class="card" id="pet-card-{{ item.pet.id }}">
                         <div class="card-media">
-                            <span class="status-badge {{ item.pet.status | lower }}">{{ item.pet.status }}</span>
+                            <span class="status-badge {{ card_status | lower | replace(' ', '-') }}">{{ card_status }}</span>
                             <img src="{{ item.pet.images[0] if item.pet.images else 'https://via.placeholder.com/400x250' }}" alt="{{ item.pet.petName }}">
                             
                             <button class="btn-remove-wishlist" title="Remove from Wishlist" onclick="removeFromWishlist('{{ item.pet.id }}')">
@@ -48,10 +49,14 @@
                         <div class="card-actions">
                             <a href="{{ url_for('pet_profile_bp.pet_profile', id=item.pet.id) }}" class="btn-secondary">View Profile</a>
                             
-                            {% if item.pet.status | lower == 'available' %}
+                            {% if card_status | lower == 'reserved' %}
+                                <button type="button" class="btn-primary disabled" disabled title="This pet is currently reserved">
+                                    <i class="fa-solid fa-bookmark"></i> Reserved
+                                </button>
+                            {% elif item.pet.status | lower == 'available' %}
                                 <a href="{{ url_for('eligibility_checker_bp.index', pet_id=item.pet.id) }}" class="btn-primary">Adopt Now</a>
                             {% else %}
-                                <button class="btn-primary disabled" disabled>Not Available</button>
+                                <button type="button" class="btn-primary disabled" disabled>Not Available</button>
                             {% endif %}
                         </div>
                     </div>

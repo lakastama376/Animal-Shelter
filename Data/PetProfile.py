@@ -64,12 +64,36 @@ def pet_profile(id):
                 pass
 
         user_profile = None
+        user_application_status = None
         user_data = session.get('user', {})
         uid = user_data.get('uid') or user_data.get('user_id')
+
         if uid:
             user_doc = db.collection('Users').document(uid).get()
             if user_doc.exists:
                 user_profile = user_doc.to_dict()
+
+            existing_apps = list(
+                db.collection('Applications')
+                .where('userId', '==', uid)
+                .where('petId', '==', id)
+                .stream()
+            )
+            
+            priority_statuses = ['Approved', 'Visit Scheduled', 'Adopted', 'Under Review', 'Submitted']
+            found_statuses = [app.to_dict().get('status') for app in existing_apps if app.to_dict().get('status')]
+            for st in priority_statuses:
+                if st in found_statuses:
+                    user_application_status = st
+                    break
+            if not user_application_status and found_statuses:
+                user_application_status = found_statuses[0]
+
+        raw_pet_status = (pet_data.get('status') or '').strip()
+        if user_application_status in ['Approved', 'Visit Scheduled'] or raw_pet_status.lower() == 'reserved':
+            display_status = 'Reserved'
+        else:
+            display_status = raw_pet_status or 'Available'
 
         current_type = pet_data.get('type', '')
         current_traits = set([t.lower() for t in pet_data.get('personality', []) if t])
@@ -107,7 +131,14 @@ def pet_profile(id):
             similar_pets.append(other_data)
             
         similar_pets = sorted(similar_pets, key=lambda x: x['match_percentage'], reverse=True)[:3]
-        return render_template('PetProfile.html', pet=pet_data, similar_pets=similar_pets, user_profile=user_profile)
+        return render_template(
+            'PetProfile.html',
+            pet=pet_data,
+            similar_pets=similar_pets,
+            user_profile=user_profile,
+            user_application_status=user_application_status,
+            display_status=display_status
+        )
         
     except Exception as e:
         print(f"Error fetching individual profile dynamic components: {e}")

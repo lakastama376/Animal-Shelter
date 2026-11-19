@@ -96,8 +96,13 @@
                     <!--Pin Location-->
                     <div class="form-group">
                         <label class="required">Pin GPS Location</label>
-                        <div class="hint">Click anywhere on the map inside the Silang boundary to pin the incident location.</div>
-                        <div class="error-message" id="error-gps">Please click on the map to pin the GPS location.</div>
+                        <div class="hint">
+                            Your current GPS location will automatically be detected and pinned when this page loads.
+                            You can click another location on the map to change the incident location.
+                        </div>
+                        <div class="error-message" id="error-gps">
+                            Unable to detect your GPS location. Please allow location access or select a location on the map.
+                        </div>
                         <input type="hidden" name="latitude" id="geoLatitude" required>
                         <input type="hidden" name="longitude" id="geoLongitude" required>
                         <div id="map" 
@@ -280,13 +285,19 @@
             }
         }).addTo(map);
 
-        L.control.locate({
+        const locateControl = L.control.locate({
             position: 'topleft',
             keepCurrentZoomLevel: true,
             setView: 'untilPanOrZoom',
             flyTo: true,
-            strings: { title: "Find my current location" }
-        }).addTo(map);
+            drawMarker: false,
+            drawCircle: false,
+            showPopup: false,
+            strings: {
+                title: "Pin my current location"
+            }
+        });
+        locateControl.addTo(map);
 
         // Pinned Location
         let pinnedMarker = null;
@@ -326,8 +337,7 @@
 
                 if (!data.features || data.features.length === 0) {
                     locationAddress.placeholder = 'Enter the location address manually...';
-                    addressStatus.innerText =
-                        'No readable address was found. Please enter the address manually.';
+                    addressStatus.innerText = 'No readable address was found. Please enter the address manually.';
                     return;
                 }
 
@@ -369,11 +379,11 @@
                 if (readableAddress) {
                     locationAddress.value = readableAddress;
                     locationAddress.placeholder = 'Street, barangay, city...';
-                    addressStatus.innerText = 'Address successfully detected from your pin.';
+                    addressStatus.innerText = 'Address successfully detected from your selected pin.';
+
                 } else {
                     locationAddress.placeholder = 'Enter the location address manually...';
-                    addressStatus.innerText =
-                        'Address details are unavailable. Please enter the address manually.';
+                    addressStatus.innerText = 'Address details are unavailable. Please enter the address manually.';
                 }
 
             } catch (error) {
@@ -384,40 +394,57 @@
                 console.error('Reverse geocoding error:', error);
                 if (currentRequestId === reverseGeocodeRequestId) {
                     locationAddress.placeholder = 'Enter the location address manually...';
-                    addressStatus.innerText =
-                        'Unable to detect the address. Your GPS coordinates are still recorded. Please enter the address manually.';
+
+                    addressStatus.innerText = 'Unable to detect the address. Your GPS coordinates are still recorded. Please enter the address manually.';
                 }
             }
         }
 
-        function processLocationPin(targetLatLng) {
-            const pt = turf.point([targetLatLng.lng, targetLatLng.lat]);
-            const isInside = turf.booleanPointInPolygon(pt, boundaryPolygonFeature);
-
-            if (enforceBoundary && !isInside) {
-                L.popup({ className: 'map-popup', closeButton: true })
-                    .setLatLng(targetLatLng)
-                    .setContent(`
-                        <div class="map-popup-content">
-                            <div class="map-popup-title">Invalid Service Area</div>
-                            <div class="map-popup-body">Your coordinate must be located within Silang Boundary.</div>
-                        </div>
-                    `)
-                    .openOn(map);
-                return;
-            }
-
-            document.getElementById('geoLatitude').value = targetLatLng.lat;
-            document.getElementById('geoLongitude').value = targetLatLng.lng;
-            document.getElementById('coordDisplay').innerText = `Lat: ${targetLatLng.lat.toFixed(5)}, Lng: ${targetLatLng.lng.toFixed(5)}`;
-            document.getElementById('routeStatus').innerText = "📍 Target Position Logged";
-            getReadableAddress(targetLatLng.lat, targetLatLng.lng);
-
+        function removePreviousPin() {
             if (pinnedMarker) {
                 map.removeLayer(pinnedMarker);
+                pinnedMarker = null;
             }
             if (pinnedCircle) {
                 map.removeLayer(pinnedCircle);
+                pinnedCircle = null;
+            }
+        }
+
+        function processLocationPin(targetLatLng, source = 'manual') {
+            const latitude = targetLatLng.lat;
+            const longitude = targetLatLng.lng;
+            const pt = turf.point([longitude, latitude]);
+            const isInside = turf.booleanPointInPolygon(pt, boundaryPolygonFeature);
+            if (enforceBoundary && !isInside) {
+                L.popup({
+                    className: 'map-popup',
+                    closeButton: true
+                })
+                .setLatLng(targetLatLng)
+                .setContent(`
+                    <div class="map-popup-content">
+                        <div class="map-popup-title">
+                            Invalid Service Area
+                        </div>
+
+                        <div class="map-popup-body">
+                            Your coordinate must be located within Silang Boundary.
+                        </div>
+                    </div>
+                `)
+                .openOn(map);
+                return;
+            }
+
+            removePreviousPin();
+            document.getElementById('geoLatitude').value = latitude;
+            document.getElementById('geoLongitude').value = longitude;
+            document.getElementById('coordDisplay').innerText = `Lat: ${latitude.toFixed(5)}, Lng: ${longitude.toFixed(5)}`;
+            if (source === 'current') {
+                document.getElementById('routeStatus').innerText = '📍 Current Location Pinned';
+            } else {
+                document.getElementById('routeStatus').innerText = '📍 New Incident Location Selected';
             }
 
             pinnedCircle = L.circle(targetLatLng, {
@@ -426,29 +453,50 @@
                 fillColor: '#ef4444',
                 fillOpacity: 0.15,
                 weight: 2,
-                radius: 200  
+                radius: 200
             }).addTo(map);
 
-            pinnedMarker = L.marker(targetLatLng).addTo(map)
+            pinnedMarker = L.marker(targetLatLng)
+                .addTo(map)
                 .bindPopup(`
-                    <div class="map-popup-title">Incident Location</div>
-                    <div class="map-popup-body"><b>Stray Animal Location</b></div>
-                `, { className: 'map-popup' })
+                    <div class="map-popup-title">
+                        ${source === 'current' ? 'Current Location' : 'Incident Location'}
+                    </div>
+                    <div class="map-popup-body">
+                        ${source === 'current'
+                            ? 'Your current incident location.'
+                            : 'Stray animal incident location.'}
+                    </div>
+                `, {
+                    className: 'map-popup'
+                })
                 .openPopup();
+            getReadableAddress(latitude, longitude);
         }
 
-        map.on('click', (e) => processLocationPin(e.latlng));
-        map.on('locationfound', (e) => processLocationPin(e.latlng));
+        map.on('click', function (event) {
+            processLocationPin(event.latlng, 'manual');
+        });
 
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                function (position) {
-                },
-                function () {
-                    console.log("Geolocation access dropped or timed out.");
-                }
-            );
-        }
+        map.on('locationfound', function (event) {
+            processLocationPin(event.latlng, 'current');
+        });
+
+        map.on('locationerror', function (event) {
+            console.error('Current location error:', event.message);
+            document.getElementById('routeStatus').innerText = 'Unable to detect current location. Please select a location manually.';
+            document.getElementById('error-gps').style.display = 'block';
+        });
+
+        setTimeout(function () {
+            map.locate({
+                setView: true,
+                maxZoom: 17,
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 0
+            });
+        }, 500);
 
         // Live Camera
         let activeStream = null;
@@ -489,12 +537,30 @@
         const timerDisplay = document.getElementById('rescue-timer-display');
         const rescueForm = document.getElementById('rescueReportForm');
 
+        function setSwitchCameraDisabled(disabled) {
+            if (!btnSwitchCamera) return;
+            btnSwitchCamera.disabled = disabled;
+            btnSwitchCamera.style.opacity = disabled ? '0.45' : '1';
+            btnSwitchCamera.style.cursor = disabled ? 'not-allowed' : 'pointer';
+            btnSwitchCamera.style.pointerEvents = disabled ? 'none' : 'auto';
+        }
+
+        function showActiveModalError(message) {
+            if (currentMode === 'photo' && errPhoto) {
+                errPhoto.textContent = message;
+                errPhoto.style.display = 'block';
+            } else if (currentMode === 'video' && errVideo) {
+                errVideo.textContent = message;
+                errVideo.style.display = 'block';
+            }
+        }
+
         if (btnOpenModal) {
             btnOpenModal.addEventListener('click', async function () {
                 modalBackdrop.style.display = 'flex';
                 tempFile = null;
                 resetModalStates();
-                currentFacingMode = 'user'; 
+                currentFacingMode = 'user';
                 await startCamera(currentFacingMode);
             });
         }
@@ -508,20 +574,21 @@
 
         if (btnSwitchCamera) {
             btnSwitchCamera.addEventListener('click', async function () {
+                if (btnSwitchCamera.disabled) return;
                 currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
                 await startCamera(currentFacingMode);
             });
         }
 
         async function startCamera(facingMode) {
-            stopCamera(); 
+            stopCamera();
             try {
                 activeStream = await navigator.mediaDevices.getUserMedia({
                     audio: true,
-                    video: { 
-                        width: { ideal: 1280 }, 
+                    video: {
+                        width: { ideal: 1280 },
                         height: { ideal: 720 },
-                        facingMode: facingMode 
+                        facingMode: facingMode
                     }
                 });
                 liveFeed.srcObject = activeStream;
@@ -531,17 +598,17 @@
                 try {
                     activeStream = await navigator.mediaDevices.getUserMedia({
                         audio: false,
-                        video: { 
-                            width: { ideal: 1280 }, 
+                        video: {
+                            width: { ideal: 1280 },
                             height: { ideal: 720 },
-                            facingMode: facingMode 
+                            facingMode: facingMode
                         }
                     });
                     liveFeed.srcObject = activeStream;
                     liveFeed.style.display = 'block';
                 } catch (fallbackErr) {
                     console.error("Camera access failed completely:", fallbackErr);
-                    alert("Unable to access local camera devices or switch cameras.");
+                    showActiveModalError("Unable to access local camera devices or switch cameras.");
                 }
             }
         }
@@ -563,8 +630,9 @@
             btnPauseRecord.style.display = 'none';
             btnStopRecord.style.display = 'none';
             btnSaveToDevice.style.display = 'none';
-            errPhoto.style.display = 'none';
-            errVideo.style.display = 'none';
+            setSwitchCameraDisabled(false);
+            if (errPhoto) errPhoto.style.display = 'none';
+            if (errVideo) errVideo.style.display = 'none';
             stopTimer();
             btnStartRecord.className = "cam-btn-circle action-capture";
             btnStartRecord.title = "Start Recording";
@@ -629,6 +697,12 @@
 
         // Photo Capture
         btnSnapPhoto?.addEventListener('click', function () {
+            if (capturedPhotos.length >= 3) {
+                errPhoto.textContent = "You cannot capture more than 3 photos.";
+                errPhoto.style.display = 'block';
+                return;
+            }
+
             const canvas = document.createElement('canvas');
             canvas.width = liveFeed.videoWidth || 640;
             canvas.height = liveFeed.videoHeight || 480;
@@ -643,12 +717,6 @@
                     return;
                 }
 
-                if (capturedPhotos.length >= 3) {
-                    errPhoto.textContent = "You cannot capture more than 3 photos.";
-                    errPhoto.style.display = 'block';
-                    return;
-                }
-
                 errPhoto.style.display = 'none';
                 tempFile = file;
                 photoPreview.src = URL.createObjectURL(blob);
@@ -657,6 +725,7 @@
                 btnSnapPhoto.style.display = 'none';
                 btnRetakeSnap.style.display = 'inline-flex';
                 btnSaveToDevice.style.display = 'inline-flex';
+                setSwitchCameraDisabled(true);
             }, 'image/jpeg');
         });
 
@@ -667,6 +736,8 @@
             btnSnapPhoto.style.display = 'inline-flex';
             btnRetakeSnap.style.display = 'none';
             btnSaveToDevice.style.display = 'none';
+            setSwitchCameraDisabled(false);
+            if (errPhoto) errPhoto.style.display = 'none';
         });
 
         // Recording
@@ -704,6 +775,7 @@
                 errVideo.style.display = 'none';
                 tempFile = file;
                 btnSaveToDevice.style.display = 'inline-flex';
+                setSwitchCameraDisabled(true);
             };
 
             mediaRecorder.start();
@@ -745,12 +817,21 @@
 
         btnSaveToDevice?.addEventListener('click', function () {
             if (!tempFile) return;
-
             if (currentMode === 'photo') {
+                if (capturedPhotos.length >= 3) {
+                    errPhoto.textContent = "You cannot capture more than 3 photos.";
+                    errPhoto.style.display = 'block';
+                    return;
+                }
                 capturedPhotos.push(tempFile);
                 updateInputFiles(photoInput, capturedPhotos);
                 renderStatusList(mainPhotoPreviewList, capturedPhotos, 'photo');
             } else {
+                if (capturedVideos.length >= 1) {
+                    errVideo.textContent = "You can only attach 1 video.";
+                    errVideo.style.display = 'block';
+                    return;
+                }
                 capturedVideos.push(tempFile);
                 updateInputFiles(videoInput, capturedVideos);
                 renderStatusList(mainVideoPreviewList, capturedVideos, 'video');
@@ -907,6 +988,7 @@
         if (!label) return;
 
         if (!input.files || input.files.length === 0) {
+            label.style.color = "";
             label.innerText = "";
             return;
         }
@@ -928,16 +1010,16 @@
         }
 
         if (totalSize > maxCombinedSize) {
-            alert(`The total size of your selected items (${(totalSize / (1024 * 1024)).toFixed(2)} MB) exceeds the maximum allowed 25 MB limit.`);
+            label.style.color = "#b91c1c";
+            label.innerText = `The total size of your selected items (${(totalSize / (1024 * 1024)).toFixed(2)} MB) exceeds the maximum allowed 25 MB limit.`;
             input.value = "";
-            label.innerText = "";
             return;
         }
 
         if (photoCount !== 3 || videoCount !== 1) {
-            alert(`Invalid selection! You must select EXACTLY 3 photos and 1 video.\n\nYou currently have selected: ${photoCount} photo(s) and ${videoCount} video(s).`);
+            label.style.color = "#b91c1c";
+            label.innerText = `Invalid selection! You must select EXACTLY 3 photos and 1 video. Currently selected: ${photoCount} photo(s) and ${videoCount} video(s).`;
             input.value = "";
-            label.innerText = "";
             return;
         }
 

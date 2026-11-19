@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, session, redirec
 from firebase_admin import firestore
 import os
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from itsdangerous import URLSafeTimedSerializer, BadSignature
 from Data.audit import log_audit_event
 
@@ -48,6 +48,52 @@ def auth_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def get_utc_now():
+    return datetime.now(timezone.utc)
+
+def create_lockout():
+    return get_utc_now() + timedelta(hours=24)
+
+def normalize_firestore_datetime(value):
+    if not value:
+        return None
+
+    if hasattr(value, 'datetime'):
+        value = value.datetime()
+
+    if not isinstance(value, datetime):
+        return None
+
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+
+    return value.astimezone(timezone.utc)
+
+def get_pet_reservation_block(db, pet_id, pet_data=None):
+    if not pet_id:
+        return False, ''
+
+    if pet_data is None:
+        pet_doc = db.collection('Pets').document(pet_id).get()
+        if not pet_doc.exists:
+            return False, ''
+        pet_data = pet_doc.to_dict() or {}
+
+    raw_status = str(pet_data.get('status') or '').strip()
+    if raw_status.lower() == 'reserved':
+        return True, 'Reserved'
+
+    if raw_status and raw_status.lower() != 'available':
+        return True, raw_status
+
+    reserved_apps = db.collection('Applications').where('petId', '==', pet_id).stream()
+    for app_doc in reserved_apps:
+        app_status = str((app_doc.to_dict() or {}).get('status') or '').strip().lower()
+        if app_status in ['approved', 'visit scheduled']:
+            return True, 'Reserved'
+
+    return False, ''
+
 # Eligibility Questions
 @eligibility_checker_bp.route('/eligibility', methods=['GET'])
 @eligibility_checker_bp.route('/eligibility/<pet_id>', methods=['GET'])
@@ -74,10 +120,15 @@ def index(pet_id=None):
 
             if pet_data.get('images'):
                 pet_data['images'] = [get_file_url(img) for img in pet_data['images'] if img]
-            
-            pet_status = str(pet_data.get('status', '')).strip().lower()
-            if pet_status != 'available':
-                flash(f"This pet is currently {pet_data.get('status', 'not available')} and cannot receive adoption applications.", "error")
+
+            is_blocked, block_status = get_pet_reservation_block(db, pet_id, pet_data)
+            if is_blocked:
+                if session.get('pending_pet_id') == pet_id:
+                    session.pop('pending_pet_id', None)
+                if block_status.lower() == 'reserved':
+                    flash("This pet is currently reserved and cannot proceed to the eligibility checker.", "error")
+                else:
+                    flash(f"This pet is currently {block_status} and cannot receive adoption applications.", "error")
                 return redirect(url_for('pet_profile_bp.pet_profile', id=pet_id))
 
     user_data = session.get('user', {})
@@ -95,12 +146,12 @@ def index(pet_id=None):
                     return redirect(url_for('pet_matching_bp.index'))
 
             lockout_until = user_dict.get('retake_lockout_until')
-
-            if lockout_until:
-                lockout_dt = lockout_until.datetime() if hasattr(lockout_until, 'datetime') else lockout_until
-                if lockout_dt and datetime.now(lockout_dt.tzinfo) < lockout_dt:
+            lockout_dt = normalize_firestore_datetime(lockout_until)
+            if lockout_dt:
+                if get_utc_now() < lockout_dt:
                     is_locked_out = True
-                    lockout_time_str = lockout_dt.strftime('%B %d, %Y at %I:%M %p')
+                    philippines_time = lockout_dt.astimezone(timezone(timedelta(hours=8)))
+                    lockout_time_str = philippines_time.strftime('%B %d, %Y at %I:%M %p')
 
     try:
         questions_ref = db.collection('EligibilityQuestions').order_by('createdAt', direction=firestore.Query.DESCENDING).stream()
@@ -138,9 +189,11 @@ def submit_evaluation():
         if pet_id:
             pet_doc = db.collection('Pets').document(pet_id).get()
             if pet_doc.exists:
-                pet_status = str(pet_doc.to_dict().get('status', '')).strip().lower()
-                if pet_status != 'available':
-                    return jsonify({"success": False, "message": "This pet is no longer available for adoption."}), 400
+                pet_dict = pet_doc.to_dict() or {}
+                is_blocked, block_status = get_pet_reservation_block(db, pet_id, pet_dict)
+                if is_blocked:
+                    msg = "This pet is currently reserved and cannot accept adoption applications." if block_status.lower() == 'reserved' else "This pet is no longer available for adoption."
+                    return jsonify({"success": False, "message": msg}), 400
 
         user_data = session.get('user', {})
         uid = user_data.get('uid') or user_data.get('user_id')
@@ -160,16 +213,19 @@ def submit_evaluation():
             if user_doc.exists:
                 user_dict = user_doc.to_dict()
                 lockout_until = user_dict.get('retake_lockout_until')
-
-                if lockout_until:
-                    lockout_dt = lockout_until.datetime() if hasattr(lockout_until, 'datetime') else lockout_until
-                    
-                    if datetime.now(lockout_dt.tzinfo) < lockout_dt:
-                        formatted_time = lockout_dt.strftime('%B %d, %Y at %I:%M %p')
-                        return jsonify({
-                            "success": False,
-                            "message": f"You are locked out. Try again after {formatted_time}."
-                        }), 403
+                lockout_dt = normalize_firestore_datetime(lockout_until)
+                if lockout_dt and get_utc_now() < lockout_dt:
+                    philippines_time = lockout_dt.astimezone(timezone(timedelta(hours=8)))
+                    formatted_time = philippines_time.strftime('%B %d, %Y at %I:%M %p')
+                    return jsonify({
+                        "success": False,
+                        "locked_out": True,
+                        "message": (
+                            f"You are locked out. You can retake the quiz "
+                            f"after {formatted_time}."
+                        ),
+                        "lockoutUntil": formatted_time
+                    }), 403
 
         sample_q_id = list(answers.keys())[0]
         sample_q_doc = db.collection('EligibilityQuestions').document(sample_q_id).get()
@@ -236,8 +292,9 @@ def submit_evaluation():
         else:
             if is_retake_submission:
                 session['is_eligible'] = False
-                tomorrow = datetime.now() + timedelta(days=1)
-                lockout_until_str = tomorrow.strftime('%B %d, %Y at %I:%M %p')
+                tomorrow = create_lockout()
+                philippines_time = tomorrow.astimezone(timezone(timedelta(hours=8)))
+                lockout_until_str = philippines_time.strftime('%B %d, %Y at %I:%M %p')
                 
                 if uid:
                     db.collection('Users').document(uid).update({
@@ -303,9 +360,9 @@ def cheat_violation():
                 user_dict = user_doc.to_dict()
                 user_name = user_dict.get('name') or user_dict.get('fullName') or user_dict.get('email') or "User"
 
-                tomorrow = datetime.now() + timedelta(days=1)
-                lockout_until_str = tomorrow.strftime('%B %d, %Y at %I:%M %p')
-
+                tomorrow = create_lockout()
+                philippines_time = tomorrow.astimezone(timezone(timedelta(hours=8)))
+                lockout_until_str = philippines_time.strftime('%B %d, %Y at %I:%M %p')
                 db.collection('Users').document(uid).update({
                     'is_eligible': False,
                     'retake_lockout_until': tomorrow

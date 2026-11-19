@@ -64,22 +64,31 @@ def public_media_proxy(file_id):
         return jsonify({"error": str(e)}), 500
 
 # Viewing Pets
-# Viewing Pets
 @pet_public_bp.route('/explore', methods=['GET'])
 def pet_list():
     try:
         db = firestore.client()
         pets_ref = db.collection('Pets')
-        docs = pets_ref.where('status', '==', 'Available').stream()
+        docs = pets_ref.stream()  
         user_data = session.get('user') or {}
         uid = user_data.get('uid') or user_data.get('user_id') or session.get('user_id') or session.get('uid')
         is_logged_in = True if uid or 'user' in session else False
         wishlist = []
+        reserved_pet_ids = set()
+
         if is_logged_in and uid:
             user_ref = db.collection('Users').document(uid)
             user_doc = user_ref.get()
             if user_doc.exists:
                 wishlist = user_doc.to_dict().get('wishlist', [])
+
+            user_apps = db.collection('Applications').where('userId', '==', uid).stream()
+            for app_doc in user_apps:
+                app_data = app_doc.to_dict()
+                app_status = (app_data.get('status') or '').strip()
+                app_pet_id = app_data.get('petId')
+                if app_pet_id and app_status in ['Approved', 'Visit Scheduled']:
+                    reserved_pet_ids.add(app_pet_id)
 
         pets_list = []
         for d in docs:
@@ -91,7 +100,11 @@ def pet_list():
                 p_data['images'] = [get_file_url(img) for img in raw_images if img]
             else:
                 p_data['images'] = ['/static/images/placeholder.png']
-                
+
+            raw_status = (p_data.get('status') or '').strip()
+            is_reserved = (d.id in reserved_pet_ids) or (raw_status.lower() == 'reserved')
+            p_data['is_reserved'] = is_reserved
+            p_data['display_status'] = 'Reserved' if is_reserved else (raw_status or 'Available')
             p_data['is_favorited'] = d.id in wishlist
             pets_list.append(p_data)
             

@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for, flash
 from firebase_admin import firestore
 import uuid
 import os
@@ -58,11 +58,40 @@ def auth_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def is_pet_reserved_or_unavailable(db, pet_id, pet_data=None):
+    if not pet_id or pet_id == 'generic':
+        return False, ''
+
+    if pet_data is None:
+        pet_doc = db.collection('Pets').document(pet_id).get()
+        if not pet_doc.exists:
+            return False, ''
+        pet_data = pet_doc.to_dict() or {}
+
+    raw_status = str(pet_data.get('status') or '').strip()
+    if raw_status.lower() == 'reserved':
+        return True, 'Reserved'
+
+    if raw_status and raw_status.lower() != 'available':
+        return True, raw_status
+
+    reserved_apps = db.collection('Applications') \
+        .where('petId', '==', pet_id) \
+        .stream()
+    for app_doc in reserved_apps:
+        app_status = str((app_doc.to_dict() or {}).get('status') or '').strip().lower()
+        if app_status in ['approved', 'visit scheduled']:
+            return True, 'Reserved'
+
+    return False, ''
+
 @adoption_form_bp.route('/apply/<pet_id>', methods=['GET'])
 @auth_required
 def form_view(pet_id):
     db = firestore.client()
     pet_data = None
+    is_submitted = request.args.get('submitted') == 'true'
+
     try:
         pet_ref = db.collection('Pets').document(pet_id)
         pet_doc = pet_ref.get()
@@ -70,12 +99,19 @@ def form_view(pet_id):
             pet_data = pet_doc.to_dict()
             pet_data['id'] = pet_doc.id
 
+            if not is_submitted:
+                is_blocked, reason_status = is_pet_reserved_or_unavailable(db, pet_id, pet_data)
+                if is_blocked:
+                    if reason_status.lower() == 'reserved':
+                        flash("This pet is currently reserved and cannot receive adoption applications.", "error")
+                    else:
+                        flash(f"This pet is currently {reason_status} and cannot receive adoption applications.", "error")
+                    return redirect(url_for('pet_profile_bp.pet_profile', id=pet_id))
+
             if pet_data.get('images'):
                 pet_data['images'] = [get_file_url(img) for img in pet_data['images'] if img]
     except Exception as e:
         print(f"Error fetching contextual pet elements: {e}")
-
-    is_submitted = request.args.get('submitted') == 'true'
 
     return render_template('ApplicationForm.html', pet=pet_data, success=is_submitted)
 
@@ -90,6 +126,23 @@ def apply(pet_id):
         
         if not uid:
             return jsonify({"status": "error", "message": "Unauthorized action profile"}), 401
+
+        pet_data = None
+        pet_name = "Unknown Pet"
+        if pet_id != 'generic':
+            pet_doc = db.collection('Pets').document(pet_id).get()
+            if pet_doc.exists:
+                pet_data = pet_doc.to_dict() or {}
+                pet_data['id'] = pet_doc.id
+                pet_name = pet_data.get('petName') or pet_data.get('name') or "Unknown Pet"
+
+            is_blocked, reason_status = is_pet_reserved_or_unavailable(db, pet_id, pet_data)
+            if is_blocked:
+                if reason_status.lower() == 'reserved':
+                    msg = "This pet is currently reserved and cannot accept new adoption applications."
+                else:
+                    msg = f"This pet is currently {reason_status} and cannot accept new adoption applications."
+                return jsonify({"status": "error", "message": msg}), 400
 
         existing_apps = db.collection('Applications')\
             .where('userId', '==', uid)\
@@ -125,15 +178,6 @@ def apply(pet_id):
                 f.seek(0) 
                 if file_size > MAX_FILE_SIZE:
                     return jsonify({"status": "error", "message": "Each uploaded document must not exceed 5MB."}), 400
-
-        pet_data = None
-        pet_name = "Unknown Pet" 
-        if pet_id != 'generic':
-            pet_doc = db.collection('Pets').document(pet_id).get()
-            if pet_doc.exists:
-                pet_data = pet_doc.to_dict()
-                pet_data['id'] = pet_doc.id
-                pet_name = pet_data.get('petName') or pet_data.get('name') or "Unknown Pet"
 
         first_name = request.form.get('first_name', '')
         last_name = request.form.get('last_name', '')

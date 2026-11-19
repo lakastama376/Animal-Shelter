@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, abort, request, session
 from firebase_admin import firestore
 import random
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 article_content_bp = Blueprint('article_content_bp', __name__)
 
@@ -32,7 +32,8 @@ def view_article(article_id):
         lockout_time_str = ""
         user_data = session.get('user', {})
         uid = user_data.get('uid') or user_data.get('user_id')
-        
+
+        PH_TZ = timezone(timedelta(hours=8))
         if uid:
             user_doc = db.collection('Users').document(uid).get()
             if user_doc.exists:
@@ -43,10 +44,17 @@ def view_article(article_id):
                         lockout_dt = lockout_until.datetime()
                     else:
                         lockout_dt = lockout_until
-                    
-                    if datetime.now(lockout_dt.tzinfo) < lockout_dt:
-                        is_locked_out = True
-                        lockout_time_str = lockout_dt.strftime('%B %d, %Y at %I:%M %p')
+
+                    if isinstance(lockout_dt, datetime):
+                        if lockout_dt.tzinfo is None:
+                            lockout_dt = lockout_dt.replace(tzinfo=timezone.utc)
+                        else:
+                            lockout_dt = lockout_dt.astimezone(timezone.utc)
+
+                        if datetime.now(timezone.utc) < lockout_dt:
+                            is_locked_out = True
+                            philippines_time = lockout_dt.astimezone(PH_TZ)
+                            lockout_time_str = philippines_time.strftime('%B %d, %Y at %I:%M %p')
 
         all_questions = []
         if is_retake and not is_locked_out:

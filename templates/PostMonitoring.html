@@ -40,7 +40,7 @@
                         <ul>
                             <li><i class="fa-solid fa-pen-to-square"></i><span><strong>Status Update:</strong> Fill out details regarding your pet's dietary and behavioral adjustments.</span></li>
                             <li><i class="fa-solid fa-camera"></i><span><strong>3 Clear Photos (Required):</strong> Show your pet close-up, their home setup, and one with you. (Max 5MB)</span></li>
-                            <li><i class="fa-solid fa-video"></i><span><strong>1 Video Update (Required):</strong> A short clip of your pet playing or walking. (Max 25MB WebM format)</span></li>
+                            <li><i class="fa-solid fa-video"></i><span><strong>1 Video Update (Required):</strong> A short clip of your pet playing or walking. (Max 25MB)</span></li>
                         </ul>
                     </div>
                 </div>
@@ -296,6 +296,59 @@
         const videoTimerBadge = document.getElementById('video-timer-badge');
         const timerDisplay = document.getElementById('timer-display');
         const monitoringForm = document.getElementById('monitoringUpdateForm');
+        const submitButton = document.getElementById('submit-monitoring-btn');
+
+        const MAX_PHOTOS = 3;
+        const MAX_VIDEOS = 1;
+        function setSwitchCameraDisabled(disabled) {
+            if (!btnSwitchCamera) return;
+            btnSwitchCamera.disabled = disabled;
+            btnSwitchCamera.style.opacity = disabled ? '0.45' : '1';
+            btnSwitchCamera.style.cursor = disabled ? 'not-allowed' : 'pointer';
+            btnSwitchCamera.style.pointerEvents = disabled ? 'none' : 'auto';
+        }
+
+        let formValidationBox = null;
+        if (monitoringForm && submitButton) {
+            formValidationBox = document.createElement('div');
+            formValidationBox.id = 'monitoring-validation-error';
+            formValidationBox.style.cssText = [
+                'display: none;',
+                'background-color: #fef2f2;',
+                'border: 1px solid #fca5a5;',
+                'color: #991b1b;',
+                'padding: 12px 14px;',
+                'border-radius: 8px;',
+                'margin-top: 14px;',
+                'font-size: 13px;',
+                'line-height: 1.45;'
+            ].join(' ');
+            submitButton.parentNode.insertBefore(formValidationBox, submitButton);
+        }
+
+        function showFormValidationErrors(messages) {
+            if (!formValidationBox) return;
+            formValidationBox.innerHTML = messages
+                .map(msg => `<div><i class="fa-solid fa-triangle-exclamation" style="margin-right: 6px;"></i>${msg}</div>`)
+                .join('');
+            formValidationBox.style.display = 'block';
+        }
+
+        function clearFormValidationErrors() {
+            if (!formValidationBox) return;
+            formValidationBox.innerHTML = '';
+            formValidationBox.style.display = 'none';
+        }
+
+        function showActiveModalError(message) {
+            if (currentMode === 'photo' && errPhoto) {
+                errPhoto.textContent = message;
+                errPhoto.style.display = 'block';
+            } else if (currentMode === 'video' && errVideo) {
+                errVideo.textContent = message;
+                errVideo.style.display = 'block';
+            }
+        }
 
         let currentMode = 'photo'; 
         if (btnOpenModal) {
@@ -316,6 +369,7 @@
 
         if (btnSwitchCamera) {
             btnSwitchCamera.addEventListener('click', async function() {
+                if (btnSwitchCamera.disabled) return;
                 currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
                 await startCamera(currentFacingMode);
             });
@@ -336,7 +390,7 @@
                 liveFeed.style.display = 'block';
             } catch (err) {
                 console.error("Camera access failed:", err);
-                alert("Unable to access camera or switch devices. Your device may only have a single camera available.");
+                showActiveModalError("Unable to access camera or switch devices. Your device may only have a single camera available.");
             }
         }
 
@@ -357,8 +411,9 @@
             btnPauseRecord.style.display = 'none';
             btnStopRecord.style.display = 'none';
             btnSaveToDevice.style.display = 'none';
-            errPhoto.style.display = 'none';
-            errVideo.style.display = 'none';
+            setSwitchCameraDisabled(false);
+            if (errPhoto) errPhoto.style.display = 'none';
+            if (errVideo) errVideo.style.display = 'none';
             stopTimer();
             btnStartRecord.className = "cam-btn-circle action-capture";
             btnStartRecord.title = "Start Recording";
@@ -422,20 +477,23 @@
 
         // Photo Capture
         btnSnapPhoto.addEventListener('click', function() {
+            if (capturedPhotos.length >= MAX_PHOTOS) {
+                errPhoto.textContent = "You cannot capture more than 3 photos.";
+                errPhoto.style.display = 'block';
+                return;
+            }
             const canvas = document.createElement('canvas');
             canvas.width = liveFeed.videoWidth || 640;
             canvas.height = liveFeed.videoHeight || 480;
             canvas.getContext('2d').drawImage(liveFeed, 0, 0, canvas.width, canvas.height);
-            
             canvas.toBlob((blob) => {
                 const file = new File([blob], `live_snapshot_${Date.now()}.jpg`, { type: "image/jpeg" });
                 const currentTotalSize = capturedPhotos.reduce((sum, f) => sum + f.size, 0);
                 if (currentTotalSize + file.size > 5 * 1024 * 1024) {
-                    errPhoto.textContent = "Adding this photo would exceed the cumulative 5MB limit.";
+                    errPhoto.textContent = "This photo exceeds the 5MB size limit.";
                     errPhoto.style.display = 'block';
                     return;
                 }
-                
                 errPhoto.style.display = 'none';
                 tempFile = file;
                 photoPreview.src = URL.createObjectURL(blob);
@@ -444,6 +502,7 @@
                 btnSnapPhoto.style.display = 'none';
                 btnRetakeSnap.style.display = 'inline-flex';
                 btnSaveToDevice.style.display = 'inline-flex';
+                setSwitchCameraDisabled(true);
             }, 'image/jpeg');
         });
 
@@ -454,6 +513,8 @@
             btnSnapPhoto.style.display = 'inline-flex';
             btnRetakeSnap.style.display = 'none';
             btnSaveToDevice.style.display = 'none';
+            setSwitchCameraDisabled(false);
+            if (errPhoto) errPhoto.style.display = 'none';
         });
 
         // Recording
@@ -464,9 +525,14 @@
                 return;
             }
 
+            if (capturedVideos.length >= MAX_VIDEOS) {
+                errVideo.textContent = "You can only attach 1 video.";
+                errVideo.style.display = 'block';
+                return;
+            }
+
             recordedChunks = [];
             mediaRecorder = new MediaRecorder(activeStream, { mimeType: 'video/webm' });
-
             mediaRecorder.ondataavailable = (e) => {
                 if (e.data && e.data.size > 0) recordedChunks.push(e.data);
             };
@@ -477,18 +543,17 @@
                 const file = new File([blob], `live_video_${Date.now()}.webm`, { type: "video/webm" });
                 const currentTotalSize = capturedVideos.reduce((sum, f) => sum + f.size, 0);
                 if (currentTotalSize + file.size > 25 * 1024 * 1024) {
-                    errVideo.textContent = "Adding this video would exceed the cumulative 25MB limit.";
+                    errVideo.textContent = "This video exceeds the 25MB size limit.";
                     errVideo.style.display = 'block';
                     return;
                 }
-                
                 errVideo.style.display = 'none';
                 tempFile = file;
                 btnSaveToDevice.style.display = 'inline-flex';
+                setSwitchCameraDisabled(true);
             };
             mediaRecorder.start();
             startTimer(); 
-
             btnStartRecord.style.display = 'none';
             btnPauseRecord.style.display = 'inline-flex';
             btnPauseRecord.innerHTML = '<i class="fa-solid fa-pause"></i>';
@@ -526,20 +591,31 @@
 
         btnSaveToDevice.addEventListener('click', function() {
             if (!tempFile) {
-                alert("Please capture a photo or record a video first.");
+                showActiveModalError("Please capture a photo or record a video first.");
                 return;
             }
 
             if (currentMode === 'photo') {
+                if (capturedPhotos.length >= MAX_PHOTOS) {
+                    errPhoto.textContent = "You cannot capture more than 3 photos.";
+                    errPhoto.style.display = 'block';
+                    return;
+                }
                 capturedPhotos.push(tempFile);
                 updateInputFiles(photoInput, capturedPhotos);
                 renderStatusList(mainPhotoPreviewList, capturedPhotos, 'photo');
             } else {
+                if (capturedVideos.length >= MAX_VIDEOS) {
+                    errVideo.textContent = "You can only attach 1 video.";
+                    errVideo.style.display = 'block';
+                    return;
+                }
                 capturedVideos.push(tempFile);
                 updateInputFiles(videoInput, capturedVideos);
                 renderStatusList(mainVideoPreviewList, capturedVideos, 'video');
             }
 
+            clearFormValidationErrors();
             stagedMediaSection.style.display = 'block';
             tempFile = null;
             resetModalStates();
@@ -598,29 +674,27 @@
             monitoringForm.addEventListener('submit', function(event) {
                 const photoCount = capturedPhotos.length;
                 const videoCount = capturedVideos.length;
-                const submitButton = document.getElementById('submit-monitoring-btn');
                 let validationErrors = [];
-                if (photoCount < 3) {
+
+                if (photoCount !== MAX_PHOTOS) {
                     validationErrors.push(
-                        `You have staged ${photoCount} photo(s). At least 3 photos are required.`
+                        `Exactly ${MAX_PHOTOS} photos are required (currently staged: ${photoCount}).`
                     );
                 }
 
-                if (videoCount < 1) {
+                if (videoCount !== MAX_VIDEOS) {
                     validationErrors.push(
-                        `You have staged ${videoCount} video(s). At least 1 video is required.`
+                        `Exactly ${MAX_VIDEOS} video is required (currently staged: ${videoCount}).`
                     );
                 }
 
                 if (validationErrors.length > 0) {
                     event.preventDefault();
-                    alert(
-                        "Submission Checklist Failed:\n\n" +
-                        validationErrors.join("\n")
-                    );
+                    showFormValidationErrors(validationErrors);
                     return;
                 }
 
+                clearFormValidationErrors();
                 if (submitButton) {
                     if (submitButton.disabled) {
                         event.preventDefault();

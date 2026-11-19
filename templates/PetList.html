@@ -43,14 +43,15 @@
         </div>
         <section class="pets-grid" id="petsGrid">
             {% for pet in pets %}
+            {% set card_status = pet.display_status if pet.display_status else pet.status %}
             <div class="pet-card" 
                  data-name="{{ pet.petName|lower }}" 
                  data-breed="{{ pet.breed|lower }}" 
                  data-type="{{ pet.type|lower }}" 
                  data-gender="{{ pet.gender|lower }}" 
-                 data-status="{{ pet.status|lower }}">
+                 data-status="{{ card_status|lower }}">
                 <div class="media-container">
-                    <span class="status-badge status-{{ pet.status|lower }}">{{ pet.status }}</span>
+                    <span class="status-badge status-{{ card_status|lower | replace(' ', '-') }}">{{ card_status }}</span>
                     <img src="{{ pet.images[0] }}" alt="{{ pet.petName }}">    
                 <button class="btn-favorite-circle {% if pet.is_favorited %}is-favorite{% endif %}" title="Add to Wishlist">
                     <i class="{% if pet.is_favorited %}fa-solid{% else %}fa-regular{% endif %} fa-heart fa-lg"></i>
@@ -111,6 +112,7 @@
                     <select class="filter-select" id="filterStatus">
                         <option value="">All Statuses</option>
                         <option value="available" selected>Available</option>
+                        <option value="reserved">Reserved</option>
                         <option value="pending">Pending</option>
                         <option value="adopted">Adopted</option>
                     </select>
@@ -191,6 +193,7 @@
             if (displayedCount) displayedCount.textContent = matchCount;
         }
 
+        filterPets();
         if (searchInput) searchInput.addEventListener('input', filterPets);
         if (applyFiltersBtn) {
             applyFiltersBtn.addEventListener('click', () => {
@@ -202,7 +205,7 @@
             resetFiltersBtn.addEventListener('click', () => {
                 filterType.value = "";
                 filterGender.value = "";
-                filterStatus.value = "";
+                filterStatus.value = "available";
                 filterPets();
                 filterModal.classList.remove('is-active');
             });

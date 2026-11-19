@@ -158,26 +158,29 @@
 <script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
 <script>
     const userUid = "{{ session.get('user', {}).get('uid') or session.get('user', {}).get('user_id') or 'guest' }}";
-    const petIdVal = document.getElementById('ctxPetId') ? document.getElementById('ctxPetId').value : 'general';
-    const STORAGE_KEY = `eligibilityQuizState_${userUid}_${petIdVal}`;
-    const SUBMISSION_KEY = `eligibilityQuizSubmitted_${userUid}_${petIdVal}`;
-
+    const petIdVal = document.getElementById('ctxPetId') ? (document.getElementById('ctxPetId').value || 'general') : 'general';
+    const DRAFT_STORAGE_KEY = `eligibilityQuizDraft_${userUid}`;
+    const SUBMISSION_KEY = `eligibilityQuizSubmitted_${userUid}`;
+    
     function checkFormCompletion() {
         const form = document.getElementById('eligibilityQuizForm');
         const submitBtn = document.getElementById('submitQuizBtn');
         if (!submitBtn || submitBtn.getAttribute('data-submitted') === 'true') return;
+
         const radioGroups = new Set();
         if (form) {
             form.querySelectorAll('input[type="radio"]').forEach(radio => {
                 radioGroups.add(radio.name);
             });
         }
+
         let answeredCount = 0;
         radioGroups.forEach(groupName => {
             if (form.querySelector(`input[name="${groupName}"]:checked`)) {
                 answeredCount++;
             }
         });
+
         if (answeredCount === radioGroups.size && radioGroups.size > 0) {
             submitBtn.disabled = false;
             submitBtn.classList.remove('disabled');
@@ -194,23 +197,35 @@
             const parentRow = input.closest('.choice-option-row');
             if (parentRow) parentRow.classList.remove('selected');
         });
+
         if (radioEl.checked) {
             const parentRow = radioEl.closest('.choice-option-row');
             if (parentRow) parentRow.classList.add('selected');
         }
+
         checkFormCompletion();
-        saveFormState();
+        saveFormDraft();
     }
 
-    function saveFormState() {
+    function saveFormDraft() {
         const form = document.getElementById('eligibilityQuizForm');
         if (!form) return;
+
         const formData = new FormData(form);
-        const state = {};
+        const answers = {};
         for (let [key, value] of formData.entries()) {
-            state[key] = value;
+            answers[key] = value;
         }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
+            answers: answers,
+            lastPetId: petIdVal,
+            updatedAt: Date.now()
+        }));
+    }
+
+    function clearFormDraft() {
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
     }
 
     function restoreFormState() {
@@ -218,6 +233,10 @@
         if (savedSubmission) {
             try {
                 const subData = JSON.parse(savedSubmission);
+                if (subData.passed && subData.redirect_url) {
+                    window.location.href = subData.redirect_url;
+                    return;
+                }
                 lockFormUIAfterSubmit(subData.score_percentage, subData.passed, subData.redirect_url);
                 return;
             } catch (e) {
@@ -225,21 +244,28 @@
             }
         }
 
-        const savedState = localStorage.getItem(STORAGE_KEY);
-        if (!savedState) return;
+        const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (!savedDraft) return;
+
         try {
-            const state = JSON.parse(savedState);
-            for (const [name, value] of Object.entries(state)) {
-                const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
-                if (radio) {
-                    radio.checked = true;
-                    const row = radio.closest('.choice-option-row');
-                    if (row) row.classList.add('selected');
-                }
+            const parsed = JSON.parse(savedDraft);
+            const answers = parsed && parsed.answers ? parsed.answers : parsed;
+            if (!answers || typeof answers !== 'object') return;
+
+            for (const [name, value] of Object.entries(answers)) {
+                const radios = document.querySelectorAll(`input[name="${name}"]`);
+                radios.forEach(radio => {
+                    if (radio.value === value) {
+                        radio.checked = true;
+                        const row = radio.closest('.choice-option-row');
+                        if (row) row.classList.add('selected');
+                    }
+                });
             }
             checkFormCompletion();
+            saveFormDraft();
         } catch (e) {
-            console.error("Failed to restore form state", e);
+            console.error("Failed to restore draft form state", e);
         }
     }
 
@@ -264,7 +290,7 @@
         if (readinessModule) {
             readinessModule.style.display = 'block';
         }
-        
+
         const percentText = document.getElementById('readinessPercentText');
         if (percentText) percentText.innerText = scorePercentage + '%';
 
@@ -275,13 +301,12 @@
         const titleHeading = document.getElementById('alertTitleHeading');
         const bodyParagraph = document.getElementById('alertBodyParagraph');
         const actionBtn = document.getElementById('alertActionBtn');
-        
         if (alertContainer) {
             alertContainer.style.display = 'block';
             if (passed) {
                 alertContainer.className = "status-alert pass";
                 if (titleHeading) titleHeading.innerText = "You passed the eligibility check!";
-                if (bodyParagraph) bodyParagraph.innerText = `Your score of ${scorePercentage}% shows you are ready. You may proceed to the next procedures`;
+                if (bodyParagraph) bodyParagraph.innerText = `Your score of ${scorePercentage}% shows you are ready. Proceeding to the next step...`;
                 if (actionBtn) {
                     actionBtn.href = redirectUrl;
                     actionBtn.innerText = "Continue Application Process";
@@ -310,13 +335,20 @@
             form.reportValidity();
             return;
         }
-        const petId = document.getElementById('ctxPetId').value;
+
+        const petId = document.getElementById('ctxPetId') ? document.getElementById('ctxPetId').value : '';
         const answers = {};
         const formData = new FormData(form);
         for (let [key, value] of formData.entries()) {
             const qId = key.replace('q_', '');
             answers[qId] = value;
         }
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('disabled');
+        }
+
         try {
             const response = await fetch('/eligibility/submit', {
                 method: 'POST',
@@ -325,19 +357,32 @@
             });
             const result = await response.json();
             if (result.success) {
-                localStorage.setItem(SUBMISSION_KEY, JSON.stringify({
-                    score_percentage: result.score_percentage,
-                    passed: result.passed,
-                    redirect_url: result.redirect_url
-                }));
-                lockFormUIAfterSubmit(result.score_percentage, result.passed, result.redirect_url);
-                localStorage.removeItem(STORAGE_KEY);
-            } else {
+                clearFormDraft();
+
+                if (result.passed) {
+                    localStorage.setItem(SUBMISSION_KEY, JSON.stringify({
+                        score_percentage: result.score_percentage,
+                        passed: true,
+                        redirect_url: result.redirect_url
+                    }));
+                    lockFormUIAfterSubmit(result.score_percentage, true, result.redirect_url);
+                    if (result.redirect_url) {
+                        window.location.href = result.redirect_url;
+                    }
+                } else {
+                    localStorage.setItem(SUBMISSION_KEY, JSON.stringify({
+                        score_percentage: result.score_percentage,
+                        passed: false,
+                        redirect_url: result.redirect_url
+                    }));
+                    lockFormUIAfterSubmit(result.score_percentage, false, result.redirect_url);
+                }
+            } else if (result.redirect_url) {
                 window.location.href = result.redirect_url;
             }
         } catch (err) {
             console.error(err);
-            alert("Network communication system configuration fault occurred.");
+            checkFormCompletion();
         }
     }
     document.addEventListener('DOMContentLoaded', () => {

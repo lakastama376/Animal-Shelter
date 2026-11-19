@@ -62,6 +62,16 @@ def view_wishlist():
         if user_doc.exists:
             profile = user_doc.to_dict()
             wishlist_ids = profile.get('wishlist', [])
+
+            reserved_pet_ids = set()
+            if uid:
+                user_apps = db.collection('Applications').where('userId', '==', uid).stream()
+                for app_doc in user_apps:
+                    app_data = app_doc.to_dict()
+                    app_status = (app_data.get('status') or '').strip()
+                    app_pet_id = app_data.get('petId')
+                    if app_pet_id and app_status in ['Approved', 'Visit Scheduled']:
+                        reserved_pet_ids.add(app_pet_id)
             
             for pet_id in wishlist_ids:
                 pet_ref = db.collection('Pets').document(pet_id)
@@ -73,6 +83,11 @@ def view_wishlist():
                     
                     if pet_data.get('images'):
                         pet_data['images'] = [get_file_url(img) for img in pet_data['images'] if img]
+
+                    raw_status = (pet_data.get('status') or '').strip()
+                    is_reserved = (pet_doc.id in reserved_pet_ids) or (raw_status.lower() == 'reserved')
+                    pet_data['is_reserved'] = is_reserved
+                    pet_data['display_status'] = 'Reserved' if is_reserved else (raw_status or 'Available')
 
                     wishlist_items.append({
                         'pet': pet_data,

@@ -82,7 +82,15 @@ def calculate_matches():
                 u_dict = user_doc.to_dict()
                 user_wishlist = u_dict.get('wishlist', [])
                 user_name = u_dict.get('fullName') or u_dict.get('name') or f"{u_dict.get('firstName', '')} {u_dict.get('lastName', '')}".strip() or user_name
- 
+
+        reserved_pet_ids = set()
+        for app_doc in db.collection('Applications').stream():
+            app_data = app_doc.to_dict() or {}
+            app_status = (app_data.get('status') or '').strip().lower()
+            app_pet_id = app_data.get('petId')
+            if app_pet_id and app_status in ['approved', 'visit scheduled']:
+                reserved_pet_ids.add(app_pet_id)
+
         pets_ref = db.collection('Pets').where('status', '==', 'Available')
         pets_docs = pets_ref.stream()
         
@@ -90,6 +98,11 @@ def calculate_matches():
         for doc in pets_docs:
             pet = doc.to_dict()
             pet_id = doc.id
+
+            raw_status = (pet.get('status') or '').strip().lower()
+            if raw_status == 'reserved' or pet_id in reserved_pet_ids:
+                continue
+
             pet['id'] = pet_id
             pet['is_favorited'] = pet_id in user_wishlist
 
@@ -164,7 +177,7 @@ def calculate_matches():
                     if any(trait in personality_list for trait in high_maintenance_traits):
                         score += 20
 
-            final_percentage = max(min(score, 100), 30)
+            final_percentage = max(min(score, 100), 20)
             pet['matchPercentage'] = final_percentage
             matched_pets.append(pet)
             

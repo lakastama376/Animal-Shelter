@@ -185,7 +185,10 @@
         .then(res => res.json())
         .then(data => {
             if(data.success) {
-                matchedPetsArray = data.matches;
+                matchedPetsArray = (data.matches || []).filter(pet => {
+                    const st = String(pet.display_status || pet.status || '').trim().toLowerCase();
+                    return st !== 'reserved' && !pet.is_reserved;
+                });
                 buildCardStack();
             }
         });

@@ -23,7 +23,8 @@
                 <section class="profile-grid">
                     <div class="gallery-container">
                         <div class="image-wrapper">
-                            <span class="status-badge {{ pet.status | lower }}">{{ pet.status }}</span>  
+                            {% set badge_status = display_status if display_status else ('Reserved' if user_application_status in ['Approved', 'Visit Scheduled'] else pet.status) %}
+                            <span class="status-badge {{ badge_status | lower | replace(' ', '-') }}">{{ badge_status }}</span>  
                             <button class="btn-favorite-circle {% if user_profile and pet.id in user_profile.get('wishlist', []) %}is-favorite{% endif %}" 
                                     onclick="toggleWishlist('{{ pet.id }}', this)">
                                 <i class="{% if user_profile and pet.id in user_profile.get('wishlist', []) %}fa-solid{% else %}fa-regular{% endif %} fa-heart fa-lg"></i>
@@ -106,21 +107,25 @@
                             <span class="meta-value" style="font-size:13px;">{{ pet.activityLevel }}</span>
                         </div>
                         <p class="rescue-date">Rescued on <strong>{{ pet.rescueDate if pet.rescueDate else 'Recent Date' }}</strong></p>
-                        {% if pet.status | lower == 'available' %}
+                        {% if badge_status | lower == 'reserved' %}
+                        <button type="button" class="btn-apply disabled" disabled title="This pet is currently reserved">
+                            <i class="fa-solid fa-bookmark"></i> Reserved
+                        </button>
+                        {% elif pet.status | lower == 'available' %}
                         <a href="{{ url_for('eligibility_checker_bp.index', pet_id=pet.id) }}" class="btn-apply">Apply to Adopt</a>
-                            {% elif pet.status | lower == 'pending' %}
-                        <button class="btn-apply disabled" disabled title="Adoption is currently pending for this pet">
+                        {% elif pet.status | lower == 'pending' %}
+                        <button type="button" class="btn-apply disabled" disabled title="Adoption is currently pending for this pet">
                             <i class="fa-solid fa-clock"></i> Adoption Pending
                         </button>
-                            {% elif pet.status | lower == 'adopted' %}
-                        <button class="btn-apply disabled" disabled title="This pet has already been adopted">
+                        {% elif pet.status | lower == 'adopted' %}
+                        <button type="button" class="btn-apply disabled" disabled title="This pet has already been adopted">
                             <i class="fa-solid fa-house-heart"></i> Already Adopted
                         </button>
-                            {% else %}
-                        <button class="btn-apply disabled" disabled>
+                        {% else %}
+                        <button type="button" class="btn-apply disabled" disabled>
                             Not Available for Adoption
                         </button>
-                    {% endif %}
+                        {% endif %}
                     </div>
                 </section>
                 <section class="secondary-details-grid">
