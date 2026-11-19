@@ -435,7 +435,14 @@ def update_status(app_id):
         if return_date:
             update_payload['scheduleReturn'] = return_date
 
-        if new_status == "Adopted":
+        if new_status in ["Approved", "Visit Scheduled"]:
+            if pet_id:
+                pet_ref = db.collection('Pets').document(pet_id)
+                pet_doc = pet_ref.get()
+                if pet_doc.exists and (pet_doc.to_dict() or {}).get('status') != 'Adopted':
+                    pet_ref.update({'status': 'Reserved'})
+
+        elif new_status == "Adopted":
             update_payload['monitoringStatus'] = "Ongoing"
 
             if old_status != "Adopted" and user_id:
@@ -458,6 +465,22 @@ def update_status(app_id):
                 user_ref.update({
                     'adoptionCount': firestore.Increment(-1)
                 })
+
+        elif old_status in ["Approved", "Visit Scheduled"] and new_status not in ["Approved", "Visit Scheduled", "Adopted"]:
+            if pet_id:
+                other_reserved = False
+                other_apps = db.collection('Applications').where('petId', '==', pet_id).stream()
+                for other_doc in other_apps:
+                    if other_doc.id == app_id:
+                        continue
+                    other_st = (other_doc.to_dict() or {}).get('status')
+                    if other_st in ["Approved", "Visit Scheduled"]:
+                        other_reserved = True
+                        break
+                pet_ref = db.collection('Pets').document(pet_id)
+                pet_doc = pet_ref.get()
+                if pet_doc.exists and (pet_doc.to_dict() or {}).get('status') != 'Adopted':
+                    pet_ref.update({'status': 'Reserved' if other_reserved else 'Available'})
 
         app_ref.update(update_payload)
         admin_uid = session['user'].get('uid') or session['user'].get('user_id')
