@@ -306,7 +306,7 @@ a {
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.form-textarea { min-height: 130px; resize: vertical; line-height: 1.5; }
+.form-textarea { min-height: 130px; resize: none; line-height: 1.5; }
 
 .form-input:focus, .form-textarea:focus { border-color: #f97316; box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2); }
 
