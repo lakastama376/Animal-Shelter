@@ -69,6 +69,32 @@ def normalize_firestore_datetime(value):
 
     return value.astimezone(timezone.utc)
 
+def get_active_adoption_block(db, uid):
+    if not uid:
+        return False, "", ""
+
+    user_apps = db.collection('Applications').where('userId', '==', uid).stream()
+    for doc in user_apps:
+        app = doc.to_dict() or {}
+        status = str(app.get('status') or '').strip()
+        mon_status = str(app.get('monitoringStatus') or app.get('monitoring_status') or '').strip()
+
+        if status in ['Returned', 'Rejected']:
+            continue
+
+        if status == 'Adopted' and mon_status.lower() in ['finalized', 'completed']:
+            continue
+
+        pet_name = app.get('petName') or 'a pet'
+        if status == 'Adopted':
+            detail = f"ongoing post-adoption monitoring for {pet_name}"
+        else:
+            detail = f"an active adoption application ({status or 'In Progress'}) for {pet_name}"
+
+        return True, pet_name, detail
+
+    return False, "", ""
+
 def get_pet_reservation_block(db, pet_id, pet_data=None):
     if not pet_id:
         return False, ''
@@ -104,6 +130,18 @@ def index(pet_id=None):
     is_locked_out = False
     lockout_time_str = ""
 
+    user_data = session.get('user', {})
+    uid = user_data.get('uid') or user_data.get('user_id')
+    if uid:
+        has_active, _, active_detail = get_active_adoption_block(db, uid)
+        if has_active:
+            session.pop('pending_pet_id', None)
+            flash(
+                f"You currently have {active_detail}. Complete your adoption and monitoring first before starting a new application.",
+                "error"
+            )
+            return redirect(url_for('adoption_management_bp.management_view'))
+
     if not pet_id:
         pet_id = request.args.get('pet_id') or request.args.get('petId')
 
@@ -131,8 +169,6 @@ def index(pet_id=None):
                     flash(f"This pet is currently {block_status} and cannot receive adoption applications.", "error")
                 return redirect(url_for('pet_profile_bp.pet_profile', id=pet_id))
 
-    user_data = session.get('user', {})
-    uid = user_data.get('uid') or user_data.get('user_id')
     if uid:
         user_doc = db.collection('Users').document(uid).get()
         if user_doc.exists:
@@ -141,7 +177,7 @@ def index(pet_id=None):
             if user_dict.get('is_eligible') or session.get('is_eligible'):
                 session.pop('pending_pet_id', None)
                 if pet_id:
-                    return redirect(url_for('adoption_form_bp.apply', pet_id=pet_id))
+                    return redirect(url_for('adoption_form_bp.form_view', pet_id=pet_id))
                 else:
                     return redirect(url_for('pet_matching_bp.index'))
 
@@ -186,6 +222,24 @@ def submit_evaluation():
         answers = data.get('answers', {})
         pet_id = data.get('petId') or session.get('pending_pet_id')
 
+        user_data = session.get('user', {})
+        uid = user_data.get('uid') or user_data.get('user_id')
+
+        if uid:
+            has_active, _, active_detail = get_active_adoption_block(db, uid)
+            if has_active:
+                session.pop('pending_pet_id', None)
+                flash(
+                    f"You currently have {active_detail}. Complete your adoption and monitoring first before starting a new application.",
+                    "error"
+                )
+                return jsonify({
+                    "success": True,
+                    "passed": False,
+                    "blocked_active_adoption": True,
+                    "redirect_url": url_for('adoption_management_bp.management_view')
+                })
+
         if pet_id:
             pet_doc = db.collection('Pets').document(pet_id).get()
             if pet_doc.exists:
@@ -194,9 +248,6 @@ def submit_evaluation():
                 if is_blocked:
                     msg = "This pet is currently reserved and cannot accept adoption applications." if block_status.lower() == 'reserved' else "This pet is no longer available for adoption."
                     return jsonify({"success": False, "message": msg}), 400
-
-        user_data = session.get('user', {})
-        uid = user_data.get('uid') or user_data.get('user_id')
 
         user_name = "User"
         if uid:
@@ -286,7 +337,7 @@ def submit_evaluation():
 
             session.pop('pending_pet_id', None)
             if pet_id:
-                redirect_url = url_for('adoption_form_bp.apply', pet_id=pet_id)
+                redirect_url = url_for('adoption_form_bp.form_view', pet_id=pet_id)
             else:
                 redirect_url = url_for('pet_matching_bp.index')
         else:

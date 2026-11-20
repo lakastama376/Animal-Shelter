@@ -37,6 +37,32 @@ def get_file_url(file_id):
     token = obfuscate_file_id(file_id)
     return url_for('adoption_management_bp.media_proxy', file_id=token, _external=True)
 
+def get_active_adoption_block(db, uid):
+    if not uid:
+        return False, "", ""
+
+    user_apps = db.collection('Applications').where('userId', '==', uid).stream()
+    for doc in user_apps:
+        app = doc.to_dict() or {}
+        status = str(app.get('status') or '').strip()
+        mon_status = str(app.get('monitoringStatus') or app.get('monitoring_status') or '').strip()
+
+        if status in ['Returned', 'Rejected']:
+            continue
+
+        if status == 'Adopted' and mon_status.lower() in ['finalized', 'completed']:
+            continue
+
+        pet_name = app.get('petName') or 'a pet'
+        if status == 'Adopted':
+            detail = f"ongoing post-adoption monitoring for {pet_name}"
+        else:
+            detail = f"an active adoption application ({status or 'In Progress'}) for {pet_name}"
+
+        return True, pet_name, detail
+
+    return False, "", ""
+
 @pet_profile_bp.route('/profile/<id>', methods=['GET'])
 def pet_profile(id):
     try:
@@ -65,6 +91,8 @@ def pet_profile(id):
 
         user_profile = None
         user_application_status = None
+        has_active_adoption = False
+        active_adoption_message = ""
         user_data = session.get('user', {})
         uid = user_data.get('uid') or user_data.get('user_id')
 
@@ -88,6 +116,10 @@ def pet_profile(id):
                     break
             if not user_application_status and found_statuses:
                 user_application_status = found_statuses[0]
+
+            has_active_adoption, _, active_detail = get_active_adoption_block(db, uid)
+            if has_active_adoption:
+                active_adoption_message = f"You cannot apply for another pet while you have {active_detail} until monitoring is completed."
 
         raw_pet_status = (pet_data.get('status') or '').strip()
         if user_application_status in ['Approved', 'Visit Scheduled'] or raw_pet_status.lower() == 'reserved':
@@ -137,7 +169,9 @@ def pet_profile(id):
             similar_pets=similar_pets,
             user_profile=user_profile,
             user_application_status=user_application_status,
-            display_status=display_status
+            display_status=display_status,
+            has_active_adoption=has_active_adoption,
+            active_adoption_message=active_adoption_message
         )
         
     except Exception as e:

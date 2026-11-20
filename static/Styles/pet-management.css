@@ -15,8 +15,6 @@
     --status-available-text: #15803d;
     --status-pending-bg: #fef3c7;
     --status-pending-text: #b45309;
-    --status-adopted-bg: #f3e8ff;
-    --status-adopted-text: #6b21a8;
     --danger: #dc2626;
     --danger-hover: #b91c1c;
 }
@@ -157,7 +155,8 @@ tr:last-child td { border-bottom: none; }
 
 .status-available { background: var(--status-available-bg); color: var(--status-available-text); }
 .status-pending { background: var(--status-pending-bg); color: var(--status-pending-text); }
-.status-adopted { background: var(--status-adopted-bg); color: var(--status-adopted-text); }
+.status-adopted { background: #50b374; color: #ffffff; }
+.status-reserved { background: #6b7280; color: #ffffff; }
 
 .health-tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .health-tag { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; }

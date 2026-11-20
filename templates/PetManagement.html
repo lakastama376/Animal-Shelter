@@ -53,6 +53,7 @@
                         <button class="tab-btn active" onclick="switchTab('All', this)">All</button>
                         <button class="tab-btn" onclick="switchTab('Available', this)">Available</button>
                         <button class="tab-btn" onclick="switchTab('Pending', this)">Pending</button>
+                        <button class="tab-btn" onclick="switchTab('Reserved', this)">Reserved</button>
                         <button class="tab-btn" onclick="switchTab('Adopted', this)">Adopted</button>
                         <button class="tab-btn" onclick="switchTab('VaccineDue', this)">
                             Vaccine Due <span id="vaxDueCountBadge" class="tab-badge">0</span>
@@ -187,6 +188,7 @@
                             <select id="status" name="status" required>
                                 <option value="Available">Available</option>
                                 <option value="Pending">Pending</option>
+                                <option value="Reserved">Reserved</option>
                                 <option value="Adopted">Adopted</option>
                             </select>
                         </div>
@@ -419,7 +421,8 @@
                 }
                 matchesStatus = hasDueSoonOrOverdue;
             } else {
-                matchesStatus = (currentTabStatus === 'All' || status === currentTabStatus);
+                const rowStatus = (status || '').trim().toLowerCase();
+                matchesStatus = (currentTabStatus === 'All' || rowStatus === currentTabStatus.toLowerCase());
             }
             const matchesSearch = (name.includes(query) || breed.includes(query));
             return matchesStatus && matchesSearch;

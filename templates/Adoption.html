@@ -24,12 +24,26 @@
                         </p>
                     </div>
                     {% if role != 'Admin' %}
-                    <a href="{{ url_for('eligibility_checker_bp.index') }}" class="btn-adopt">
-                        <i class="fa-solid fa-paw"></i>
-                        Adopt Pet
-                    </a>
+                        {% if has_active_adoption %}
+                        <button type="button" class="btn-adopt disabled" onclick="showNextAdoptionNote()">
+                            <i class="fa-solid fa-paw"></i>
+                            Adopt Pet
+                        </button>
+                        {% else %}
+                        <a href="{{ url_for('eligibility_checker_bp.index') }}" class="btn-adopt">
+                            <i class="fa-solid fa-paw"></i>
+                            Adopt Pet
+                        </a>
+                        {% endif %}
                     {% endif %}
                 </div>
+                {% if role != 'Admin' %}
+                <div id="nextAdoptionNoteBox" class="status-info-box-msg" hidden>
+                    <span id="nextAdoptionNoteText">
+                        <strong> Next Adoption Requirement:</strong> {{ active_adoption_message or 'You need to complete your current adoption and post-adoption monitoring process before starting your next adoption.' }}
+                    </span>
+                </div>
+                {% endif %}
                 {% if not applications %}
                     <div class="empty-state">
                         <i class="fa-solid fa-folder-open empty-icon"></i>
@@ -98,9 +112,9 @@
                                     </td>
                                     <td class="format-date" data-date="{{ app.submittedAt }}">N/A</td>
                                     <td class="format-date" data-date="{{ app.updatedAt }}">N/A</td>
-                                    <td>
+                                    <td style="white-space: nowrap;">
                                         {% if app.late_count and app.late_count > 0 %}
-                                            <span class="badge badge-overdue" style="background-color: #fee2e2; color: #dc2626;">
+                                            <span class="badge badge-overdue" style="background-color: #fee2e2; color: #dc2626; white-space: nowrap;">
                                                 <i class="fa-solid fa-triangle-exclamation"></i> 
                                                 {{ app.late_count }}{% if app.late_count >= 150 %}+{% endif %} Days
                                             </span>
@@ -114,7 +128,7 @@
                                             {% elif app.status == 'Under Review' %}badge-review
                                             {% elif app.status == 'Approved' %}badge-approved
                                             {% elif app.status == 'Visit Scheduled' %}badge-visit
-                                            {% elif app.status == 'Adopted' %}badge-complete
+                                            {% elif app.status == 'Adopted' %}badge-resolved
                                             {% elif app.status in ['Return Requested', 'Return Scheduled'] %}badge-review
                                             {% elif app.status == 'Returned' %}badge-complete
                                             {% elif app.status == 'Rejected' %}badge-rejected{% endif %}">
@@ -239,9 +253,9 @@
                     {% endfor %}
                 {% endif %}
             {% endif %}
-        </div>
-    </main>
-</div>
+            </div>
+        </main>
+    </div>
 
 <!--Modals-->
 <div id="viewModal" class="modal-overlay">
@@ -297,8 +311,6 @@
                 <div class="form-group" style="margin-bottom: 1.25rem;">
                     <label for="editStatus" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Application Status</label>
                     <select id="editStatus" class="form-control" onchange="toggleScheduleField(this.value)" required>
-                        <option value="Submitted">Submitted</option>
-                        <option value="Under Review">Under Review</option>
                         <option value="Approved">Approved</option>
                         <option value="Visit Scheduled">Visit Scheduled</option>
                         <option value="Adopted">Adopted</option>
@@ -373,6 +385,35 @@
         const now = new Date();
         const localISO = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString();
         return localISO.slice(0, 16);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const noteBox = document.getElementById('nextAdoptionNoteBox');
+        if (noteBox) {
+            noteBox.hidden = true;
+            noteBox.style.display = 'none';
+        }
+    });
+
+    function showNextAdoptionNote() {
+        const noteBox = document.getElementById('nextAdoptionNoteBox');
+        const noteText = document.getElementById('nextAdoptionNoteText');
+        const fallbackMsg = "You need to complete your current adoption and post-adoption monitoring process before starting your next adoption.";
+
+        if (noteBox) {
+            if (!noteText || !noteText.textContent.trim()) {
+                noteBox.innerHTML = `<i class="fa-solid fa-circle-info" style="color: #ea580c;"></i><span><strong>Next Adoption Requirement:</strong> ${fallbackMsg}</span>`;
+            }
+            noteBox.hidden = false;
+            noteBox.style.display = 'flex';
+            noteBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            noteBox.style.boxShadow = '0 0 0 3px rgba(234, 88, 12, 0.25)';
+            setTimeout(() => {
+                noteBox.style.boxShadow = 'none';
+            }, 1500);
+        } else {
+            alert(fallbackMsg);
+        }
     }
 
     function updateAppStatus(appId, statusPayload, extraData = {}) {

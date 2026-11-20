@@ -52,6 +52,7 @@ body {
 .capacity-text { font-size: 0.85rem; color: var(--text-muted); }
 
 .form-group { margin-bottom: 24px; }
+.form-group textarea, textarea { resize: none; }
 label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.95rem; }
 .required::after { content: " *"; color: #ef4444; }
 

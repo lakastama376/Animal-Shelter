@@ -116,6 +116,32 @@ def get_file_url(file_id):
     token = obfuscate_file_id(file_id)
     return url_for('adoption_management_bp.media_proxy', file_id=token, _external=True)
 
+def get_active_adoption_block(db, uid):
+    if not uid:
+        return False, "", ""
+
+    user_apps = db.collection('Applications').where('userId', '==', uid).stream()
+    for doc in user_apps:
+        app = doc.to_dict() or {}
+        status = str(app.get('status') or '').strip()
+        mon_status = str(app.get('monitoringStatus') or app.get('monitoring_status') or '').strip()
+
+        if status in ['Returned', 'Rejected']:
+            continue
+
+        if status == 'Adopted' and mon_status.lower() in ['finalized', 'completed']:
+            continue
+
+        pet_name = app.get('petName') or 'a pet'
+        if status == 'Adopted':
+            detail = f"ongoing post-adoption monitoring for {pet_name}"
+        else:
+            detail = f"an active adoption application ({status or 'In Progress'}) for {pet_name}"
+
+        return True, pet_name, detail
+
+    return False, "", ""
+
 # Management
 @adoption_management_bp.route('/adoption/management', methods=['GET'])
 @auth_required
@@ -125,6 +151,16 @@ def management_view():
     uid = user_data.get('uid') or user_data.get('user_id')
     user_doc = db.collection('Users').document(uid).get()
     role = user_doc.to_dict().get('role', 'Adopter') if user_doc.exists else 'Adopter'
+
+    has_active_adoption = False
+    active_adoption_message = ""
+    if role != 'Admin' and uid:
+        has_active_adoption, _, active_detail = get_active_adoption_block(db, uid)
+        if has_active_adoption:
+            active_adoption_message = (
+                f"You currently have {active_detail}. You need to complete the full adoption "
+                f"and post-adoption monitoring process before starting your next adoption."
+            )
    
     if role == 'Admin':
         app_docs = list(db.collection('Applications').order_by('submittedAt', direction=firestore.Query.DESCENDING).stream())
@@ -132,7 +168,14 @@ def management_view():
         app_docs = list(db.collection('Applications').where('userId', '==', uid).stream())
         
     if not app_docs:
-        return render_template('Adoption.html', role=role, applications=[], counts={})
+        return render_template(
+            'Adoption.html',
+            role=role,
+            applications=[],
+            counts={},
+            has_active_adoption=has_active_adoption,
+            active_adoption_message=active_adoption_message
+        )
 
     pet_ids = set()
     user_ids = set()
@@ -303,7 +346,9 @@ def management_view():
         'Adoption.html',
         role=role,
         applications=applications_list,
-        counts=counts
+        counts=counts,
+        has_active_adoption=has_active_adoption,
+        active_adoption_message=active_adoption_message
     )
 
 @adoption_management_bp.route('/adoption/media-proxy/<path:file_id>')

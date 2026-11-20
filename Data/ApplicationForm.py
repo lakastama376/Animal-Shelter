@@ -85,14 +85,53 @@ def is_pet_reserved_or_unavailable(db, pet_id, pet_data=None):
 
     return False, ''
 
+def get_active_adoption_block(db, uid):
+    if not uid:
+        return False, "", ""
+
+    user_apps = db.collection('Applications').where('userId', '==', uid).stream()
+    for doc in user_apps:
+        app = doc.to_dict() or {}
+        status = str(app.get('status') or '').strip()
+        mon_status = str(app.get('monitoringStatus') or app.get('monitoring_status') or '').strip()
+
+        if status in ['Returned', 'Rejected']:
+            continue
+
+        if status == 'Adopted' and mon_status.lower() in ['finalized', 'completed']:
+            continue
+
+        pet_name = app.get('petName') or 'a pet'
+        if status == 'Adopted':
+            detail = f"ongoing post-adoption monitoring for {pet_name}"
+        else:
+            detail = f"an active adoption application ({status or 'In Progress'}) for {pet_name}"
+
+        return True, pet_name, detail
+
+    return False, "", ""
+
 @adoption_form_bp.route('/apply/<pet_id>', methods=['GET'])
 @auth_required
 def form_view(pet_id):
     db = firestore.client()
     pet_data = None
     is_submitted = request.args.get('submitted') == 'true'
+    user_data = session.get('user', {})
+    uid = user_data.get('uid') or user_data.get('user_id')
 
     try:
+        if not is_submitted and uid:
+            has_active, _, active_detail = get_active_adoption_block(db, uid)
+            if has_active:
+                flash(
+                    f"You cannot apply for another pet while you have {active_detail}. Your adoption must be finalized with monitoring completed first.",
+                    "error"
+                )
+                if pet_id and pet_id != 'generic':
+                    return redirect(url_for('pet_profile_bp.pet_profile', id=pet_id))
+                return redirect(url_for('adoption_management_bp.management_view'))
+
         pet_ref = db.collection('Pets').document(pet_id)
         pet_doc = pet_ref.get()
         if pet_doc.exists:
@@ -126,6 +165,13 @@ def apply(pet_id):
         
         if not uid:
             return jsonify({"status": "error", "message": "Unauthorized action profile"}), 401
+
+        has_active, _, active_detail = get_active_adoption_block(db, uid)
+        if has_active:
+            return jsonify({
+                "status": "error",
+                "message": f"You cannot submit a new application while you have {active_detail}. Complete your current adoption and monitoring first."
+            }), 400
 
         pet_data = None
         pet_name = "Unknown Pet"
