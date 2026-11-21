@@ -191,7 +191,36 @@ main {
   border-radius: 50%; 
   border: 2px solid #ffffff; 
   box-shadow: 0 0 0 2px var(--sidebar-bg-color, #ffffff); 
-  animation: pulse-dot 2s infinite;  }
+  animation: unread-pulse-dot 2s infinite;  }
+
+.unread-dot {
+  position: absolute !important;
+  top: -2px !important;
+  right: -2px !important;
+  bottom: auto !important;
+  left: auto !important;
+  width: 9px;
+  height: 9px;
+  background-color: var(--brand-orange);
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(255, 122, 26, 0.25);
+  animation: pulse-dot 2s infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes pulse-dots {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 122, 26, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(255, 122, 26, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 122, 26, 0);
+  }
+}
 
 .profile-trigger { display: flex; align-items: center; gap: 15px; cursor: pointer; padding: 1px 0; }
 

@@ -203,7 +203,7 @@
                                     {% endif %}
                                     <div>
                                         <h3 class="pet-name">{{ app.petName if app.petName else (app.pet_details.name if app.pet_details else 'Unknown Pet') }}</h3>
-                                        <p class="sub-timeline-text">Application #{{ loop.index }} • Submitted {{ app.formatted_submitted }}</p>
+                                        <p class="sub-timeline-text">Application #{{ applications | length - loop.index0 }} • Submitted {{ app.formatted_submitted }}</p>
                                     </div>
                                 </div>
                                 <span class="badge 
@@ -311,6 +311,7 @@
                 <div class="form-group" style="margin-bottom: 1.25rem;">
                     <label for="editStatus" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Application Status</label>
                     <select id="editStatus" class="form-control" onchange="toggleScheduleField(this.value)" required>
+                        <option value="Under Review">Under Review</option>
                         <option value="Approved">Approved</option>
                         <option value="Visit Scheduled">Visit Scheduled</option>
                         <option value="Adopted">Adopted</option>

@@ -478,3 +478,25 @@ def check_vaccine_due_status():
     except Exception as e:
         print(f"Error checking vaccine notifications: {e}")
         return False
+
+@pet_management_bp.app_context_processor
+def inject_vaccine_notifications():
+    if 'user' not in session:
+        return dict(has_upcoming_vaccines=False)
+
+    try:
+        db = firestore.client()
+        user_data = session.get('user', {})
+        uid = user_data.get('uid') or user_data.get('user_id')
+        if not uid:
+            return dict(has_upcoming_vaccines=False)
+
+        user_doc = db.collection('Users').document(uid).get()
+        role = user_doc.to_dict().get('role', 'Adopter') if user_doc.exists else 'Adopter'
+        if role != 'Admin':
+            return dict(has_upcoming_vaccines=False)
+
+        return dict(has_upcoming_vaccines=check_vaccine_due_status())
+    except Exception as e:
+        print(f"Error injecting vaccine notifications: {e}")
+        return dict(has_upcoming_vaccines=False)

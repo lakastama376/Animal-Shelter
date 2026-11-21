@@ -142,6 +142,22 @@ def get_active_adoption_block(db, uid):
 
     return False, "", ""
 
+def _submitted_sort_key(doc):
+    data = doc.to_dict() or {}
+    val = data.get('submittedAt')
+    if not val:
+        return datetime.min
+    if hasattr(val, 'to_datetime'):
+        return val.to_datetime().replace(tzinfo=None)
+    if isinstance(val, datetime):
+        return val.replace(tzinfo=None)
+    if isinstance(val, str):
+        try:
+            return datetime.fromisoformat(val.replace(" ", "T")).replace(tzinfo=None)
+        except ValueError:
+            return datetime.min
+    return datetime.min
+
 # Management
 @adoption_management_bp.route('/adoption/management', methods=['GET'])
 @auth_required
@@ -166,6 +182,7 @@ def management_view():
         app_docs = list(db.collection('Applications').order_by('submittedAt', direction=firestore.Query.DESCENDING).stream())
     else:
         app_docs = list(db.collection('Applications').where('userId', '==', uid).stream())
+        app_docs.sort(key=_submitted_sort_key, reverse=True)
         
     if not app_docs:
         return render_template(
@@ -199,9 +216,14 @@ def management_view():
     users_map = {}
     if role == 'Admin' and user_ids:
         for u_id in user_ids:
-            u_doc = db.collection('Users').document(u_id).get()
-            if u_doc.exists:
-                users_map[u_doc.id] = u_doc.to_dict()
+            try:
+                u_doc = db.collection('Users').document(str(u_id)).get()
+
+                if u_doc.exists:
+                    users_map[u_doc.id] = u_doc.to_dict() or {}
+
+            except Exception as e:
+                print(f"Error retrieving user {u_id}: {e}")
 
     applications_list = []
     now = datetime.now()
@@ -299,15 +321,58 @@ def management_view():
 
         if role == 'Admin':
             user_id = app_data.get('userId')
-            if user_id and user_id in users_map:
-                applicant_dict = users_map[user_id]
-                app_data['applicant_name'] = applicant_dict.get('fullName', 'Anonymous')
+            applicant_dict = None
 
-                raw_pic = applicant_dict.get('photoURL', '')
+            if user_id:
+                applicant_dict = users_map.get(str(user_id))
+
+            if not applicant_dict:
+                applicant_email = app_data.get('email') or app_data.get('applicantEmail')
+
+                if applicant_email:
+                    try:
+                        email_query = db.collection('Users').where(
+                            'email', '==', applicant_email
+                        ).limit(1).get()
+
+                        if email_query:
+                            applicant_dict = email_query[0].to_dict() or {}
+
+                    except Exception as e:
+                        print(f"Error retrieving applicant using email: {e}")
+
+            if applicant_dict:
+                applicant_name = (
+                    applicant_dict.get('fullName')
+                    or applicant_dict.get('displayName')
+                    or f"{applicant_dict.get('firstName', '')} {applicant_dict.get('lastName', '')}".strip()
+                    or applicant_dict.get('name')
+                )
+                app_data['applicant_name'] = applicant_name or 'Anonymous'
+
+                raw_pic = (
+                    applicant_dict.get('photoURL')
+                    or applicant_dict.get('profilePicture')
+                    or applicant_dict.get('profilePictureUrl')
+                    or ''
+                )
                 app_data['applicant_pic'] = get_file_url(raw_pic) if raw_pic else ''
+
             else:
-                app_data['applicant_name'] = "Unknown User"
-                app_data['applicant_pic'] = ""
+                app_data['applicant_name'] = (
+                    app_data.get('fullName')
+                    or app_data.get('applicantName')
+                    or app_data.get('name')
+                    or 'Unknown User'
+                )
+
+                raw_pic = (
+                    app_data.get('photoURL')
+                    or app_data.get('profilePicture')
+                    or ''
+                )
+
+                app_data['applicant_pic'] = get_file_url(raw_pic) if raw_pic else ''
                 
         applications_list.append(app_data)
 

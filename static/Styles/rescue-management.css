@@ -14,7 +14,7 @@
     --badge-dispatched: #fef3c7;
     --badge-dispatched-text: #b45309;
     --badge-resolved: #dcfce7;
-    --badge-resolved-text: #15803d;
+    --badge-resolved-text: #166534;
     --badge-rejected: #fee2e2;
     --badge-rejected-text: #b91c1c;
 }
@@ -142,8 +142,8 @@ td { padding: 1rem; border-bottom: 1px solid var(--border-color); vertical-align
 .badge { padding: 0.35rem 0.85rem; border-radius: 50px; font-size: 0.8125rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem; }
 .badge::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: currentColor; }
 .badge-submitted { background: var(--badge-submitted); color: var(--badge-submitted-text); }
-.badge-review { background: var(--badge-review); color: var(--badge-review-text); }
-.badge-dispatched { background: var(--badge-dispatched); color: var(--badge-dispatched-text); }
+.badge-review { background: #fef3c7; color: #b45309; }
+.badge-dispatched { background: #dae8f9; color: #2563eb }
 .badge-resolved { background: var(--badge-resolved); color: var(--badge-resolved-text); }
 .badge-rejected { background: var(--badge-rejected); color: var(--badge-rejected-text); }
 
