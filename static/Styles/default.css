@@ -181,18 +181,6 @@ main {
 .util-icon-btn .icon { width: 28px;  height: 28px; }
 .util-btn-text { display: none; }
 
-.unread-dot { 
-  position: absolute; 
-  top: -1px; 
-  right: -1px; 
-  width: 10px; 
-  height: 10px; 
-  background-color: var(--brand-orange); 
-  border-radius: 50%; 
-  border: 2px solid #ffffff; 
-  box-shadow: 0 0 0 2px var(--sidebar-bg-color, #ffffff); 
-  animation: unread-pulse-dot 2s infinite;  }
-
 .unread-dot {
   position: absolute !important;
   top: -2px !important;

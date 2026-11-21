@@ -90,6 +90,8 @@
                                     data-submitted-at="{{ app.submittedAt or '' }}"
                                     data-schedule-visitation="{{ app.scheduleVisitation or '' }}"
                                     data-schedule-return="{{ app.scheduleReturn or '' }}"
+                                    data-suggested-visitation="{{ app.suggestedVisitation or '' }}"
+                                    data-suggested-return="{{ app.suggestedReturn or '' }}"
                                     data-monitoring-status="{{ app.monitoringStatus or app.monitoring_status or '' }}"
                                     data-overdue="{{ 'true' if app.late_count and app.late_count > 0 else 'false' }}">
                                     <td>
@@ -144,10 +146,13 @@
                                     <td class="table-actions-cell">
                                         <div class="action-row">
                                             <button class="btn-eye" 
-                                                    title="View Application" 
+                                                    title="{% if (app.suggestedVisitation and app.status in ['Approved', 'Visit Scheduled']) or (app.suggestedReturn and app.status in ['Return Requested', 'Return Scheduled']) %}View Application (Suggested Schedule){% else %}View Application{% endif %}" 
                                                     data-application="{{ app | tojson | forceescape }}"
                                                     onclick="openViewModal(this)">
                                                 <i class="fa-regular fa-eye"></i>
+                                                {% if (app.suggestedVisitation and app.status in ['Approved', 'Visit Scheduled']) or (app.suggestedReturn and app.status in ['Return Requested', 'Return Scheduled']) %}
+                                                    <span class="suggest-dot" data-app-id="{{ app.id }}"></span>
+                                                {% endif %}
                                             </button>
                                             <button class="btn-edit" 
                                                     title="Modify Status & Schedule" 
@@ -482,7 +487,7 @@
 
 <script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
 <script>
-function getCurrentLocalDateTime() {
+    function getCurrentLocalDateTime() {
         const now = new Date();
         const localISO = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString();
         return localISO.slice(0, 16);
@@ -742,6 +747,44 @@ function getCurrentLocalDateTime() {
         if (lightboxModal) lightboxModal.classList.add('open');
     }
 
+    function getSuggestionSignature(app) {
+        const visit = `${app.suggestedVisitation || ''}|${app.suggestedVisitationUpdatedAt || ''}`;
+        const ret = `${app.suggestedReturn || ''}|${app.suggestedReturnUpdatedAt || ''}`;
+        return `${visit}::${ret}`;
+    }
+
+    function getSeenSuggestionsMap() {
+        try {
+            return JSON.parse(localStorage.getItem('seenSuggestedSchedules') || '{}');
+        } catch (_) {
+            return {};
+        }
+    }
+
+    function markSuggestionAsSeen(appId, signature) {
+        if (!appId || !signature || signature === '|::|') return;
+        const seen = getSeenSuggestionsMap();
+        seen[appId] = signature;
+        localStorage.setItem('seenSuggestedSchedules', JSON.stringify(seen));
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const seen = getSeenSuggestionsMap();
+        document.querySelectorAll('.btn-eye .suggest-dot').forEach(dot => {
+            const btn = dot.closest('.btn-eye');
+            const appId = dot.getAttribute('data-app-id');
+            if (!btn || !appId) return;
+
+            try {
+                const appData = JSON.parse(btn.getAttribute('data-application') || '{}');
+                const currentSig = getSuggestionSignature(appData);
+                if (seen[appId] && seen[appId] === currentSig) {
+                    dot.style.display = 'none';
+                }
+            } catch (_) {}
+        });
+    });
+
     // Modal View Application
     function openViewModal(buttonElement) {
         const appDataRaw = buttonElement.getAttribute('data-application');
@@ -760,6 +803,19 @@ function getCurrentLocalDateTime() {
         const appIdVal = app.id || app.applicationId || app.application_id || 'N/A';
         const monitoringVal = app.monitoring_status || app.monitoringStatus || 'N/A';
 
+        const currentSig = getSuggestionSignature(app);
+        markSuggestionAsSeen(appIdVal, currentSig);
+        const dot = buttonElement.querySelector('.suggest-dot');
+        if (dot) {
+            dot.style.display = 'none';
+            if (appIdVal && appIdVal !== 'N/A') {
+                fetch(`/adoption/mark-suggestion-seen/${appIdVal}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                }).catch(() => {});
+            }
+        }
+
         let badgeClass = 'badge-submitted';
         if (statusVal === 'Under Review') badgeClass = 'badge-review';
         else if (statusVal === 'Approved') badgeClass = 'badge-approved';
@@ -777,7 +833,6 @@ function getCurrentLocalDateTime() {
                     </div>
                     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: #7c2d12; font-size: 0.98rem; font-weight: 700;">
                         <span>${formatScheduleDateTime(app.suggestedVisitation)}</span>
-                        <span style="font-size: 0.72rem; font-weight: 600; color: #c2410c; background: rgba(234, 88, 12, 0.1); padding: 3px 9px; border-radius: 999px;">Proposed by Adopter</span>
                     </div>
                 </div>`;
         }
@@ -791,7 +846,6 @@ function getCurrentLocalDateTime() {
                     </div>
                     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: #7c2d12; font-size: 0.98rem; font-weight: 700;">
                         <span>${formatScheduleDateTime(app.suggestedReturn)}</span>
-                        <span style="font-size: 0.72rem; font-weight: 600; color: #c2410c; background: rgba(234, 88, 12, 0.1); padding: 3px 9px; border-radius: 999px;">Proposed by Adopter</span>
                     </div>
                 </div>`;
         }

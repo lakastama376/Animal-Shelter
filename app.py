@@ -133,6 +133,7 @@ def validate_user_session():
         'login', 'signup', 'authorize', 'reset_password', 
         'terms', 'privacy', 'static',
         'home_bp.home', 'about_bp.about_page', 'contact_bp.contact_page',
+        'contact_bp.send_contact_message',
         'pet_public_bp.pet_list', 'pet_public_bp.public_media_proxy',
         'home_bp.public_media_proxy', 'donation_bp.index',
         'donation_bp.media_proxy', 'article_list_bp.list_articles'     

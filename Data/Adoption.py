@@ -583,6 +583,32 @@ def suggest_adoption_schedule(app_id):
         print(f"Error submitting schedule suggestion: {e}")
         return jsonify({"status": "error", "message": "An error occurred while submitting your schedule suggestion."}), 500
 
+def _build_suggestion_signature(app_dict):
+    visit = f"{app_dict.get('suggestedVisitation') or ''}|{app_dict.get('suggestedVisitationUpdatedAt') or ''}"
+    ret = f"{app_dict.get('suggestedReturn') or ''}|{app_dict.get('suggestedReturnUpdatedAt') or ''}"
+    return f"{visit}::{ret}"
+
+
+@adoption_management_bp.route('/adoption/mark-suggestion-seen/<app_id>', methods=['POST'])
+@admin_only
+def mark_suggestion_seen(app_id):
+    try:
+        db = firestore.client()
+        app_ref = db.collection('Applications').document(app_id)
+        app_doc = app_ref.get()
+        if not app_doc.exists:
+            return jsonify({"status": "error", "message": "Application not found."}), 404
+
+        app_dict = app_doc.to_dict() or {}
+        sig = _build_suggestion_signature(app_dict)
+        if sig != "|::|":
+            app_ref.update({'seenSuggestedSignature': sig})
+
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        print(f"Error marking suggestion seen: {e}")
+        return jsonify({"status": "error", "message": "Failed to mark suggestion as seen."}), 500
+
 # Update Status
 @adoption_management_bp.route('/adoption/update-status/<app_id>', methods=['POST'])
 @admin_only
@@ -747,15 +773,33 @@ def inject_adoption_notifications():
         user_doc = db.collection('Users').document(uid).get()
         role = user_doc.to_dict().get('role', 'Adopter') if user_doc.exists else 'Adopter'
         
-        query = db.collection('Applications')
         if role == 'Admin':
-            query = query.where('status', 'in', ['Submitted', 'Under Review', 'Approved', 'Return Requested'])
+            pending_query = db.collection('Applications').where(
+                'status', 'in', ['Submitted', 'Under Review', 'Approved', 'Return Requested']
+            ).limit(1).get()
+            if len(pending_query) > 0:
+                return dict(has_new_adoptions=True)
+
+            for doc in db.collection('Applications').where(
+                'status', 'in', ['Approved', 'Visit Scheduled', 'Return Scheduled']
+            ).stream():
+                app_dict = doc.to_dict() or {}
+                status_val = str(app_dict.get('status') or '').strip()
+                has_visit_suggestion = bool(app_dict.get('suggestedVisitation')) and status_val in ['Approved', 'Visit Scheduled']
+                has_return_suggestion = bool(app_dict.get('suggestedReturn')) and status_val == 'Return Scheduled'
+                if has_visit_suggestion or has_return_suggestion:
+                    current_sig = _build_suggestion_signature(app_dict)
+                    if app_dict.get('seenSuggestedSignature') != current_sig:
+                        return dict(has_new_adoptions=True)
+
+            return dict(has_new_adoptions=False)
         else:
-            query = query.where('userId', '==', uid)\
-                   .where('status', 'in', ['Approved', 'Visit Scheduled', 'Return Scheduled'])
-                   
-        pending_apps = query.limit(1).get()
-        return dict(has_new_adoptions=len(pending_apps) > 0)
+            pending_apps = db.collection('Applications')\
+                             .where('userId', '==', uid)\
+                             .where('status', 'in', ['Approved', 'Visit Scheduled', 'Return Scheduled'])\
+                             .limit(1)\
+                             .get()
+            return dict(has_new_adoptions=len(pending_apps) > 0)
         
     except Exception as e:
         print(f"Error checking notifications: {e}")
