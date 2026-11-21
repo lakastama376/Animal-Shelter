@@ -57,14 +57,18 @@
                         <div class="filter-pill active" onclick="filterTable('All')">All</div>
                         <div class="filter-pill" onclick="filterTable('Under Review')">Under Review ({{ counts.get('Under Review', 0) if counts else 0 }})</div>
                         <div class="filter-pill" onclick="filterTable('Approved')">Approved ({{ counts.get('Approved', 0) if counts else 0 }})</div>
-                        <div class="filter-pill" onclick="filterTable('Visit Scheduled')">Visit Scheduled ({{ counts.get('Visit Scheduled', 0) if counts else 0 }})</div>
+                        <div class="filter-pill" onclick="filterTable('Visit Scheduled')">Visit Scheduled ({{ counts.get('Visit Scheduled', 0) if counts else 0 }})
+                            <span id="todayVisitScheduledBadge" class="circle-badge">0</span>
+                        </div>
                         <div class="filter-pill" onclick="filterTable('Adopted')">Adopted ({{ counts.get('Adopted', 0) if counts else 0 }})</div>
                         <div class="filter-pill" onclick="filterTable('Rejected')">Rejected ({{ counts.get('Rejected', 0) if counts else 0 }})</div>
                         <div class="filter-pill" onclick="filterTable('Monitoring Ongoing')">Ongoing Monitoring ({{ counts.get('Monitoring Ongoing', 0) if counts else 0 }})</div>
                         <div class="filter-pill" onclick="filterTable('Monitoring Completed')">Finalized ({{ counts.get('Monitoring Completed', 0) if counts else 0 }})</div>
                         <div class="filter-pill" onclick="filterTable('Overdue Monitoring')">Overdue Monitoring ({{ counts.get('Overdue Monitoring', 0) if counts else 0 }})</div>
                         <div class="filter-pill" onclick="filterTable('Return Requested')">Return Requested ({{ counts.get('Return Requested', 0) if counts else 0 }})</div>
-                        <div class="filter-pill" onclick="filterTable('Return Scheduled')">Return Scheduled ({{ counts.get('Return Scheduled', 0) if counts else 0 }})</div>
+                        <div class="filter-pill" onclick="filterTable('Return Scheduled')">Return Scheduled ({{ counts.get('Return Scheduled', 0) if counts else 0 }})
+                            <span id="todayReturnScheduledBadge" class="circle-badge">0</span>
+                        </div>
                         <div class="filter-pill" onclick="filterTable('Returned')">Returned ({{ counts.get('Returned', 0) if counts else 0 }})</div>
                     </div>
                     <div class="table-wrap">
@@ -84,6 +88,8 @@
                                 {% for app in applications %}
                                 <tr data-status="{{ app.status }}"
                                     data-submitted-at="{{ app.submittedAt or '' }}"
+                                    data-schedule-visitation="{{ app.scheduleVisitation or '' }}"
+                                    data-schedule-return="{{ app.scheduleReturn or '' }}"
                                     data-monitoring-status="{{ app.monitoringStatus or app.monitoring_status or '' }}"
                                     data-overdue="{{ 'true' if app.late_count and app.late_count > 0 else 'false' }}">
                                     <td>
@@ -127,9 +133,9 @@
                                             {% if app.status == 'Submitted' %}badge-submitted
                                             {% elif app.status == 'Under Review' %}badge-review
                                             {% elif app.status == 'Approved' %}badge-approved
-                                            {% elif app.status == 'Visit Scheduled' %}badge-visit
-                                            {% elif app.status == 'Adopted' %}badge-resolved
-                                            {% elif app.status in ['Return Requested', 'Return Scheduled'] %}badge-review
+                                            {% elif app.status in ['Visit Scheduled', 'Return Scheduled'] %}badge-visit
+                                            {% elif app.status == 'Adopted' %}badge-adopted
+                                            {% elif app.status == 'Return Requested' %}badge-review
                                             {% elif app.status == 'Returned' %}badge-complete
                                             {% elif app.status == 'Rejected' %}badge-rejected{% endif %}">
                                             {{ app.status }}
@@ -170,6 +176,9 @@
                                             {% elif app.status == 'Return Requested' %}
                                                 <button class="btn-calendar" title="Schedule Return Drop-off" onclick="openReturnScheduleModal('{{ app.id }}')">
                                                     <i class="fa-regular fa-calendar-days"></i>
+                                                </button>
+                                                <button class="btn-cross" title="Reject Return Request" onclick="updateAppStatus('{{ app.id }}', 'Adopted', { returnRejected: true })">
+                                                    <i class="fa-solid fa-xmark"></i>
                                                 </button>
                                             {% elif app.status == 'Return Scheduled' %}
                                                 <button class="btn-check" title="Confirm Shelter Received Pet" onclick="updateAppStatus('{{ app.id }}', 'Returned')">
@@ -242,6 +251,62 @@
                                     {% endif %}
                                 </span>
                             </div>
+                            {% if app.status in ['Approved', 'Visit Scheduled', 'Return Scheduled'] %}
+                                {% if app.status in ['Approved', 'Visit Scheduled'] %}
+                                    {% set suggestion_field = app.suggestedVisitation %}
+                                    {% set schedule_type = 'visitation' %}
+                                {% else %}
+                                    {% set suggestion_field = app.suggestedReturn %}
+                                    {% set schedule_type = 'return' %}
+                                {% endif %}
+                                <div class="schedule-suggestion-box">
+                                    <div class="schedule-suggestion-content">
+                                        <div class="schedule-suggestion-icon">
+                                            <i class="fa-regular fa-calendar-days"></i>
+                                        </div>
+                                        <div class="schedule-suggestion-text">
+                                            <h4>
+                                                {% if schedule_type == 'visitation' %}
+                                                    Suggest Your Visitation Schedule
+                                                {% else %}
+                                                    Suggest Your Return Schedule
+                                                {% endif %}
+                                            </h4>
+                                            <p>
+                                                {% if schedule_type == 'visitation' %}
+                                                    Choose your preferred date and time for visiting the shelter.
+                                                    Our team will review your proposed schedule.
+                                                {% else %}
+                                                    Choose your preferred date and time for returning the pet.
+                                                    Our team will review your proposed drop-off schedule.
+                                                {% endif %}
+                                            </p>
+                                            {% if suggestion_field %}
+                                                <div class="suggestion-current">
+                                                    <i class="fa-solid fa-calendar-check"></i>
+                                                    <span>
+                                                        Your proposed schedule:
+                                                        <strong class="format-date"
+                                                                data-date="{{ suggestion_field }}">
+                                                            {{ suggestion_field }}
+                                                        </strong>
+                                                    </span>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <button type="button"
+                                            class="btn-suggest-schedule"
+                                            onclick="openSuggestionModal('{{ app.id }}', '{{ schedule_type }}', '{{ suggestion_field }}')">
+                                        <i class="fa-regular fa-calendar"></i>
+                                        {% if suggestion_field %}
+                                            Update Suggested Schedule
+                                        {% else %}
+                                            Suggest a Schedule
+                                        {% endif %}
+                                    </button>
+                                </div>
+                            {% endif %}
                             {% if app.status == 'Adopted' %}
                                 <div style="margin-top: 16px;">
                                     <button type="button" class="btn btn-secondary" style="background-color: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer;" onclick="openReturnReasonModal('{{ app.id }}')">
@@ -379,13 +444,127 @@
         </form>
     </div>
 </div>
+<div id="suggestionModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 id="suggestionModalTitle">Suggest a Schedule</h3>
+            <button class="modal-close"
+                    type="button"
+                    onclick="closeModal('suggestionModal')">
+                &times;
+            </button>
+        </div>
+        <form id="suggestionForm" onsubmit="submitScheduleSuggestion(event)">
+            <input type="hidden" id="suggestionAppId">
+            <input type="hidden" id="suggestionType">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="suggestionDate">
+                        Preferred Date & Time
+                    </label>
+                    <input type="datetime-local" id="suggestionDate" class="form-control" required>
+                    <small style="display: block; margin-top: 8px; color: #64748b;">
+                        Your suggested schedule will be reviewed and confirmed by the shelter administrator.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('suggestionModal')">
+                    Cancel
+                </button>
+                <button type="submit" id="suggestionSubmitBtn" class="btn btn-primary" style="background-color: #ff914d; color: white;">
+                    Submit Suggestion
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
 <script>
-    function getCurrentLocalDateTime() {
+function getCurrentLocalDateTime() {
         const now = new Date();
         const localISO = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString();
         return localISO.slice(0, 16);
+    }
+
+    function formatScheduleDateTime(rawValue) {
+        if (!rawValue) return '';
+        const dateObj = new Date(String(rawValue).replace(/\s+at\s+/i, " ").replace(" ", "T"));
+        if (isNaN(dateObj.getTime())) return String(rawValue);
+
+        const datePart = dateObj.toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
+        });
+        const timePart = dateObj.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+        return `${datePart} at ${timePart}`;
+    }
+
+    function parseScheduleDate(rawValue) {
+        if (!rawValue) return null;
+        const normalized = String(rawValue).replace(/\s+at\s+/i, " ").replace(" ", "T");
+        const parsed = new Date(normalized);
+        return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function isSameLocalDate(dateA, dateB) {
+        return (
+            dateA.getFullYear() === dateB.getFullYear() &&
+            dateA.getMonth() === dateB.getMonth() &&
+            dateA.getDate() === dateB.getDate()
+        );
+    }
+
+    function updateTodayVisitScheduledBadge() {
+        const badge = document.getElementById('todayVisitScheduledBadge');
+        if (!badge) return;
+
+        const now = new Date();
+        let todayCount = 0;
+
+        document.querySelectorAll('#adminTableBody tr').forEach(row => {
+            const status = (row.getAttribute('data-status') || '').trim();
+            const rawSchedule = (row.getAttribute('data-schedule-visitation') || '').trim();
+
+            if (status === 'Visit Scheduled' && rawSchedule) {
+                const parsedSchedule = parseScheduleDate(rawSchedule);
+                if (parsedSchedule && isSameLocalDate(parsedSchedule, now)) {
+                    todayCount++;
+                }
+            }
+        });
+
+        badge.textContent = todayCount;
+        badge.style.display = todayCount > 0 ? 'inline-block' : 'none';
+    }
+
+    function updateTodayReturnScheduledBadge() {
+        const badge = document.getElementById('todayReturnScheduledBadge');
+        if (!badge) return;
+
+        const now = new Date();
+        let todayCount = 0;
+
+        document.querySelectorAll('#adminTableBody tr').forEach(row => {
+            const status = (row.getAttribute('data-status') || '').trim();
+            const returnSchedule = (row.getAttribute('data-schedule-return') || '').trim();
+
+            if (status === 'Return Scheduled' && returnSchedule) {
+                const parsedSchedule = parseScheduleDate(returnSchedule);
+                if (parsedSchedule && isSameLocalDate(parsedSchedule, now)) {
+                    todayCount++;
+                }
+            }
+        });
+
+        badge.textContent = todayCount;
+        badge.style.display = todayCount > 0 ? 'inline-block' : 'none';
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -394,6 +573,37 @@
             noteBox.hidden = true;
             noteBox.style.display = 'none';
         }
+
+        if (typeof filterTable === 'function') {
+            filterTable('All');
+        }
+
+        updateTodayVisitScheduledBadge();
+        updateTodayReturnScheduledBadge();
+
+        document.querySelectorAll('.format-date').forEach(el => {
+            const rawDate = el.getAttribute('data-date');
+            if (rawDate && rawDate !== 'None' && rawDate !== '') {
+                const dateObj = parseScheduleDate(rawDate);
+                if (dateObj) {
+                    el.textContent = dateObj.toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                }
+            }
+        });
+
+        document.querySelectorAll('[data-raw-schedule]').forEach(el => {
+            const raw = el.getAttribute('data-raw-schedule');
+            if (raw) {
+                el.textContent = formatScheduleDateTime(raw);
+            }
+        });
     });
 
     function showNextAdoptionNote() {
@@ -413,7 +623,7 @@
                 noteBox.style.boxShadow = 'none';
             }, 1500);
         } else {
-            alert(fallbackMsg);
+            console.warn(fallbackMsg);
         }
     }
 
@@ -428,7 +638,7 @@
             if (data.status === 'success') {
                 window.location.reload();
             } else {
-                alert(data.message || "An unexpected processing error occurred.");
+                console.error(data.message || "An unexpected processing error occurred.");
             }
         })
         .catch(err => console.error("Error processing request:", err));
@@ -524,10 +734,6 @@
         return btn;
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        filterTable('All');
-    });
-
     function openLightbox(imageUrl) {
         const lightboxImg = document.getElementById('lightboxImage');
         if (lightboxImg) lightboxImg.src = imageUrl;
@@ -558,26 +764,72 @@
         if (statusVal === 'Under Review') badgeClass = 'badge-review';
         else if (statusVal === 'Approved') badgeClass = 'badge-approved';
         else if (statusVal === 'Visit Scheduled') badgeClass = 'badge-visit';
-        else if (statusVal === 'Adopted' || statusVal === 'Completed') badgeClass = 'badge-complete';
+        else if (statusVal === 'Adopted' || statusVal === 'Completed') badgeClass = 'badge-adopted';
         else if (statusVal === 'Rejected') badgeClass = 'badge-rejected';
 
-        let scheduleDetailsHtml = '';
-        if (app.scheduleVisitation && (statusVal === 'Visit Scheduled' || statusVal === 'Approved')) {
-            scheduleDetailsHtml = `
-                <div class="data-item">
-                    <div class="data-label">Schedule Visitation</div>
-                    <div class="data-value">${app.scheduleVisitation}</div>
+        let suggestedScheduleHtml = '';
+        if (app.suggestedVisitation && ['Approved', 'Visit Scheduled'].includes(statusVal)) {
+            suggestedScheduleHtml += `
+                <div class="data-item full-width" style="background: linear-gradient(135deg, #fffaf5 0%, #fff3e6 100%); border: 1px solid #fed7aa; border-left: 4px solid #ea580c; border-radius: 10px; padding: 14px 16px;">
+                    <div class="data-label" style="display: flex; align-items: center; gap: 7px; color: #c2410c; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px;">
+                        <i class="fa-regular fa-calendar-days" style="font-size: 0.85rem; color: #ea580c;"></i>
+                        <span>Adopter's Suggested Visitation</span>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: #7c2d12; font-size: 0.98rem; font-weight: 700;">
+                        <span>${formatScheduleDateTime(app.suggestedVisitation)}</span>
+                        <span style="font-size: 0.72rem; font-weight: 600; color: #c2410c; background: rgba(234, 88, 12, 0.1); padding: 3px 9px; border-radius: 999px;">Proposed by Adopter</span>
+                    </div>
                 </div>`;
-        } else if (app.scheduleReturn && (statusVal === 'Return Scheduled' || statusVal === 'Return Requested')) {
-            scheduleDetailsHtml = `
-                <div class="data-item">
-                    <div class="data-label">Schedule Return</div>
-                    <div class="data-value">${app.scheduleReturn}</div>
+        }
+
+        if (app.suggestedReturn && statusVal === 'Return Scheduled') {
+            suggestedScheduleHtml += `
+                <div class="data-item full-width" style="background: linear-gradient(135deg, #fffaf5 0%, #fff3e6 100%); border: 1px solid #fed7aa; border-left: 4px solid #ea580c; border-radius: 10px; padding: 14px 16px;">
+                    <div class="data-label" style="display: flex; align-items: center; gap: 7px; color: #c2410c; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px;">
+                        <i class="fa-regular fa-calendar-days" style="font-size: 0.85rem; color: #ea580c;"></i>
+                        <span>Adopter's Suggested Return Schedule</span>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: #7c2d12; font-size: 0.98rem; font-weight: 700;">
+                        <span>${formatScheduleDateTime(app.suggestedReturn)}</span>
+                        <span style="font-size: 0.72rem; font-weight: 600; color: #c2410c; background: rgba(234, 88, 12, 0.1); padding: 3px 9px; border-radius: 999px;">Proposed by Adopter</span>
+                    </div>
+                </div>`;
+        }
+
+        let confirmedScheduleBannerHtml = '';
+        if (app.scheduleVisitation && (statusVal === 'Visit Scheduled' || statusVal === 'Approved')) {
+            confirmedScheduleBannerHtml += `
+                <div class="data-grid" style="margin-top: 1rem;">
+                    <div class="data-item full-width" style="background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); border: 1px solid #e9d5ff; border-left: 4px solid #9333ea; border-radius: 10px; padding: 14px 16px;">
+                        <div class="data-label" style="display: flex; align-items: center; gap: 7px; color: #7e22ce; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px;">
+                            <i class="fa-regular fa-calendar-check" style="font-size: 0.85rem; color: #9333ea;"></i>
+                            <span>Confirmed Visitation Schedule</span>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: #581c87; font-size: 0.98rem; font-weight: 700;">
+                            <span>${formatScheduleDateTime(app.scheduleVisitation)}</span>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        if (app.scheduleReturn && (statusVal === 'Return Scheduled' || statusVal === 'Return Requested')) {
+            confirmedScheduleBannerHtml += `
+                <div class="data-grid" style="margin-top: 1rem;">
+                    <div class="data-item full-width" style="background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); border: 1px solid #e9d5ff; border-left: 4px solid #9333ea; border-radius: 10px; padding: 14px 16px;">
+                        <div class="data-label" style="display: flex; align-items: center; gap: 7px; color: #7e22ce; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px;">
+                            <i class="fa-regular fa-calendar-check" style="font-size: 0.85rem; color: #9333ea;"></i>
+                            <span>Confirmed Return Schedule</span>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: #581c87; font-size: 0.98rem; font-weight: 700;">
+                            <span>${formatScheduleDateTime(app.scheduleReturn)}</span>
+                        </div>
+                    </div>
                 </div>`;
         }
 
         const topOverviewHtml = `
             <div class="data-grid">
+                ${suggestedScheduleHtml}
                 <div class="data-item">
                     <div class="data-label">Target Pet</div>
                     <div class="data-value"><strong>${petName}</strong></div>
@@ -586,7 +838,6 @@
                     <div class="data-label">Current Status</div>
                     <div class="data-value"><span class="badge ${badgeClass}">${statusVal}</span></div>
                 </div>
-                ${scheduleDetailsHtml}
                 <div class="data-item">
                     <div class="data-label">Application ID</div>
                     <div class="data-value">${appIdVal}</div>
@@ -599,12 +850,15 @@
         `;
 
         const skipKeys = [
-            'id', 'applicationId', 'application_id', 'petId', 'userId', 'status', 'submittedAt', 'updatedAt', 
-            'pet_details','applicant_name', 'applicant_pic', 'applicantPic', 
-            'formatted_submitted', 'formatted_updated', 'petName', 'uploaded_images', 
-            'uploadedImages', 'firstName', 'lastName', 'documentGovIdUrl', 
-            'document_gov_id_url', 'documentProofAddressUrl', 'document_proof_address_url',
-            'monitoring_status', 'monitoringStatus', 'weekly_updates', 'weeklyUpdates'
+            'id', 'applicationId', 'application_id', 'petId', 'userId', 'status',
+            'submittedAt', 'updatedAt', 'pet_details', 'applicant_name',
+            'applicant_pic', 'applicantPic', 'formatted_submitted',
+            'formatted_updated', 'petName', 'uploaded_images', 'uploadedImages',
+            'firstName', 'lastName', 'documentGovIdUrl', 'document_gov_id_url',
+            'documentProofAddressUrl', 'document_proof_address_url',
+            'monitoring_status', 'monitoringStatus', 'weekly_updates',
+            'weeklyUpdates', 'suggestedVisitation', 'suggestedVisitationUpdatedAt',
+            'suggestedReturn', 'suggestedReturnUpdatedAt'
         ];
 
         const personalFields = ['age', 'contactNumber', 'phoneNumber', 'phone', 'email', 'emailAddress', 'address', 'completeHomeAddress'];
@@ -746,6 +1000,7 @@
 
         body.innerHTML = `
             ${topOverviewHtml}
+            ${confirmedScheduleBannerHtml}
             <div class="section-separator">Personal Information</div>
             <div class="data-grid">
                 <div class="data-item">
@@ -784,15 +1039,120 @@
         const modal = document.getElementById('scheduleModal');
         if (modal) modal.classList.add('open');
     }
+  
+    //Schedule Suggestion
+    function openSuggestionModal(appId, type, existingDate = '') {
+        const appIdInput = document.getElementById('suggestionAppId');
+        const typeInput = document.getElementById('suggestionType');
+        const dateInput = document.getElementById('suggestionDate');
+        const title = document.getElementById('suggestionModalTitle');
+        const submitBtn = document.getElementById('suggestionSubmitBtn');
+
+        appIdInput.value = appId;
+        typeInput.value = type;
+        dateInput.min = getCurrentLocalDateTime();
+        if (type === 'visitation') {
+            title.textContent = 'Suggest Facility Visitation';
+        } else {
+            title.textContent = 'Suggest Pet Return Schedule';
+        }
+
+        if (existingDate && existingDate !== 'None') {
+            try {
+                const parsedDate = new Date(existingDate);
+                if (!isNaN(parsedDate.getTime())) {
+                    const localDate = new Date(
+                        parsedDate.getTime() -
+                        parsedDate.getTimezoneOffset() * 60000
+                    ).toISOString().slice(0, 16);
+
+                    dateInput.value = localDate;
+                } else {
+                    dateInput.value = '';
+                }
+            } catch (error) {
+                dateInput.value = '';
+            }
+        } else {
+            dateInput.value = '';
+        }
+
+        if (dateInput.value && dateInput.value < dateInput.min) {
+            dateInput.value = '';
+        }
+
+        submitBtn.textContent = 'Submit Suggestion';
+        const modal = document.getElementById('suggestionModal');
+        if (modal) {
+            modal.classList.add('open');
+        }
+    }
+
+    function submitScheduleSuggestion(e) {
+        e.preventDefault();
+        const appId = document.getElementById('suggestionAppId').value;
+        const type = document.getElementById('suggestionType').value;
+        const dateInput = document.getElementById('suggestionDate');
+        const submitBtn = document.getElementById('suggestionSubmitBtn');
+        const selectedDate = dateInput.value;
+
+        if (!selectedDate) {
+            console.warn('Please select a date and time.');
+            return;
+        }
+
+        const parsedDate = new Date(selectedDate);
+        if (isNaN(parsedDate.getTime()) || parsedDate <= new Date()) {
+            console.warn('Please select a future date and time.');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+        fetch(`/adoption/suggest-schedule/${appId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type: type,
+                suggestedDate: selectedDate
+            })
+        })
+        .then(async res => {
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (_) {
+                throw new Error(`Unexpected server response (HTTP ${res.status}). Check your Flask terminal logs.`);
+            }
+            if (!res.ok || data.status !== 'success') {
+                throw new Error(data.message || 'Failed to submit schedule suggestion.');
+            }
+            return data;
+        })
+        .then(() => {
+            closeModal('suggestionModal');
+            window.location.reload();
+        })
+        .catch(err => {
+            console.error(err.message || 'An error occurred while submitting your suggestion.');
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Suggestion';
+        });
+    }
 
     function submitSchedule(e) {
         e.preventDefault();
         const appId = document.getElementById('scheduleAppId').value;
-        const rawDate = document.getElementById('visitationDate').value; 
-        
+        const rawDate = document.getElementById('visitationDate').value;
+
         const dateObj = new Date(rawDate);
         if (dateObj < new Date()) {
-            alert("Selected visitation date cannot be in the past.");
+            console.warn("Selected visitation date cannot be in the past.");
             return;
         }
 
@@ -816,7 +1176,7 @@
         const reason = document.getElementById('returnReasonText').value.trim();
 
         if (!reason) {
-            alert("Please provide a reason for the return.");
+            console.warn("Please provide a reason for the return.");
             return;
         }
 
@@ -830,11 +1190,11 @@
             if (data.status === 'success') {
                 window.location.reload();
             } else {
-                alert(data.message || 'Failed to submit return request.');
+                console.error(data.message || 'Failed to submit return request.');
             }
         })
         .catch(err => console.error("Error requesting return:", err));
-        
+
         closeModal('returnReasonModal');
     }
 
@@ -849,7 +1209,7 @@
                 if (data.status === 'success') {
                     window.location.reload();
                 } else {
-                    alert(data.message || 'Failed to submit return request.');
+                    console.error(data.message || 'Failed to submit return request.');
                 }
             })
             .catch(err => console.error("Error requesting return:", err));
@@ -873,7 +1233,7 @@
 
         const dateObj = new Date(rawDate);
         if (dateObj < new Date()) {
-            alert("Selected return date cannot be in the past.");
+            console.warn("Selected return date cannot be in the past.");
             return;
         }
 
@@ -965,6 +1325,9 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        filterTable('All');
+        updateTodayVisitScheduledBadge();
+
         document.querySelectorAll('.format-date').forEach(el => {
             const rawDate = el.getAttribute('data-date');
             if (rawDate && rawDate !== 'None' && rawDate !== '') {

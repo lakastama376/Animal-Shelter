@@ -3,6 +3,7 @@ from firebase_admin import firestore
 from datetime import datetime, timedelta
 from functools import wraps
 import os
+import threading
 import requests
 import smtplib
 from itsdangerous import URLSafeTimedSerializer, BadSignature
@@ -13,6 +14,14 @@ from appwrite.client import Client # type: ignore
 from appwrite.services.storage import Storage # type: ignore
 
 adoption_management_bp = Blueprint('adoption_management_bp', __name__)
+
+
+def send_email_async(to_email, subject, html_content):
+    def _worker():
+        email_notification(to_email, subject, html_content)
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
 
 def auth_required(f):
     @wraps(f)
@@ -81,7 +90,7 @@ def notify_admins_new_application(db, applicant_name, pet_name):
                     pet_name=pet_name,
                     status='Admin New Application'
                 )
-                email_notification(admin_email, subject, html_body)
+                send_email_async(admin_email, subject, html_body)
     except Exception as e:
         print(f"Failed to send new application notification to admins: {e}")
 
@@ -511,12 +520,69 @@ def request_pet_return(app_id):
                     status='Admin Return Requested',
                     return_reason=return_reason
                 )
-                email_notification(admin_email, subject, html_body)
+                send_email_async(admin_email, subject, html_body)
 
         return jsonify({"status": "success"}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-   
+
+@adoption_management_bp.route('/adoption/suggest-schedule/<app_id>', methods=['POST'])
+@auth_required
+def suggest_adoption_schedule(app_id):
+    try:
+        db = firestore.client()
+        user_data = session.get('user', {})
+        current_uid = user_data.get('uid') or user_data.get('user_id')
+
+        if not current_uid:
+            return jsonify({"status": "error", "message": "Your session is invalid. Please log in again."}), 401
+
+        data = request.json or {}
+        suggested_date = data.get('suggestedDate', '').strip()
+        if not suggested_date:
+            return jsonify({"status": "error", "message": "Please select your preferred date and time."}), 400
+        try:
+            selected_datetime = datetime.fromisoformat(suggested_date)
+        except ValueError:
+            return jsonify({"status": "error", "message": "Invalid date format."}), 400
+
+        if selected_datetime <= datetime.now():
+            return jsonify({"status": "error", "message": "Please select a future date and time."}), 400
+
+        app_ref = db.collection('Applications').document(app_id)
+        app_doc = app_ref.get()
+        if not app_doc.exists:
+            return jsonify({"status": "error", "message": "Application not found."}), 404
+
+        app_data = app_doc.to_dict() or {}
+        if str(app_data.get('userId', '')) != str(current_uid):
+            return jsonify({"status": "error", "message": "You are not authorized to update this application."}), 403
+
+        current_status = str(app_data.get('status', '')).strip()
+        if current_status in ['Approved', 'Visit Scheduled']:
+            update_payload = {
+                'suggestedVisitation': suggested_date,
+                'suggestedVisitationUpdatedAt': firestore.SERVER_TIMESTAMP
+            }
+            suggestion_type = "visitation"
+
+        elif current_status == 'Return Scheduled':
+            update_payload = {
+                'suggestedReturn': suggested_date,
+                'suggestedReturnUpdatedAt': firestore.SERVER_TIMESTAMP
+            }
+            suggestion_type = "return"
+
+        else:
+            return jsonify({"status": "error","message": "Schedule suggestions are only allowed when status is Approved, Visit Scheduled, or Return Scheduled."}), 400
+
+        app_ref.update(update_payload)
+        return jsonify({"status": "success", "message": "Your preferred schedule has been submitted successfully.", "type": suggestion_type }), 200
+
+    except Exception as e:
+        print(f"Error submitting schedule suggestion: {e}")
+        return jsonify({"status": "error", "message": "An error occurred while submitting your schedule suggestion."}), 500
+
 # Update Status
 @adoption_management_bp.route('/adoption/update-status/<app_id>', methods=['POST'])
 @admin_only
@@ -662,7 +728,7 @@ def update_status(app_id):
                     visitation_date=visitation_date,
                     return_date=return_date
                 )
-                email_notification(applicant_email, subject, html_body)
+                send_email_async(applicant_email, subject, html_body)
 
         return jsonify({"status": "success", "message": "Application updated cleanly."})
     except Exception as e:
@@ -683,7 +749,7 @@ def inject_adoption_notifications():
         
         query = db.collection('Applications')
         if role == 'Admin':
-            query = query.where('status', 'in', ['Submitted', 'Under Review', 'Return Requested'])
+            query = query.where('status', 'in', ['Submitted', 'Under Review', 'Approved', 'Return Requested'])
         else:
             query = query.where('userId', '==', uid)\
                    .where('status', 'in', ['Approved', 'Visit Scheduled', 'Return Scheduled'])
