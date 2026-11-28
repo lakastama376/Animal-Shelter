@@ -15,8 +15,34 @@ donation_bp = Blueprint('donation_bp', __name__)
 PAYMONGO_SECRET_KEY = os.getenv('PAYMONGO_SECRET_KEY')
 PAYMONGO_PUBLIC_KEY = os.getenv('PAYMONGO_PUBLIC_KEY')
 
+DEFAULT_PAYMENT_INFO = {
+    "gcashNumber": os.getenv("DEFAULT_GCASH_NUMBER", ""),
+    "mayaNumber": os.getenv("DEFAULT_MAYA_NUMBER", ""),
+    "bpiAccount": os.getenv("DEFAULT_BPI_ACCOUNT", "")
+}
+
 def get_db():
     return firestore.client()
+
+def get_donation_config(db):
+    accepting_cash = True
+    accepting_inkind = True
+    payment_info = dict(DEFAULT_PAYMENT_INFO)
+
+    try:
+        doc = db.collection('Settings').document('shelter_config').get()
+        if doc.exists:
+            data = doc.to_dict() or {}
+            legacy = bool(data.get('acceptingDonations', True))
+            accepting_cash = bool(data.get('acceptingCashDonations', legacy))
+            accepting_inkind = bool(data.get('acceptingInKindDonations', legacy))
+            payment_info["gcashNumber"] = str(data.get('gcashNumber') or DEFAULT_PAYMENT_INFO["gcashNumber"])
+            payment_info["mayaNumber"] = str(data.get('mayaNumber') or DEFAULT_PAYMENT_INFO["mayaNumber"])
+            payment_info["bpiAccount"] = str(data.get('bpiAccount') or DEFAULT_PAYMENT_INFO["bpiAccount"])
+    except Exception as e:
+        print(f"Error checking donation configuration settings: {e}")
+
+    return accepting_cash, accepting_inkind, payment_info
 
 def get_serializer():
     return URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
@@ -202,8 +228,12 @@ def inkind_donation_email(donor_email, donor_name, donation_type, schedule, cont
 @donation_bp.route('/donation', methods=['GET'])
 def index():
     donors = []
+    accepting_cash = True
+    accepting_inkind = True
+    payment_info = dict(DEFAULT_PAYMENT_INFO)
     try:
         db = get_db()
+        accepting_cash, accepting_inkind, payment_info = get_donation_config(db)
         docs = list(
             db.collection('DonorWall')
             .order_by('createdAt', direction=firestore.Query.DESCENDING)
@@ -237,12 +267,26 @@ def index():
     except Exception as e:
         print(f"Error fetching donor wall data: {e}")
 
-    return render_template('Donation.html', donors=donors[:30])
+    return render_template(
+        'Donation.html',
+        donors=donors[:30],
+        accepting_cash_donations=accepting_cash,
+        accepting_inkind_donations=accepting_inkind,
+        payment_info=payment_info
+    )
 
 # Generate QRPH
 @donation_bp.route('/api/donation/qrph/generate', methods=['POST'])
 def generate_qrph():
     try:
+        db = get_db()
+        accepting_cash, _, _ = get_donation_config(db)
+        if not accepting_cash:
+            return jsonify({
+                "status": "error",
+                "message": "Cash donations are currently paused by the shelter."
+            }), 403
+
         data = request.json or {}
         amount = float(data.get('amount', 0))
         if amount < 1: 
@@ -327,7 +371,6 @@ def generate_qrph():
         if not qr_image_url:
             return jsonify({"status": "error", "message": "Failed to generate QR Ph image code."}), 500
 
-        db = get_db()
         doc_ref = db.collection('Donations').document(intent_id)
         doc_ref.set({
             "type": "cash",
@@ -424,6 +467,14 @@ def check_qrph_status(payment_intent_id):
 @donation_bp.route('/api/donation/in-kind', methods=['POST'])
 def submit_inkind_donation():
     try:
+        db = get_db()
+        _, accepting_inkind, _ = get_donation_config(db)
+        if not accepting_inkind:
+            return jsonify({
+                "status": "error",
+                "message": "In-kind donations are currently paused by the shelter."
+            }), 403
+
         data = request.json or {}
         name = data.get('name')
         contact = data.get('contact')
@@ -448,7 +499,6 @@ def submit_inkind_donation():
         if not donor_email and '@' in contact:
             donor_email = contact
 
-        db = get_db()
         db.collection('Donations').add({
             "type": "in-kind",
             "donorName": name,

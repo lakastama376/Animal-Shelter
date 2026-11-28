@@ -89,6 +89,14 @@ def pet_profile(id):
             except ValueError:
                 pass
 
+        raw_deceased_date = pet_data.get('deceasedDate')
+        if raw_deceased_date:
+            try:
+                parsed_deceased_date = datetime.strptime(raw_deceased_date, '%Y-%m-%d')
+                pet_data['deceasedDate'] = parsed_deceased_date.strftime('%B %d, %Y')
+            except ValueError:
+                pass
+
         user_profile = None
         user_application_status = None
         has_active_adoption = False
@@ -122,7 +130,9 @@ def pet_profile(id):
                 active_adoption_message = f"You cannot apply for another pet while you have {active_detail} until monitoring is completed."
 
         raw_pet_status = (pet_data.get('status') or '').strip()
-        if user_application_status in ['Approved', 'Visit Scheduled'] or raw_pet_status.lower() == 'reserved':
+        if raw_pet_status.lower() == 'deceased':
+            display_status = 'Deceased'
+        elif user_application_status in ['Approved', 'Visit Scheduled'] or raw_pet_status.lower() == 'reserved':
             display_status = 'Reserved'
         else:
             display_status = raw_pet_status or 'Available'

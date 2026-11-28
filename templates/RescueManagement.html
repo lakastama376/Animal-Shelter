@@ -266,8 +266,7 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-            </div>
+            <div class="modal-footer" id="viewReportModalFooter"></div>
         </div>
     </div>
     <div id="lightboxModal" class="modal-backdrop" style="z-index: 1100;" onclick="closeLightbox()">
@@ -400,6 +399,40 @@
             });
         } else {
             mediaGrid.innerHTML = '<span style="color: var(--text-muted); font-size: 0.875rem;">No media attached.</span>';
+        }
+        
+        const footer = document.getElementById('viewReportModalFooter');
+        if (footer && report.id) {
+            const safeReportId = String(report.id).replace(/'/g, "\\'");
+            const statusVal = report.status || '';
+            let actionButtonsHtml = '<div class="action-row" style="justify-content: flex-end;">';
+
+            if (statusVal === 'Submitted' || statusVal === 'Under Review') {
+                actionButtonsHtml += `
+                    <button type="button" class="btn-action btn-dispatch" title="Dispatch Team" onclick="closeViewModal(); updateRescueStatus('${safeReportId}', 'Dispatched')">
+                        <i class="fa-solid fa-truck-medical"></i>
+                    </button>
+                `;
+            } else if (statusVal === 'Dispatched') {
+                actionButtonsHtml += `
+                    <button type="button" class="btn-action btn-resolve" title="Mark Resolved" onclick="closeViewModal(); updateRescueStatus('${safeReportId}', 'Resolved')">
+                        <i class="fa-solid fa-check"></i>
+                    </button>
+                `;
+            }
+
+            if (statusVal !== 'Resolved') {
+                actionButtonsHtml += `
+                    <button type="button" class="btn-action btn-reject" title="Reject Report" onclick="closeViewModal(); updateRescueStatus('${safeReportId}', 'Rejected')">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                `;
+            }
+
+            actionButtonsHtml += '</div>';
+            footer.innerHTML = actionButtonsHtml;
+        } else if (footer) {
+            footer.innerHTML = '';
         }
         document.getElementById('viewReportModal').classList.add('active');
     }

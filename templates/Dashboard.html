@@ -26,54 +26,71 @@
 
         <!--Statistics Section-->
         <section class="admin-stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon icon-animals"><i class="fa-solid fa-paw"></i></div>
-            <div class="stat-content">
-              <div class="stat-value">{{ metrics.total_animals }}</div>
-              <div class="stat-label">Total Animals</div>
-            </div>  
-            <div class="stat-subtext">+{{ metrics.animals_added_month }} this month</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon icon-apps"><i class="fa-regular fa-file-lines"></i></div>
-            <div class="stat-content">
-              <div class="stat-value">{{ metrics.applications }}</div>
-              <div class="stat-label">Applications</div>
+          <a href="{{ url_for('pet_management_bp.index') }}" class="stat-card-link">
+            <div class="stat-card">
+              <div class="stat-icon icon-animals"><i class="fa-solid fa-paw"></i></div>
+              <div class="stat-content">
+                <div class="stat-value">{{ metrics.total_animals }}</div>
+                <div class="stat-label">Total Animals</div>
+              </div>  
+              <div class="stat-subtext">+{{ metrics.animals_added_month }} this month</div>
             </div>
-            <div class="stat-subtext">{{ metrics.pending_apps }} pending</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon icon-wish"><i class="fa-regular fa-heart"></i></div>
-            <div class="stat-content">
-              <div class="stat-value">{{ metrics.adoptions_month }}</div>
-              <div class="stat-label">Adoptions<p>Adopted + Finalized</p></div>
+          </a>
+
+          <a href="{{ url_for('adoption_management_bp.management_view') }}" class="stat-card-link">
+            <div class="stat-card">
+              <div class="stat-icon icon-apps"><i class="fa-regular fa-file-lines"></i></div>
+              <div class="stat-content">
+                <div class="stat-value">{{ metrics.applications }}</div>
+                <div class="stat-label">Applications</div>
+              </div>
+              <div class="stat-subtext">{{ metrics.pending_apps }} pending</div>
             </div>
-            <div class="stat-subtext">+{{ metrics.adoptions_this_month }} this month</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon icon-don"><i class="fa-solid fa-peso-sign"></i></div>
-            <div class="stat-content">
-              <div class="stat-value">{{ metrics.donations }}</div>
-              <div class="stat-label">Total Donations</div>
+          </a>
+
+          <a href="{{ url_for('adoption_management_bp.management_view') }}" class="stat-card-link">
+            <div class="stat-card">
+              <div class="stat-icon icon-wish"><i class="fa-regular fa-heart"></i></div>
+              <div class="stat-content">
+                <div class="stat-value">{{ metrics.adoptions_month }}</div>
+                <div class="stat-label">Adoptions<p>Adopted + Finalized</p></div>
+              </div>
+              <div class="stat-subtext">+{{ metrics.adoptions_this_month }} this month</div>
             </div>
-            <div class="stat-subtext">{{ metrics.donations_month }} this month</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon icon-resc"><i class="fa-solid fa-triangle-exclamation"></i></div>
-            <div class="stat-content">
-              <div class="stat-value">{{ metrics.rescue_reports }}</div>
-              <div class="stat-label">Pending Rescues</div>
+          </a>
+
+          <a href="{{ url_for('donation_bp.management') }}" class="stat-card-link">
+            <div class="stat-card">
+              <div class="stat-icon icon-don"><i class="fa-solid fa-peso-sign"></i></div>
+              <div class="stat-content">
+                <div class="stat-value">{{ metrics.donations }}</div>
+                <div class="stat-label">Total Donations</div>
+              </div>
+              <div class="stat-subtext">{{ metrics.donations_month }} this month</div>
             </div>
-            <div class="stat-subtext">+{{ metrics.urgent_rescues }} urgent</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon icon-vols"><i class="fa-solid fa-user-group"></i></div>
-            <div class="stat-content">
-              <div class="stat-value">{{ metrics.adopters }}</div>
-              <div class="stat-label">Adopters</div>
+          </a>
+
+          <a href="{{ url_for('rescue_report_bp.management_view') }}" class="stat-card-link">
+            <div class="stat-card">
+              <div class="stat-icon icon-resc"><i class="fa-solid fa-triangle-exclamation"></i></div>
+              <div class="stat-content">
+                <div class="stat-value">{{ metrics.rescue_reports }}</div>
+                <div class="stat-label">Pending Rescues</div>
+              </div>
+              <div class="stat-subtext">+{{ metrics.urgent_rescues }} urgent</div>
             </div>
-            <div class="stat-subtext">{{ metrics.active }} Active</div>
-          </div>
+          </a>
+
+          <a href="{{ url_for('user_management_bp.view_users') }}" class="stat-card-link">
+            <div class="stat-card">
+              <div class="stat-icon icon-vols"><i class="fa-solid fa-user-group"></i></div>
+              <div class="stat-content">
+                <div class="stat-value">{{ metrics.adopters }}</div>
+                <div class="stat-label">Adopters</div>
+              </div>
+              <div class="stat-subtext">{{ metrics.active }} Active</div>
+            </div>
+          </a>
         </section>
 
       <!--Shelter Capacity-->

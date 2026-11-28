@@ -107,6 +107,11 @@
                             <span class="meta-value" style="font-size:13px;">{{ pet.activityLevel }}</span>
                         </div>
                         <p class="rescue-date">Rescued on <strong>{{ pet.rescueDate if pet.rescueDate else 'Recent Date' }}</strong></p>
+                        {% if pet.status | lower == 'deceased' and pet.deceasedDate %}
+                        <p class="rescue-date" style="color: var(--text-muted, #64748b);">
+                            Passed away on <strong>{{ pet.deceasedDate }}</strong>
+                        </p>
+                        {% endif %}
                         {% if badge_status | lower == 'reserved' %}
                         <button type="button" class="btn-apply disabled" disabled title="This pet is currently reserved">
                             <i class="fa-solid fa-bookmark"></i> Reserved
@@ -120,6 +125,10 @@
                         {% elif pet.status | lower == 'adopted' %}
                         <button type="button" class="btn-apply disabled" disabled title="This pet has already been adopted">
                             <i class="fa-solid fa-house-heart"></i> Already Adopted
+                        </button>
+                        {% elif pet.status | lower == 'deceased' %}
+                        <button type="button" class="btn-apply disabled" disabled title="In loving memory">
+                            <i class="fa-solid fa-heart-crack"></i> Deceased
                         </button>
                         {% else %}
                         <button type="button" class="btn-apply disabled" disabled>

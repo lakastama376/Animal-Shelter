@@ -107,12 +107,6 @@
                         <option value="female">Female</option>
                     </select>
                 </div>
-                <div class="filter-group">
-                    <label class="filter-label" for="filterStatus">Status</label>
-                    <select class="filter-select" id="filterStatus">
-                        <option value="available" selected>Available</option>
-                    </select>
-                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-modal-action btn-modal-reset" id="resetFiltersBtn">Reset Filters</button>
@@ -139,7 +133,6 @@
         const closeModalBtn = document.getElementById('closeModalBtn');
         const filterType = document.getElementById('filterType');
         const filterGender = document.getElementById('filterGender');
-        const filterStatus = document.getElementById('filterStatus');
         const applyFiltersBtn = document.getElementById('applyFiltersBtn');
         const resetFiltersBtn = document.getElementById('resetFiltersBtn');
         const petMatchingQuizBtn = document.getElementById('petMatchingQuizBtn');
@@ -166,18 +159,17 @@
             const searchTxt = searchInput.value.toLowerCase().trim();
             const selType = filterType.value;
             const selGender = filterGender.value;
-            const selStatus = filterStatus.value;
             let matchCount = 0;
             petCards.forEach(card => {
                 const name = card.getAttribute('data-name') || '';
                 const breed = card.getAttribute('data-breed') || '';
                 const type = card.getAttribute('data-type') || '';
                 const gender = card.getAttribute('data-gender') || '';
-                const status = card.getAttribute('data-status') || '';
+                const status = (card.getAttribute('data-status') || '').toLowerCase();
                 const textMatches = name.includes(searchTxt) || breed.includes(searchTxt);
                 const typeMatches = !selType || type === selType;
                 const genderMatches = !selGender || gender === selGender;
-                const statusMatches = !selStatus || status === selStatus;
+                const statusMatches = status === 'available';
 
                 if (textMatches && typeMatches && genderMatches && statusMatches) {
                     card.style.display = 'block';
@@ -201,7 +193,6 @@
             resetFiltersBtn.addEventListener('click', () => {
                 filterType.value = "";
                 filterGender.value = "";
-                filterStatus.value = "available";
                 filterPets();
                 filterModal.classList.remove('is-active');
             });

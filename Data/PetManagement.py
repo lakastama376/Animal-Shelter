@@ -212,7 +212,6 @@ def get_pet_json(id):
         return jsonify({"error": "Target object key structure missing."}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 # Adding Pets
 @pet_management_bp.route('/add', methods=['POST'])
 @admin_required
@@ -261,13 +260,17 @@ def add_pet():
                     videos_list.append(file_url)
 
         pet_name = request.form.get('petName', '').strip()
+        pet_status = request.form.get('status', 'Available').strip()
+        deceased_date = request.form.get('deceasedDate', '').strip() if pet_status == 'Deceased' else ''
+
         pet_payload = {
             "petName": pet_name,
             "type": request.form.get('type', '').strip(), 
             "breed": request.form.get('breed', '').strip(),
             "age": request.form.get('age', '').strip(),
             "gender": request.form.get('gender', ''),
-            "status": request.form.get('status', 'Available'),
+            "status": pet_status,
+            "deceasedDate": deceased_date,
             "personality": p_traits,
             "compatibility": c_traits,
             "activityLevel": request.form.get('activityLevel', 'Medium'),
@@ -371,13 +374,17 @@ def update_pet():
             vax_history = []
 
         pet_name = request.form.get('petName', '').strip()
+        pet_status = request.form.get('status', 'Available').strip()
+        deceased_date = request.form.get('deceasedDate', '').strip() if pet_status == 'Deceased' else ''
+
         update_payload = {
             "petName": pet_name,
             "type": request.form.get('type', '').strip(),
             "breed": request.form.get('breed', '').strip(),
             "age": request.form.get('age', '').strip(),
             "gender": request.form.get('gender', ''),
-            "status": request.form.get('status', 'Available'),
+            "status": pet_status,
+            "deceasedDate": deceased_date,
             "personality": p_traits,
             "compatibility": c_traits,
             "activityLevel": request.form.get('activityLevel', 'Medium'),

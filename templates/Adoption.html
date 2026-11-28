@@ -336,7 +336,7 @@
         </div>
         <div class="modal-body" id="viewModalBody">
         </div>
-        <div class="modal-footer"></div>
+        <div class="modal-footer" id="viewModalFooter"></div>
     </div>
 </div>
 <div id="lightboxModal" class="modal-overlay" onclick="closeModal('lightboxModal')">
@@ -912,9 +912,9 @@
             'documentProofAddressUrl', 'document_proof_address_url',
             'monitoring_status', 'monitoringStatus', 'weekly_updates',
             'weeklyUpdates', 'suggestedVisitation', 'suggestedVisitationUpdatedAt',
-            'suggestedReturn', 'suggestedReturnUpdatedAt'
+            'suggestedReturn', 'suggestedReturnUpdatedAt',
+            'seenSuggestedSignature'
         ];
-
         const personalFields = ['age', 'contactNumber', 'phoneNumber', 'phone', 'email', 'emailAddress', 'address', 'completeHomeAddress'];
         const livingFields = ['typeOfHome', 'homeOwnership', 'hasPets', 'familyAgreement', 'householdCount'];
         for (const [key, value] of Object.entries(app)) {
@@ -1077,6 +1077,54 @@
             </div>
             ${monitoringUpdatesHtml}
         `;
+
+        const footer = document.getElementById('viewModalFooter');
+        if (footer && appIdVal && appIdVal !== 'N/A') {
+            const safeAppId = String(appIdVal).replace(/'/g, "\\'");
+            let actionButtonsHtml = '';
+
+            if (statusVal === 'Submitted' || statusVal === 'Under Review') {
+                actionButtonsHtml += `
+                    <button type="button" class="btn-check" title="Approve Application" onclick="closeModal('viewModal'); updateAppStatus('${safeAppId}', 'Approved')">
+                        <i class="fa-solid fa-check"></i>
+                    </button>
+                    <button type="button" class="btn-cross" title="Reject Application" onclick="closeModal('viewModal'); updateAppStatus('${safeAppId}', 'Rejected')">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                `;
+            } else if (statusVal === 'Approved') {
+                actionButtonsHtml += `
+                    <button type="button" class="btn-calendar" title="Schedule Visit" onclick="closeModal('viewModal'); openScheduleModal('${safeAppId}')">
+                        <i class="fa-regular fa-calendar"></i>
+                    </button>
+                `;
+            } else if (statusVal === 'Visit Scheduled') {
+                actionButtonsHtml += `
+                    <button type="button" class="btn-check" title="Complete Process" onclick="closeModal('viewModal'); updateAppStatus('${safeAppId}', 'Adopted')">
+                        <i class="fa-solid fa-check"></i>
+                    </button>
+                `;
+            } else if (statusVal === 'Return Requested') {
+                actionButtonsHtml += `
+                    <button type="button" class="btn-calendar" title="Schedule Return Drop-off" onclick="closeModal('viewModal'); openReturnScheduleModal('${safeAppId}')">
+                        <i class="fa-regular fa-calendar-days"></i>
+                    </button>
+                    <button type="button" class="btn-cross" title="Reject Return Request" onclick="closeModal('viewModal'); updateAppStatus('${safeAppId}', 'Adopted', { returnRejected: true })">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                `;
+            } else if (statusVal === 'Return Scheduled') {
+                actionButtonsHtml += `
+                    <button type="button" class="btn-check" title="Confirm Shelter Received Pet" onclick="closeModal('viewModal'); updateAppStatus('${safeAppId}', 'Returned')">
+                        <i class="fa-solid fa-house-chimney"></i>
+                    </button>
+                `;
+            }
+
+            footer.innerHTML = actionButtonsHtml;
+        } else if (footer) {
+            footer.innerHTML = '';
+        }
         
         const viewModal = document.getElementById('viewModal');
         if (viewModal) viewModal.classList.add('open');

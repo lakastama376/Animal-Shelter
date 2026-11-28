@@ -103,8 +103,12 @@ def pet_list():
 
             raw_status = (p_data.get('status') or '').strip()
             is_reserved = (d.id in reserved_pet_ids) or (raw_status.lower() == 'reserved')
-            p_data['is_reserved'] = is_reserved
-            p_data['display_status'] = 'Reserved' if is_reserved else (raw_status or 'Available')
+            display_status = 'Reserved' if is_reserved else (raw_status or 'Available')
+            if display_status.lower() != 'available':
+                continue
+
+            p_data['is_reserved'] = False
+            p_data['display_status'] = display_status
             p_data['is_favorited'] = d.id in wishlist
             pets_list.append(p_data)
             

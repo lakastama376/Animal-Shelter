@@ -10,7 +10,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='Styles/donation.css') }}">
     <link rel="icon" href="{{ url_for('static', filename='Assets/Images/logo-icon.png') }}" type="image/png">
 </head>
-<body>
+<body data-accepting-cash="{{ 'true' if (accepting_cash_donations is not defined or accepting_cash_donations) else 'false' }}"
+      data-accepting-inkind="{{ 'true' if (accepting_inkind_donations is not defined or accepting_inkind_donations) else 'false' }}">
     {% include 'Navbar.html' %}
     <div class="layout">
         {% include 'Sidebar.html' %}
@@ -22,11 +23,37 @@
                 <span class="trigger-icon">📋</span>
             </button>
             {% endif %}
-            
             <div class="header">
                 <div class="tagline">Make a Difference</div>
                 <h1>Support Our Mission</h1>
                 <p>Your generosity feeds, heals, and shelters animals in need. Every contribution — big or small — matters.</p>
+            </div>
+
+            {% set cash_open = accepting_cash_donations is not defined or accepting_cash_donations %}
+            {% set inkind_open = accepting_inkind_donations is not defined or accepting_inkind_donations %}
+            <div class="donation-container" style="margin-bottom: 16px;">
+                {% if not cash_open and not inkind_open %}
+                <div class="card-warning">
+                    <i class="fa-solid fa-circle-pause" style="font-size: 1.2rem; flex-shrink: 0;"></i>
+                    <div>
+                        <strong>Donations Currently Paused:</strong> New QR Ph cash generation and in-kind donation requests are temporarily paused by the shelter. Direct transfer details below remain available.
+                    </div>
+                </div>
+                {% elif not cash_open %}
+                <div class="card-warning">
+                    <i class="fa-solid fa-circle-pause" style="font-size: 1.2rem; flex-shrink: 0;"></i>
+                    <div>
+                        <strong>QR Ph Cash Donations Paused:</strong> New QR Ph cash generation is temporarily paused. In-kind donations and direct transfer details remain available.
+                    </div>
+                </div>
+                {% elif not inkind_open %}
+                <div class="card-warning">
+                    <i class="fa-solid fa-circle-pause" style="font-size: 1.2rem; flex-shrink: 0;"></i>
+                    <div>
+                        <strong>In-Kind Donations Paused:</strong> New in-kind donation requests are temporarily paused. Cash donations remain available.
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
             <!--Monetary Donation-->
@@ -40,44 +67,58 @@
                     </div>
                     <div class="qr-display">
                         <div class="qr-code" id="qrContainer">
-                            <span style="font-size: 0.8rem; color: #94a3b8;">Click Generate QR to scan with any banking app</span>
+                            {% if not cash_open %}
+                                <span style="font-size: 0.8rem; color: #b45309;">QR generation is temporarily paused</span>
+                            {% else %}
+                                <span style="font-size: 0.8rem; color: #94a3b8;">Click Generate QR to scan with any banking app</span>
+                            {% endif %}
                         </div>
                         <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 4px;">Tails of Freedom Animal Haven</h3>
                         <p style="font-size: 0.8rem; color: var(--text-muted);">Scan with GCash, Maya, or any InstaPay banking app</p>
                         <div id="paymentStatusBadge"></div>
                         <div class="amount-input">
-                            <input type="number" id="cashAmount" class="form-control" placeholder="Enter Amount (PHP)" value="100" min="1">
-                            <button type="button" class="btn-generate" onclick="generateQRPhCode()">Generate QR</button>
+                            <input type="number" id="cashAmount" class="form-control" placeholder="Enter Amount (PHP)" value="100" min="1"
+                                   {% if not cash_open %}disabled{% endif %}>
+                            <button type="button" class="btn-generate" onclick="generateQRPhCode()"
+                                    {% if not cash_open %}disabled style="opacity: 0.6; cursor: not-allowed;"{% endif %}>
+                                Generate QR
+                            </button>
                         </div>
                     </div>
                     <div class="info-list">
+                        {% if payment_info and payment_info.gcashNumber %}
                         <div class="info-item">
                             <div class="info-item-left">
                                 <img src="{{ url_for('static', filename='Assets/Images/gcash-logo.png') }}" alt="GCash Logo" class="payment-logo">
                                 <div>
                                     <div class="info-item-title">GCash</div>
-                                    <div class="info-item-sub">0936 995 8628</div>
+                                    <div class="info-item-sub">{{ payment_info.gcashNumber }}</div>
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
+                        {% if payment_info and payment_info.mayaNumber %}
                         <div class="info-item">
                             <div class="info-item-left">
                                 <img src="{{ url_for('static', filename='Assets/Images/maya-logo.webp') }}" alt="Maya Logo" class="payment-logo">
                                 <div>
                                     <div class="info-item-title">PayMaya</div>
-                                    <div class="info-item-sub">0936 995 8628</div>
+                                    <div class="info-item-sub">{{ payment_info.mayaNumber }}</div>
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
+                        {% if payment_info and payment_info.bpiAccount %}
                         <div class="info-item">
                             <div class="info-item-left">
                                 <img src="{{ url_for('static', filename='Assets/Images/bpi-logo.webp') }}" alt="BPI Logo" class="payment-logo">
                                 <div>
                                     <div class="info-item-title">BPI Bank Transfer</div>
-                                    <div class="info-item-sub">Account: 4059352798</div>
+                                    <div class="info-item-sub">Account: {{ payment_info.bpiAccount }}</div>
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
                     </div>
                     <div class="notice-box">
                         After donating via direct bank/wallet transfer, please send proof of payment to <strong>papeloniaaileen@gmail.com</strong> for recognition.
@@ -92,7 +133,7 @@
                             <p class="required">Donate supplies, food, medicine & more</p>
                         </div>
                     </div>
-                    <div class="category-grid">
+                    <div class="category-grid" {% if not inkind_open %}style="opacity: 0.6; pointer-events: none;"{% endif %}>
                         <div class="category-card active" onclick="toggleCategory('Pet Food', this)">
                             <div class="title">Pet Food</div>
                             <div class="sub">Dry/wet food for dogs & cats</div>
@@ -116,22 +157,29 @@
                         <div class="form-group">
                             <label class="required">Your Name</label>
                             <input type="text" id="donorName" class="form-control" required 
-                                   value="{% if user_profile %}{{ user_profile.fullName }}{% endif %}">
+                                   value="{% if user_profile %}{{ user_profile.fullName }}{% endif %}"
+                                   {% if not inkind_open %}disabled{% endif %}>
                         </div>
                         <div class="form-group">
                             <label class="required">Contact Number</label>
                             <input type="text" id="donorContact" class="form-control" placeholder="+63 917 000 0000" required
-                                   value="{% if user_profile %}{{ user_profile.phone }}{% endif %}">
+                                   value="{% if user_profile %}{{ user_profile.phone }}{% endif %}"
+                                   {% if not inkind_open %}disabled{% endif %}>
                         </div>
                         <div class="form-group">
                             <label class="required">Preferred Schedule</label>
-                            <input type="date" id="preferredDate" class="form-control" required>
+                            <input type="date" id="preferredDate" class="form-control" required
+                                   {% if not inkind_open %}disabled{% endif %}>
                         </div>
                         <div class="form-group">
                             <label>Notes</label>
-                            <textarea id="donationNotes" class="form-control" placeholder="Describe what you'd like to donate..."></textarea>
+                            <textarea id="donationNotes" class="form-control" placeholder="Describe what you'd like to donate..."
+                                      {% if not inkind_open %}disabled{% endif %}></textarea>
                         </div>
-                        <button type="submit" class="btn-submit">Submit Donation Request</button>
+                        <button type="submit" class="btn-submit"
+                                {% if not inkind_open %}disabled style="opacity: 0.6; cursor: not-allowed;"{% endif %}>
+                            {% if not inkind_open %}Donations Paused{% else %}Submit Donation Request{% endif %}
+                        </button>
                     </form>
                 </div>
             </div>
@@ -234,9 +282,12 @@
 
 <script src="{{ url_for('static', filename='scripts.js') }}" type="module"></script>
 <script>
+    const ACCEPTING_CASH_DONATIONS = document.body.dataset.acceptingCash !== 'false';
+    const ACCEPTING_INKIND_DONATIONS = document.body.dataset.acceptingInkind !== 'false';
     let pollTimer = null;
     let selectedCategoriesArray = ['Pet Food'];
     function toggleCategory(category, element) {
+        if (!ACCEPTING_INKIND_DONATIONS) return;
         const msgBox = document.getElementById('inkindFormMessage');
         if (selectedCategoriesArray.length === 1 && selectedCategoriesArray.includes(category)) {
             if (msgBox) {
@@ -335,6 +386,11 @@
         const container = document.getElementById('qrContainer');
         const statusBadge = document.getElementById('paymentStatusBadge');
 
+        if (!ACCEPTING_CASH_DONATIONS) {
+            container.innerHTML = `<span style="font-size: 0.85rem; color: #b45309;">QR Ph cash donations are currently paused.</span>`;
+            return;
+        }
+
         if (!amount || amount < 1) {
             alert('Please enter an amount of PHP 1 or higher.');
             return;
@@ -388,6 +444,15 @@
         const msgBox = document.getElementById('inkindFormMessage');
         msgBox.style.display = 'none';
         msgBox.className = '';
+
+        if (!ACCEPTING_INKIND_DONATIONS) {
+            msgBox.style.display = 'block';
+            msgBox.style.backgroundColor = '#fef3c7';
+            msgBox.style.color = '#92400e';
+            msgBox.style.border = '1px solid #f59e0b';
+            msgBox.innerHTML = '⚠️ In-kind donations are currently paused by the shelter.';
+            return;
+        }
 
         const payload = {
             name: document.getElementById('donorName').value,

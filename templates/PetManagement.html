@@ -58,6 +58,7 @@
                         <button class="tab-btn" onclick="switchTab('VaccineDue', this)">
                             Vaccine Due <span id="vaxDueCountBadge" class="tab-badge">0</span>
                         </button>
+                        <button class="tab-btn" onclick="switchTab('Deceased', this)">Deceased</button>
                     </div>
                 </div>
 
@@ -99,9 +100,13 @@
                                     </td>
                                     <td>{{ pet.rescueDate.strftime('%B %d, %Y') if pet.rescueDate.strftime is defined else pet.rescueDate }}</td>
                                     <td>
-                                        <span class="status-pill status-{{ pet.status | lower }}">
-                                            <i class="fa-solid fa-circle" style="font-size:8px; margin-right:4px;"></i>{{ pet.status }}
+                                        <span class="status-pill status-{{ pet.status | lower }}"></i>{{ pet.status }}
                                         </span>
+                                        {% if pet.status == 'Deceased' and pet.deceasedDate %}
+                                            <div style="font-size: 11px; color: #888; margin-top: 2px;">
+                                                Died: {{ pet.deceasedDate.strftime('%B %d, %Y') if pet.deceasedDate.strftime is defined else pet.deceasedDate }}
+                                            </div>
+                                        {% endif %}
                                     </td>
                                     <td>
                                         <div class="health-tags">
@@ -185,13 +190,21 @@
                         </div>
                         <div class="form-group">
                             <label for="status" class="required">Status</label>
-                            <select id="status" name="status" required>
+                            <select id="status" name="status" required onchange="toggleDeceasedDateField()">
                                 <option value="Available">Available</option>
                                 <option value="Pending">Pending</option>
                                 <option value="Reserved">Reserved</option>
                                 <option value="Adopted">Adopted</option>
+                                <option value="Deceased">Deceased</option>
                             </select>
                         </div>
+                    </div>
+                    <div class="modal-form-grid" id="deceasedDateRow" style="display: none; margin-bottom: 16px;">
+                        <div class="form-group full-width">
+                            <label for="deceasedDate" id="deceasedDateLabel">Date of Death</label>
+                            <input type="date" id="deceasedDate" name="deceasedDate">
+                        </div>
+                        <div></div>
                     </div>
                     <div class="form-group full-width" style="margin-bottom: 16px;">
                         <label>Personality Traits</label>
@@ -296,6 +309,20 @@
     const deletedVideosSet = new Set();
     let vaccineEntries = [];
 
+    function toggleDeceasedDateField() {
+        const statusEl = document.getElementById('status');
+        const rowEl = document.getElementById('deceasedDateRow');
+        const inputEl = document.getElementById('deceasedDate');
+        if (!statusEl || !rowEl || !inputEl) return;
+
+        const isDeceased = statusEl.value === 'Deceased';
+        rowEl.style.display = isDeceased ? 'grid' : 'none';
+        inputEl.required = isDeceased;
+        if (!isDeceased) {
+            inputEl.value = '';
+        }
+    }
+
     function openModal(mode, data = null) {
         const modal = document.getElementById('petModal');
         const form = document.getElementById('petForm');
@@ -311,6 +338,7 @@
         document.getElementById('deletedImagesString').value = '';
         document.getElementById('deletedVideosString').value = '';
         document.getElementById('healthDescription').value = '';
+        document.getElementById('deceasedDate').value = '';
         document.getElementById('existingImagesContainer').innerHTML = '';
         document.getElementById('existingVideosContainer').innerHTML = '';
         document.getElementById('savedImagesHeading').style.display = 'none';
@@ -321,6 +349,7 @@
         renderPillTags('compatibilityContainer', compatibilitySet, 'compatibilityInput');
         renderPillTags('healthRecordsContainer', healthRecordsSet, 'healthRecordsInput');
         renderVaccineList();
+        toggleDeceasedDateField();
         
         if (mode === 'add') {
             document.getElementById('modalTitle').innerText = 'Add New Pet Record';
@@ -556,6 +585,8 @@
                 document.getElementById('age').value = data.age || '';
                 document.getElementById('gender').value = data.gender || '';
                 document.getElementById('status').value = data.status || '';
+                toggleDeceasedDateField();
+                document.getElementById('deceasedDate').value = data.deceasedDate || '';
                 document.getElementById('activityLevel').value = data.activityLevel || 'Medium';
                 document.getElementById('rescueDate').value = data.rescueDate || '';
                 document.getElementById('description').value = data.description || '';
